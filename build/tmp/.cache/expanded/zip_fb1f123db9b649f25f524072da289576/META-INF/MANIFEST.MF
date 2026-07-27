@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Built-By: jitpack
+Description: Auto-generated artifact that depends on modules: lemur, l
+ emur-props, lemur-proto
+

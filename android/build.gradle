@@ -1,0 +1,53 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.mygame'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.mygame'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+            res.srcDirs = ['src/main/res']
+            assets.srcDirs = ['../core/src/main/resources/assets']
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
+    packagingOptions {
+        exclude 'META-INF/INDEX.LIST'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/NOTICE'
+        // Исключаем все .groovy файлы (включая дублирующиеся стили)
+        exclude '**/*.groovy'
+        // Или можно использовать pickFirsts:
+        // pickFirsts += ['**/*.groovy']
+        pickFirsts += ['**/*.so']
+    }
+}
+
+dependencies {
+    implementation project(':core')
+    implementation 'org.jmonkeyengine:jme3-android:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-core:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-plugins:3.6.1-stable'
+    implementation 'com.github.jMonkeyEngine-Contributions:lemur:1.16.0'
+    implementation 'org.json:json:20230227'
+}

@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation 'org.jmonkeyengine:jme3-core:3.6.1-stable'
+    implementation 'com.github.jMonkeyEngine-Contributions:lemur:1.16.0'
+    implementation 'org.json:json:20230227'
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}

@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+dependencies {
+    implementation project(':core')
+    implementation 'org.jmonkeyengine:jme3-desktop:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-lwjgl:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-plugins:3.6.1-stable'
+}
+
+application {
+    mainClass = 'com.mygame.DesktopLauncher'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(AbstractArchiveTask) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
