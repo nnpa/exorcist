@@ -47,7 +47,7 @@ public class UIManager {
     private Label mpCountLabel;
     private Button healthPotionBtn;
     private Button manaPotionBtn;
-    private Button skill1Btn, skill2Btn, skill3Btn, skill4Btn, skill5Btn;
+    private Button skill1Btn, skill2Btn, skill3Btn, skill4Btn; // только 4 скилла
     private Map<Button, Geometry> iconGeoms = new HashMap<>();
 
     private float hudHeight = 90;
@@ -74,7 +74,6 @@ public class UIManager {
     private static final String KEY_SKILL2 = "skill2";
     private static final String KEY_SKILL3 = "skill3";
     private static final String KEY_SKILL4 = "skill4";
-    private static final String KEY_SKILL5 = "skill5";
     private static final String KEY_HEALTH_POTION = "healthPotion";
     private static final String KEY_MANA_POTION = "manaPotion";
     private static final String KEY_INVENTORY = "inventory";
@@ -122,7 +121,7 @@ public class UIManager {
     // ===== ИНИЦИАЛИЗАЦИЯ =====
     public void initialize() {
         keyboard = new VirtualKeyboard(app, guiNode);
-        keyboard.hide(); // сразу скрываем
+        keyboard.hide();
 
         createLoginScreen();
         createRegisterScreen();
@@ -159,7 +158,6 @@ public class UIManager {
         app.getInputManager().addMapping(KEY_SKILL2, new KeyTrigger(com.jme3.input.KeyInput.KEY_2));
         app.getInputManager().addMapping(KEY_SKILL3, new KeyTrigger(com.jme3.input.KeyInput.KEY_3));
         app.getInputManager().addMapping(KEY_SKILL4, new KeyTrigger(com.jme3.input.KeyInput.KEY_4));
-        app.getInputManager().addMapping(KEY_SKILL5, new KeyTrigger(com.jme3.input.KeyInput.KEY_5));
         app.getInputManager().addMapping(KEY_HEALTH_POTION, new KeyTrigger(com.jme3.input.KeyInput.KEY_Q));
         app.getInputManager().addMapping(KEY_MANA_POTION, new KeyTrigger(com.jme3.input.KeyInput.KEY_W));
         app.getInputManager().addMapping(KEY_INVENTORY, new KeyTrigger(com.jme3.input.KeyInput.KEY_I));
@@ -170,9 +168,7 @@ public class UIManager {
             public void onAction(String name, boolean isPressed, float tpf) {
                 if (!isPressed) return;
                 if (!hudVisible) return;
-                if (isAnyWindowOpen()) {
-                    return;
-                }
+                if (isAnyWindowOpen()) return;
 
                 switch (name) {
                     case KEY_SKILL1:
@@ -197,12 +193,6 @@ public class UIManager {
                         if (playerManager != null) {
                             playerManager.castSkill("Kick");
                             flashButton(skill4Btn);
-                        }
-                        break;
-                    case KEY_SKILL5:
-                        if (playerManager != null) {
-                            playerManager.castSkill("DivineWrath");
-                            flashButton(skill5Btn);
                         }
                         break;
                     case KEY_HEALTH_POTION:
@@ -234,7 +224,7 @@ public class UIManager {
                 }
             }
         };
-        app.getInputManager().addListener(listener, KEY_SKILL1, KEY_SKILL2, KEY_SKILL3, KEY_SKILL4, KEY_SKILL5,
+        app.getInputManager().addListener(listener, KEY_SKILL1, KEY_SKILL2, KEY_SKILL3, KEY_SKILL4,
                 KEY_HEALTH_POTION, KEY_MANA_POTION, KEY_INVENTORY, KEY_TALENTS);
     }
 
@@ -313,7 +303,7 @@ public class UIManager {
         mat.setColor("Color", new ColorRGBA(0.0f, 0.0f, 0.0f, 0.5f));
         hudBackground.setMaterial(mat);
 
-        // Зелья
+        // Зелья (2 кнопки)
         healthPotionBtn = createIconOnlyButton("Interface/Icons/hp.png", buttonSizeScaled);
         healthPotionBtn.addClickCommands((source) -> {
             if (playerManager != null) {
@@ -344,7 +334,7 @@ public class UIManager {
         mpCountLabel.setLocalTranslation(buttonSizeScaled - 25 * scale, 10 * scale, 0.1f);
         manaPotionBtn.attachChild(mpCountLabel);
 
-        // Скиллы
+        // Скиллы (4 кнопки)
         skill1Btn = createIconOnlyButton("Interface/Icons/light.png", buttonSizeScaled);
         skill1Btn.addClickCommands((source) -> {
             if (playerManager != null) {
@@ -380,15 +370,6 @@ public class UIManager {
             }
         });
         hudButtons.add(skill4Btn);
-
-        skill5Btn = createIconOnlyButton("Interface/Icons/divine.png", buttonSizeScaled);
-        skill5Btn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.castSkill("DivineWrath");
-                flashButton(skill5Btn);
-            }
-        });
-        hudButtons.add(skill5Btn);
 
         // Инвентарь
         inventoryButton = createIconOnlyButton("Interface/Icons/backpack.png", buttonSizeScaled);
@@ -435,51 +416,56 @@ public class UIManager {
         float buttonSizeScaled = buttonSize * scale;
         float spacingScaled = buttonSpacing * scale;
 
+        // Зелья (2 кнопки)
         for (int i = 0; i < 2 && i < hudButtons.size(); i++) {
             Button btn = hudButtons.get(i);
             btn.setLocalTranslation(xPos, yPos, 0);
             xPos += buttonSizeScaled + spacingScaled;
         }
         xPos += buttonSizeScaled * 0.5f;
-        for (int i = 2; i < 7 && i < hudButtons.size(); i++) {
+
+        // Скиллы (4 кнопки, индексы 2-5)
+        for (int i = 2; i < 6 && i < hudButtons.size(); i++) {
             Button btn = hudButtons.get(i);
             btn.setLocalTranslation(xPos, yPos, 0);
             xPos += buttonSizeScaled + spacingScaled;
         }
         xPos += buttonSizeScaled * 0.5f;
-        if (hudButtons.size() > 7) {
-            Button btn = hudButtons.get(7);
+
+        // Инвентарь (индекс 6)
+        if (hudButtons.size() > 6) {
+            Button btn = hudButtons.get(6);
             btn.setLocalTranslation(xPos, yPos, 0);
         }
+
+        // Таланты (правый верхний угол)
         if (talentButton != null) {
             talentButton.setLocalTranslation(screenWidth - buttonSizeScaled - 10 * scale, screenHeight - buttonSizeScaled - 10 * scale, 0);
         }
     }
 
-public void showHUD() {
-    if (hudNode == null) return;
-    attachNode(hudNode);
-    hudVisible = true;
-    // Делаем все элементы видимыми
-    for (Button btn : hudButtons) {
-        btn.setCullHint(Node.CullHint.Dynamic);
+    public void showHUD() {
+        if (hudNode == null) return;
+        attachNode(hudNode);
+        hudVisible = true;
+        for (Button btn : hudButtons) {
+            btn.setCullHint(Node.CullHint.Dynamic);
+        }
+        if (hudBackground != null) hudBackground.setCullHint(Node.CullHint.Dynamic);
+        if (talentButton != null) talentButton.setCullHint(Node.CullHint.Dynamic);
+        updateHUDPosition(true);
+        updatePotionCounts();
     }
-    if (hudBackground != null) hudBackground.setCullHint(Node.CullHint.Dynamic);
-    if (talentButton != null) talentButton.setCullHint(Node.CullHint.Dynamic);
-    updateHUDPosition(true);
-    updatePotionCounts();
-}
 
-public void hideHUD() {
-    detachNode(hudNode);
-    hudVisible = false;
-    // Скрываем элементы (на случай, если узел не удалён)
-    for (Button btn : hudButtons) {
-        btn.setCullHint(Node.CullHint.Always);
+    public void hideHUD() {
+        detachNode(hudNode);
+        hudVisible = false;
+        for (Button btn : hudButtons) {
+            btn.setCullHint(Node.CullHint.Always);
+        }
+        if (hudBackground != null) hudBackground.setCullHint(Node.CullHint.Always);
+        if (talentButton != null) talentButton.setCullHint(Node.CullHint.Always);
     }
-    if (hudBackground != null) hudBackground.setCullHint(Node.CullHint.Always);
-    if (talentButton != null) talentButton.setCullHint(Node.CullHint.Always);
-}
 
     // ===== ОКНО ЛОГИНА =====
     private void createLoginScreen() {
@@ -596,8 +582,109 @@ public void hideHUD() {
     }
 
     private void createRegisterScreen() {
-        // аналогично, но для регистрации
-        // (опускаю для краткости, но вы уже знаете код)
+        // полный код регистрации (аналогичен предыдущей версии)
+        updateScale();
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
+
+        float winW = 480 * scale;
+        float winH = 380 * scale;
+
+        registerWindow = new Container();
+        registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+        registerWindow.setLayout(null);
+        registerWindow.setName("RegisterWindow");
+
+        float x = (screenWidth - winW) / 2;
+        float y = (screenHeight - winH) / 2;
+        if (y < 0) y = 0;
+        registerWindow.setLocalTranslation(x, y, 0);
+
+        Quad bgQuad = new Quad(winW, winH);
+        Geometry bgGeom = new Geometry("RegisterBg", bgQuad);
+        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        bgMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
+        bgGeom.setMaterial(bgMat);
+        bgGeom.setLocalTranslation(0, 0, -0.1f);
+        registerWindow.attachChild(bgGeom);
+
+        Label title = new Label("Registration");
+        title.setFontSize(30 * scale);
+        title.setColor(ColorRGBA.White);
+        title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+        registerWindow.attachChild(title);
+
+        float labelY1 = winH - 85 * scale;
+        Label emailLabel = new Label("Email:");
+        emailLabel.setFontSize(18 * scale);
+        emailLabel.setColor(ColorRGBA.White);
+        emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+        registerWindow.attachChild(emailLabel);
+
+        emailField = new TextField("");
+        emailField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+        emailField.setColor(ColorRGBA.Black);
+        emailField.setFontSize(18 * scale);
+        emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
+        registerWindow.attachChild(emailField);
+
+        float labelY2 = winH - 140 * scale;
+        Label regLoginLabel = new Label("Login:");
+        regLoginLabel.setFontSize(18 * scale);
+        regLoginLabel.setColor(ColorRGBA.White);
+        regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+        registerWindow.attachChild(regLoginLabel);
+
+        regLoginField = new TextField("");
+        regLoginField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+        regLoginField.setColor(ColorRGBA.Black);
+        regLoginField.setFontSize(18 * scale);
+        regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
+        registerWindow.attachChild(regLoginField);
+
+        float labelY3 = winH - 195 * scale;
+        Label regPassLabel = new Label("Password:");
+        regPassLabel.setFontSize(18 * scale);
+        regPassLabel.setColor(ColorRGBA.White);
+        regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
+        registerWindow.attachChild(regPassLabel);
+
+        regPasswordField = new TextField("");
+        regPasswordField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+        regPasswordField.setColor(ColorRGBA.Black);
+        regPasswordField.setFontSize(18 * scale);
+        regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
+        registerWindow.attachChild(regPasswordField);
+
+        Button registerButton = new Button("Register");
+        registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
+        registerButton.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.5f, 0.2f, 0.9f)));
+        registerButton.setColor(ColorRGBA.White);
+        registerButton.setFontSize(18 * scale);
+        registerButton.setLocalTranslation(110 * scale, 85 * scale, 0.1f);
+        registerButton.addClickCommands((source) -> {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                }
+            }
+        });
+        registerWindow.attachChild(registerButton);
+
+        Button backButton = new Button("Back");
+        backButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
+        backButton.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.5f, 0.5f, 0.5f, 0.9f)));
+        backButton.setColor(ColorRGBA.White);
+        backButton.setFontSize(18 * scale);
+        backButton.setLocalTranslation(260 * scale, 85 * scale, 0.1f);
+        backButton.addClickCommands((source) -> {
+            if (keyboard != null) keyboard.hide();
+            showLoginScreen();
+        });
+        registerWindow.attachChild(backButton);
     }
 
     public void showLoginScreen() {
