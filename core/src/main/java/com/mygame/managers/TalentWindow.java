@@ -109,7 +109,8 @@ public class TalentWindow {
         buttonSpacingV = 30 * scale;
 
         float x = (screenWidth - currentWidth) / 2;
-        float y = (screenHeight - currentHeight) / 2;
+        // ПОДНИМАЕМ ОКНО НА 30 ПИКСЕЛЕЙ (вместо 15)
+        float y = (screenHeight - currentHeight) / 2 + 48 * scale;
 
         windowNode = new Node("TalentWindowNode");
         windowNode.setName("TalentWindowNode");
@@ -328,12 +329,9 @@ public class TalentWindow {
 
     public void updateLayout(int screenWidth, int screenHeight) {
         if (isVisible) {
-            // временно скрываем
             if (uiManager != null) uiManager.onTalentClosed(windowNode);
-            // пересоздаём окно
             windowNode.detachAllChildren();
             createWindow();
-            // показываем заново
             if (uiManager != null) uiManager.onTalentOpened(windowNode);
         }
     }
