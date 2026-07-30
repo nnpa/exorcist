@@ -13,7 +13,10 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.mygame.Main;
+import com.mygame.items.Item;
+import com.mygame.items.ItemGenerator;
 import com.mygame.managers.GameManager.GameState;
+import com.mygame.monsters.Monster;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -285,46 +288,51 @@ public void lookAt(Vector3f target) {
     }
 
     private void performAttack() {
-        if (currentTarget == null) return;
-        lookAt(currentTarget.getWorldTranslation());
-        float damage = baseDamage + getBonusStat("base_damage");
-        dealDamageToTarget(damage);
-        playAnimation(ANIM_ATTACK);
-        skillAnimationTimer = 0.6f;
-        attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
+    if (currentTarget == null) return;
+    lookAt(currentTarget.getWorldTranslation());
+    float damage = baseDamage + getBonusStat("base_damage");
+    playAnimation(ANIM_ATTACK);
+    skillAnimationTimer = 0.6f;
+    attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
 
-        if (currentTarget instanceof Geometry) {
-            Geometry geom = (Geometry) currentTarget;
-            WorldManager.MonsterData md = worldManager.getMonsterByGeometry(geom);
-            if (md != null && !md.isDead) {
-                md.hp -= (int) damage;
-                if (md.hp <= 0) {
-                    md.isDead = true;
-                    Vector3f pos = geom.getWorldTranslation();
-                    List<InventoryManager.Item> items = new ArrayList<>();
-                    for (int i = 0; i < 3; i++) {
-                        items.add(generateRandomItem());
-                    }
-                    if (dropManager != null) {
-                        dropManager.spawnDrops(pos, items);
-                    }
-                    geom.setCullHint(Node.CullHint.Always);
-                    currentTarget = null;
-                    isAttacking = false;
-                    targetPosition = null;
-                    setMoving(false);
+    // Проверяем новых монстров (скелет)
+    Monster monster = worldManager.getMonsterByModel(currentTarget);
+    if (monster != null && monster.isAlive()) {
+        monster.takeDamage(damage);
+        if (!monster.isAlive()) {
+            currentTarget = null;
+            isAttacking = false;
+            targetPosition = null;
+            setMoving(false);
+        }
+        return;
+    }
+
+    // Старые монстры (MonsterData)
+    if (currentTarget instanceof Geometry) {
+        Geometry geom = (Geometry) currentTarget;
+        WorldManager.MonsterData md = worldManager.getMonsterByGeometry(geom);
+        if (md != null && !md.isDead) {
+            md.hp -= (int) damage;
+            if (md.hp <= 0) {
+                md.isDead = true;
+                Vector3f pos = geom.getWorldTranslation();
+                List<Item> items = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    items.add(ItemGenerator.generateItem(baseLevel, "Weapon"));
                 }
+                if (dropManager != null) {
+                    dropManager.spawnDrops(pos, items);
+                }
+                geom.setCullHint(Node.CullHint.Always);
+                currentTarget = null;
+                isAttacking = false;
+                targetPosition = null;
+                setMoving(false);
             }
         }
     }
-
-    private InventoryManager.Item generateRandomItem() {
-        String[] names = {"Health Potion", "Mana Potion", "Iron Helmet", "Leather Boots", "Steel Sword"};
-        String[] types = {"Consumable", "Consumable", "Helmet", "Boots", "Weapon"};
-        ColorRGBA[] colors = {ColorRGBA.Green, ColorRGBA.Blue, ColorRGBA.White, ColorRGBA.White, ColorRGBA.White};
-        int idx = (int)(Math.random() * names.length);
-        return new InventoryManager.Item(names[idx], types[idx], 1, colors[idx], "Random drop");
-    }
+}
 
     private void dealDamageToTarget(float amount) {
         if (currentTarget == null) return;

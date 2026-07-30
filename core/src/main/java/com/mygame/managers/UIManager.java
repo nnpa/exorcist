@@ -18,6 +18,7 @@ import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.event.MouseEventControl;
 import com.simsilica.lemur.event.MouseListener;
 import com.mygame.Main;
+import com.mygame.items.ItemGenerator;
 import com.mygame.managers.GameManager.GameState;
 
 import java.util.ArrayList;
@@ -764,11 +765,14 @@ public class UIManager {
         pm.setHealthPotions(3);
         pm.setManaPotions(3);
 
-        InventoryManager im = main.getInventoryManager();
-        if (im != null) {
-            im.addItem(new InventoryManager.Item("Old Sword", "Weapon", 1, ColorRGBA.White, "Simple sword"));
-            im.addItem(new InventoryManager.Item("Leather Helmet", "Helmet", 1, ColorRGBA.White, "Light helmet"));
-        }
+InventoryManager im = main.getInventoryManager();
+if (im != null) {
+    // Генерируем стартовые предметы через генератор
+    im.addItem(ItemGenerator.generateItem(1, "Weapon"));
+    im.addItem(ItemGenerator.generateItem(1, "Helmet"));
+    // Можно добавить ещё что-то
+    im.addItem(ItemGenerator.generateItem(1, "Consumable"));
+}
 
         GameManager gm = main.getGameManager();
         if (gm != null) {

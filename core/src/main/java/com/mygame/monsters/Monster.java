@@ -1,0 +1,165 @@
+package com.mygame.monsters;
+
+import com.jme3.anim.AnimComposer;
+import com.jme3.math.FastMath;
+import com.jme3.math.Vector3f;
+import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
+import com.mygame.items.Item;
+import com.mygame.items.LootTable;
+import com.mygame.managers.DropManager;
+import com.mygame.managers.PlayerManager;
+
+import java.util.List;
+
+public class Monster {
+
+    private String id;
+    private String name;
+    private int level;
+    private float health;
+    private float maxHealth;
+    private float damage;
+    private float attackRange;
+    private float moveSpeed;
+    private float aggroRange;
+
+    private Node modelNode;
+    private AnimComposer animComposer;
+    private Vector3f spawnPosition;
+    private Vector3f currentPosition;
+
+    private LootTable lootTable;
+    private MonsterAI ai;
+    private DropManager dropManager;
+
+    private boolean isAlive = true;
+
+    public Monster() {
+        this.ai = new MonsterAI(this);
+    }
+
+    // Геттеры и сеттеры
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public int getLevel() { return level; }
+    public void setLevel(int level) { this.level = level; }
+
+    public float getHealth() { return health; }
+    public void setHealth(float health) { this.health = health; }
+
+    public float getMaxHealth() { return maxHealth; }
+    public void setMaxHealth(float maxHealth) { this.maxHealth = maxHealth; }
+
+    public float getDamage() { return damage; }
+    public void setDamage(float damage) { this.damage = damage; }
+
+    public float getAttackRange() { return attackRange; }
+    public void setAttackRange(float attackRange) { this.attackRange = attackRange; }
+
+    public float getMoveSpeed() { return moveSpeed; }
+    public void setMoveSpeed(float moveSpeed) { this.moveSpeed = moveSpeed; }
+
+    public float getAggroRange() { return aggroRange; }
+    public void setAggroRange(float aggroRange) { this.aggroRange = aggroRange; }
+
+    public Node getModelNode() { return modelNode; }
+
+    public void setModelNode(Node modelNode) {
+        this.modelNode = modelNode;
+        if (modelNode != null) {
+            // ===== ПОВОРОТ МОДЕЛИ НА -90 ГРАДУСОВ =====
+            modelNode.rotate(0, -FastMath.HALF_PI, 0);
+            modelNode.setName("Monster");
+
+            if (spawnPosition != null) modelNode.setLocalTranslation(spawnPosition);
+            this.currentPosition = spawnPosition != null ? spawnPosition.clone() : new Vector3f(0,0,0);
+
+            animComposer = findAnimComposer(modelNode);
+            if (animComposer != null) {
+                animComposer.setCurrentAction("Idle");
+            }
+        }
+    }
+
+    private AnimComposer findAnimComposer(Spatial spatial) {
+        if (spatial instanceof Node) {
+            for (Spatial child : ((Node) spatial).getChildren()) {
+                AnimComposer found = findAnimComposer(child);
+                if (found != null) return found;
+            }
+        }
+        return spatial.getControl(AnimComposer.class);
+    }
+
+    public void playAnimation(String animName) {
+        if (animComposer != null) {
+            animComposer.setCurrentAction(animName);
+        }
+    }
+
+    public Vector3f getSpawnPosition() { return spawnPosition; }
+    public void setSpawnPosition(Vector3f spawnPosition) {
+        this.spawnPosition = spawnPosition;
+        this.currentPosition = spawnPosition.clone();
+        if (modelNode != null) modelNode.setLocalTranslation(spawnPosition);
+    }
+
+    public Vector3f getPosition() { return currentPosition; }
+    public void setPosition(Vector3f position) {
+        this.currentPosition = position;
+        if (modelNode != null) modelNode.setLocalTranslation(position);
+    }
+
+    public LootTable getLootTable() { return lootTable; }
+    public void setLootTable(LootTable lootTable) { this.lootTable = lootTable; }
+
+    public boolean isAlive() { return isAlive; }
+    public void setAlive(boolean alive) { isAlive = alive; }
+
+    public void setDropManager(DropManager dropManager) {
+        this.dropManager = dropManager;
+    }
+
+    public void setPlayerManager(PlayerManager playerManager) {
+        if (ai != null) {
+            ai.setPlayerManager(playerManager);
+        }
+    }
+
+    public void takeDamage(float amount) {
+        if (!isAlive) return;
+        health -= amount;
+        if (health <= 0) {
+            health = 0;
+            isAlive = false;
+            onDeath();
+        } else {
+            playAnimation("GetHit");
+        }
+    }
+
+    private void onDeath() {
+        playAnimation("Die");
+        if (lootTable != null && dropManager != null) {
+            List<Item> items = lootTable.rollForLoot();
+            if (!items.isEmpty()) {
+                dropManager.spawnDrops(currentPosition, items);
+            }
+        }
+        if (modelNode != null) {
+            modelNode.setCullHint(Node.CullHint.Always);
+        }
+    }
+
+    public void update(float tpf) {
+        if (!isAlive) return;
+        if (ai != null) {
+            ai.update(tpf);
+        }
+    }
+}

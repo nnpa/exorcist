@@ -126,41 +126,50 @@ public class Main extends SimpleApplication {
     }
 
     private void handleClick(float screenX, float screenY) {
-        // Проверка дропа
-        DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
-        if (drop != null) {
-            dropManager.pickupDrop(drop);
-            return;
-        }
+    System.out.println("[Main] handleClick at (" + screenX + ", " + screenY + ")");
 
-        // Проверка NPC/монстров
-        Ray ray = createRay(screenX, screenY);
-        if (ray == null) return;
-        CollisionResults results = new CollisionResults();
-        rootNode.collideWith(ray, results);
+    // 1. Проверка дропа
+    DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
+    if (drop != null) {
+        dropManager.pickupDrop(drop);
+        return;
+    }
 
-        for (CollisionResult res : results) {
-            Spatial geom = res.getGeometry();
-            if (geom == null) continue;
-            if (geom.hasAncestor(playerManager.getPlayerNode())) continue;
-            String name = geom.getName();
-            if (name != null) {
-                if (name.equals("NPC_Trader")) {
-                    if (uiManager != null) uiManager.openTrader();
-                    return;
-                } else if (name.equals("TestMonster")) {
-                    playerManager.attackTarget(geom);
-                    return;
+    // 2. Вычисляем точку на земле
+    Vector3f groundPoint = getGroundPoint(screenX, screenY);
+    if (groundPoint == null) return;
+
+    // 3. Проверяем NPC и монстров
+    Spatial npc = null;
+    if (worldManager.getCityNode() != null) {
+        for (Spatial child : worldManager.getCityNode().getChildren()) {
+            if (child.getName() != null && child.getName().equals("NPC_Trader")) {
+                float dist = child.getWorldTranslation().distance(groundPoint);
+                if (dist < 1.8f) {
+                    npc = child;
+                    break;
                 }
             }
         }
+    }
+    if (npc != null) {
+        if (uiManager != null) uiManager.openTrader();
+        return;
+    }
 
-        // Точка на земле
-        Vector3f groundPoint = getGroundPoint(screenX, screenY);
-        if (groundPoint != null) {
-            playerManager.moveTo(groundPoint);
+    // 4. Проверяем монстров (включая скелета)
+    Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 3.5f);
+    if (clicked != null) {
+        String objectName = clicked.getName();
+        if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
+            playerManager.attackTarget(clicked);
+            return;
         }
     }
+
+    // 5. Движение
+    playerManager.moveTo(groundPoint);
+}
 
     private Ray createRay(float screenX, float screenY) {
         Vector2f click2d = new Vector2f(screenX, screenY);
@@ -202,32 +211,48 @@ public class Main extends SimpleApplication {
         attrs.set("insets", new Insets3f(2, 6, 2, 6));
     }
 
-    private void initializeManagers() {
-        if (isInitialized) return;
-        networkManager = new NetworkManager(this);
-        networkManager.initialize();
-        gameManager = new GameManager(this);
-        gameManager.initialize();
-        playerManager = new PlayerManager(this);
-        playerManager.initialize();
-        worldManager = new WorldManager(this);
-        worldManager.initialize();
-        uiManager = new UIManager(this);
-        uiManager.initialize();
-        inventoryManager = new InventoryManager(this, guiNode);
-        dropManager = new DropManager(this, guiNode);
-        gameManager.setNetworkManager(networkManager);
-        gameManager.setPlayerManager(playerManager);
-        gameManager.setWorldManager(worldManager);
-        gameManager.setUIManager(uiManager);
-        inventoryManager.setUIManager(uiManager);
+   private void initializeManagers() {
+    if (isInitialized) return;
+    networkManager = new NetworkManager(this);
+    networkManager.initialize();
+    gameManager = new GameManager(this);
+    gameManager.initialize();
+    playerManager = new PlayerManager(this);
+    playerManager.initialize();
+    worldManager = new WorldManager(this);
+    worldManager.initialize();
+    uiManager = new UIManager(this);
+    uiManager.initialize();
+    inventoryManager = new InventoryManager(this, guiNode);
+    dropManager = new DropManager(this, guiNode);
 
-        isInitialized = true;
+    // Устанавливаем связи (ОБЯЗАТЕЛЬНО ДО ПЕРЕКЛЮЧЕНИЯ СОСТОЯНИЙ)
+    worldManager.setPlayerManager(playerManager);
+    worldManager.setDropManager(dropManager);
+    playerManager.setWorldManager(worldManager);
+    playerManager.setDropManager(dropManager);
+    dropManager.setInventoryManager(inventoryManager);
+    uiManager.setPlayerManager(playerManager);
+    uiManager.setInventoryManager(inventoryManager);
+
+    gameManager.setNetworkManager(networkManager);
+    gameManager.setPlayerManager(playerManager);
+    gameManager.setWorldManager(worldManager);
+    gameManager.setUIManager(uiManager);
+
+    isInitialized = true;
+
+    // Теперь можно показывать логин
+    if (uiManager != null) {
+        uiManager.forceShowLogin();
     }
+    gameManager.setState(GameState.LOGIN);
+}
 
     @Override
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
+        if (worldManager != null) worldManager.update(tpf);
         if (gameManager != null) gameManager.update(tpf);
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);

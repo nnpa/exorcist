@@ -15,6 +15,8 @@ import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.event.MouseEventControl;
 import com.simsilica.lemur.event.MouseListener;
+import com.mygame.items.Item;
+import com.mygame.items.ItemGenerator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +33,13 @@ public class InventoryManager {
     private UIManager uiManager;
 
     private List<Item> inventoryItems = new ArrayList<>();
-    private Item[] equipment = new Item[7];
+    private Item[] equipment = new Item[7]; // 0-Helmet, 1-Chest, 2-Weapon, 3-Shield, 4-Legs, 5-Boots, 6-Gloves
 
+    private float currentScreenWidth = 1280;
+    private float currentScreenHeight = 720;
+    private float scale = 1f;
+
+    // Пустые иконки для слотов (если есть)
     private static final String[] EMPTY_SLOT_ICONS = {
         "Interface/Icons/empty_helmet.png",
         "Interface/Icons/empty_armor.png",
@@ -43,10 +50,6 @@ public class InventoryManager {
         "Interface/Icons/empty_gloves.png"
     };
 
-    private float currentScreenWidth = 1280;
-    private float currentScreenHeight = 720;
-    private float scale = 1f;
-
     public InventoryManager(SimpleApplication app, Node guiNode) {
         this.app = app;
         this.guiNode = guiNode;
@@ -56,8 +59,6 @@ public class InventoryManager {
         updateScreenSize();
         createUI(currentScreenWidth, currentScreenHeight);
         isVisible = false;
-        // Начальное состояние: скрыто
-        setVisible(false);
     }
 
     public void setUIManager(UIManager ui) {
@@ -88,16 +89,20 @@ public class InventoryManager {
     }
 
     private void generateTestItems() {
-        inventoryItems.add(new Item("Iron Helmet", "Helmet", 1, ColorRGBA.White, "+5 defense"));
-        inventoryItems.add(new Item("Leather Armor", "Armor", 1, ColorRGBA.White, "+10 defense"));
-        inventoryItems.add(new Item("Steel Sword", "Weapon", 1, ColorRGBA.White, "+8 attack"));
-        inventoryItems.add(new Item("Wooden Shield", "Shield", 1, ColorRGBA.White, "+6 defense"));
-        inventoryItems.add(new Item("Leather Leggings", "Leggings", 1, ColorRGBA.White, "+4 defense"));
-        inventoryItems.add(new Item("Leather Boots", "Boots", 1, ColorRGBA.White, "+3 defense"));
-        inventoryItems.add(new Item("Leather Gloves", "Gloves", 1, ColorRGBA.White, "+2 defense"));
-        inventoryItems.add(new Item("Health Potion", "Consumable", 1, ColorRGBA.Green, "Restores 50 HP"));
-        inventoryItems.add(new Item("Mana Potion", "Consumable", 1, ColorRGBA.Blue, "Restores 30 MP"));
-        inventoryItems.add(new Item("Ring of Power", "Accessory", 1, ColorRGBA.Orange, "+10 attack"));
+        // Генерируем несколько случайных предметов для демонстрации
+        for (int i = 0; i < 8; i++) {
+            Item item = ItemGenerator.generateItem(1, "Weapon");
+            inventoryItems.add(item);
+        }
+        for (int i = 0; i < 5; i++) {
+            Item item = ItemGenerator.generateItem(1, "Helmet");
+            inventoryItems.add(item);
+        }
+        inventoryItems.add(ItemGenerator.generateItem(1, "Chest"));
+        inventoryItems.add(ItemGenerator.generateItem(1, "Shield"));
+        inventoryItems.add(ItemGenerator.generateItem(1, "Legs"));
+        inventoryItems.add(ItemGenerator.generateItem(1, "Boots"));
+        inventoryItems.add(ItemGenerator.generateItem(1, "Gloves"));
     }
 
     private Geometry createBackground(float x, float y, float w, float h, ColorRGBA color) {
@@ -136,15 +141,14 @@ public class InventoryManager {
         float slotSize = 60 * scale;
         float offsetY = 70 * scale;
 
-        createSlot(eqX + 95*scale, eqY + 320*scale + offsetY, 0, slotSize); // Helmet
-        createSlot(eqX + 160*scale, eqY + 250*scale + offsetY, 2, slotSize); // Weapon
-        createSlot(eqX + 30*scale, eqY + 250*scale + offsetY, 3, slotSize);  // Shield
-        createSlot(eqX + 95*scale, eqY + 180*scale + offsetY, 1, slotSize); // Armor
-        createSlot(eqX + 95*scale, eqY + 110*scale + offsetY, 4, slotSize); // Leggings
-        createSlot(eqX + 95*scale, eqY + 40*scale + offsetY, 5, slotSize);  // Boots
-        createSlot(eqX + 30*scale, eqY + 110*scale + offsetY, 6, slotSize); // Gloves
+        createSlot(eqX + 95*scale, eqY + 320*scale + offsetY, 0, slotSize);
+        createSlot(eqX + 160*scale, eqY + 250*scale + offsetY, 2, slotSize);
+        createSlot(eqX + 30*scale, eqY + 250*scale + offsetY, 3, slotSize);
+        createSlot(eqX + 95*scale, eqY + 180*scale + offsetY, 1, slotSize);
+        createSlot(eqX + 95*scale, eqY + 110*scale + offsetY, 4, slotSize);
+        createSlot(eqX + 95*scale, eqY + 40*scale + offsetY, 5, slotSize);
+        createSlot(eqX + 30*scale, eqY + 110*scale + offsetY, 6, slotSize);
 
-        // Кнопка Close для экипировки
         Button closeEq = new Button("Close");
         closeEq.setFontSize(16 * scale);
         closeEq.setLocalTranslation(eqX + 80*scale, eqY + 30*scale, 0);
@@ -162,7 +166,6 @@ public class InventoryManager {
         inventoryNode.attachChild(invBg);
         uiElements.add(invBg);
 
-        // Ячейки инвентаря (4x5)
         float cellSize = 55 * scale;
         float spacingCell = 8 * scale;
         float startXCell = invX + 20 * scale;
@@ -179,12 +182,23 @@ public class InventoryManager {
             cell.setColor(ColorRGBA.White);
             if (i < inventoryItems.size()) {
                 Item item = inventoryItems.get(i);
-                cell.setText(item.type.substring(0, 1));
-                QuadBackgroundComponent itemBg = new QuadBackgroundComponent(item.color);
-                cell.setBackground(itemBg);
+                Texture tex = null;
+                try {
+                    tex = app.getAssetManager().loadTexture(item.getIconPath());
+                } catch (Exception e) {}
+                if (tex != null) {
+                    cell.setBackground(new QuadBackgroundComponent(tex));
+                    cell.setText("");
+                } else {
+                    // Заглушка: цвет + первая буква
+                    cell.setBackground(new QuadBackgroundComponent(item.getFallbackColor()));
+                    cell.setText(item.getName().substring(0, 1));
+                    cell.setFontSize(20 * scale);
+                    cell.setColor(ColorRGBA.Black);
+                }
             } else {
-                QuadBackgroundComponent cellBg = new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
-                cell.setBackground(cellBg);
+                // Пустая ячейка
+                cell.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f)));
                 cell.setText("");
             }
             cell.setLocalTranslation(x, y, 0);
@@ -200,7 +214,6 @@ public class InventoryManager {
             slotButtons.add(cell);
         }
 
-        // Кнопка Close для инвентаря
         Button closeInv = new Button("Close");
         closeInv.setFontSize(16 * scale);
         closeInv.setLocalTranslation(invX + invWidth/2 - 40*scale, invY + 20*scale, 0);
@@ -209,7 +222,6 @@ public class InventoryManager {
         inventoryNode.attachChild(closeInv);
         uiElements.add(closeInv);
 
-        // Tooltip
         tooltipLabel = new Label("");
         tooltipLabel.setFontSize(14 * scale);
         tooltipLabel.setColor(ColorRGBA.White);
@@ -229,9 +241,21 @@ public class InventoryManager {
 
         if (equipment[slotIndex] != null) {
             Item item = equipment[slotIndex];
-            slot.setText(item.type.substring(0, 1));
-            slotBg = new QuadBackgroundComponent(item.color);
+            Texture tex = null;
+            try {
+                tex = app.getAssetManager().loadTexture(item.getIconPath());
+            } catch (Exception e) {}
+            if (tex != null) {
+                slotBg = new QuadBackgroundComponent(tex);
+                slot.setText("");
+            } else {
+                slotBg = new QuadBackgroundComponent(item.getFallbackColor());
+                slot.setText(item.getName().substring(0, 1));
+                slot.setFontSize(18 * scale);
+                slot.setColor(ColorRGBA.Black);
+            }
         } else {
+            // Пустой слот – пытаемся загрузить иконку, если есть, иначе плюс
             String iconPath = EMPTY_SLOT_ICONS[slotIndex];
             Texture emptyTex = null;
             try {
@@ -241,10 +265,11 @@ public class InventoryManager {
                 slotBg = new QuadBackgroundComponent(emptyTex);
                 slot.setText("");
             } else {
+                // Цветная заглушка с плюсом
+                slotBg = new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
                 slot.setText("+");
                 slot.setFontSize(18 * scale);
                 slot.setColor(new ColorRGBA(0.5f, 0.5f, 0.5f, 1f));
-                slotBg = new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
             }
         }
         slot.setBackground(slotBg);
@@ -273,10 +298,10 @@ public class InventoryManager {
                 String text = "";
                 if (isInventory && index < inventoryItems.size()) {
                     Item item = inventoryItems.get(index);
-                    text = item.name + "\n" + item.description;
+                    text = buildTooltip(item);
                 } else if (!isInventory && equipment[index] != null) {
                     Item item = equipment[index];
-                    text = item.name + "\n" + item.description;
+                    text = buildTooltip(item);
                 }
                 if (!text.isEmpty() && tooltipLabel != null) {
                     tooltipLabel.setText(text);
@@ -297,26 +322,26 @@ public class InventoryManager {
         MouseEventControl.addListenersToSpatial(btn, listener);
     }
 
+    private String buildTooltip(Item item) {
+        return item.getName() + "\n" +
+                item.getRarity().getDisplayName() + " (Lv." + item.getLevel() + ")\n" +
+                "Урон: " + item.getDamage() + ", Защита: " + item.getDefense() + "\n" +
+                item.getDescription();
+    }
+
     // ===== УПРАВЛЕНИЕ ВИДИМОСТЬЮ =====
     private void setVisible(boolean visible) {
         isVisible = visible;
         if (visible) {
             if (!guiNode.hasChild(inventoryNode)) {
                 guiNode.attachChild(inventoryNode);
-                System.out.println("[InventoryManager] Node attached to guiNode");
             }
-            // Уведомляем UIManager, что узел добавлен
-            if (uiManager != null) {
-                uiManager.onInventoryOpened(inventoryNode);
-            }
+            if (uiManager != null) uiManager.onInventoryOpened(inventoryNode);
         } else {
             if (guiNode.hasChild(inventoryNode)) {
                 guiNode.detachChild(inventoryNode);
-                System.out.println("[InventoryManager] Node detached from guiNode");
             }
-            if (uiManager != null) {
-                uiManager.onInventoryClosed(inventoryNode);
-            }
+            if (uiManager != null) uiManager.onInventoryClosed(inventoryNode);
         }
         for (Spatial s : uiElements) {
             s.setCullHint(visible ? Node.CullHint.Dynamic : Node.CullHint.Always);
@@ -333,16 +358,13 @@ public class InventoryManager {
 
     public void hide() {
         setVisible(false);
-        if (tooltipLabel != null) {
-            tooltipLabel.setCullHint(Node.CullHint.Always);
-        }
     }
 
     public void toggleVisibility() {
         if (isVisible) hide(); else show();
     }
 
-    // ===== ОБРАБОТЧИКИ =====
+    // ===== ОБРАБОТЧИКИ КЛИКОВ =====
     private void handleInventoryClick(int index) {
         if (!isVisible) return;
         if (index < inventoryItems.size()) {
@@ -372,22 +394,25 @@ public class InventoryManager {
     }
 
     private int getSlotForItem(Item item) {
-        switch (item.type) {
+        String type = item.getType();
+        switch (type) {
             case "Helmet": return 0;
-            case "Armor": return 1;
+            case "Chest": return 1;
             case "Weapon": return 2;
             case "Shield": return 3;
-            case "Leggings": return 4;
+            case "Legs": return 4;
             case "Boots": return 5;
             case "Gloves": return 6;
-            default: return -1;
+            default:
+                System.out.println("[InventoryManager] Unknown item type: " + type);
+                return -1;
         }
     }
 
     public void addItem(Item item) {
         inventoryItems.add(item);
         updateUI();
-        System.out.println("[InventoryManager] Added: " + item.name);
+        System.out.println("[InventoryManager] Added: " + item.getName());
     }
 
     public List<Item> getItems() {
@@ -397,7 +422,7 @@ public class InventoryManager {
     public void removeItem(Item item) {
         inventoryItems.remove(item);
         updateUI();
-        System.out.println("[InventoryManager] Removed: " + item.name);
+        System.out.println("[InventoryManager] Removed: " + item.getName());
     }
 
     public void updateUI() {
@@ -405,7 +430,6 @@ public class InventoryManager {
         updateScreenSize();
         createUI(currentScreenWidth, currentScreenHeight);
         if (isVisible) {
-            // Если окно открыто, нужно обновить видимость
             setVisible(true);
         }
     }
@@ -429,30 +453,6 @@ public class InventoryManager {
     public void cleanup() {
         if (guiNode.hasChild(inventoryNode)) {
             guiNode.detachChild(inventoryNode);
-        }
-    }
-
-    public static class Item {
-        public String name;
-        public String type;
-        public int level;
-        public ColorRGBA color;
-        public String description;
-
-        public Item(String name, String type, int level, ColorRGBA color) {
-            this.name = name;
-            this.type = type;
-            this.level = level;
-            this.color = color;
-            this.description = "Level " + level;
-        }
-
-        public Item(String name, String type, int level, ColorRGBA color, String description) {
-            this.name = name;
-            this.type = type;
-            this.level = level;
-            this.color = color;
-            this.description = description;
         }
     }
 }

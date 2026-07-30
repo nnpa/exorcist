@@ -8,6 +8,7 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Quad;
+import com.mygame.items.Item;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 
@@ -201,7 +202,7 @@ public class TraderWindow {
         header.setLocalTranslation(0, 200 * scale, 0.1f);
         contentNode.attachChild(header);
 
-        List<InventoryManager.Item> items = inventoryManager.getItems();
+        List<Item> items = inventoryManager.getItems();
         if (items.isEmpty()) {
             Label empty = new Label("Inventory is empty.");
             empty.setFontSize(12 * scale);
@@ -210,14 +211,14 @@ public class TraderWindow {
             contentNode.attachChild(empty);
         } else {
             float yPos = 170 * scale;
-            for (InventoryManager.Item item : items) {
-                Label nameLabel = new Label(item.name + " (" + item.type + ")");
+            for (Item item : items) {
+                Label nameLabel = new Label(item.getName() + " (" + item.getType() + ")");
                 nameLabel.setFontSize(11 * scale);
                 nameLabel.setColor(ColorRGBA.White);
                 nameLabel.setLocalTranslation(0, yPos, 0.1f);
                 contentNode.attachChild(nameLabel);
 
-                int price = Math.max(1, item.level * 5);
+                int price = Math.max(1, item.getLevel() * 5);
                 Button sellBtn = new Button("Sell " + price + "g");
                 sellBtn.setPreferredSize(new Vector3f(60 * scale, 20 * scale, 0));
                 sellBtn.setFontSize(10 * scale);

@@ -10,7 +10,8 @@ import com.jme3.renderer.Camera;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Quad;
-import com.mygame.managers.InventoryManager.Item;
+import com.jme3.texture.Texture;
+import com.mygame.items.Item;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,10 +23,11 @@ public class DropManager {
     private List<DropItem> drops = new ArrayList<>();
     private InventoryManager inventoryManager;
 
-    private static final float ICON_SIZE = 0.5f;
-    private static final float BORDER_SIZE = 0.04f;
-    private static final float TEXT_OFFSET = 0.7f;
-    private static final float PIXEL_THRESHOLD = 45f; // порог в пикселях для клика
+    private static final float ICON_SIZE = 1.2f;
+    private static final float BORDER_SIZE = 0.08f;
+    // ===== ПОДНЯЛИ ТЕКСТ ВЫШЕ =====
+    private static final float TEXT_OFFSET = 1.6f; // было 0.9f
+    private static final float PIXEL_THRESHOLD = 80f;
 
     public DropManager(SimpleApplication app, Node guiNode) {
         this.app = app;
@@ -39,11 +41,11 @@ public class DropManager {
 
     public void spawnDrops(Vector3f center, List<Item> items) {
         int count = items.size();
-        float radius = 1.2f;
+        float radius = 1.5f;
         for (int i = 0; i < count; i++) {
-            float angle = (float)(i * 2 * Math.PI / count);
-            float offsetX = (float)(radius * Math.cos(angle) + (Math.random() - 0.5) * 0.3);
-            float offsetZ = (float)(radius * Math.sin(angle) + (Math.random() - 0.5) * 0.3);
+            float angle = (float)(i * 2 * Math.PI / count + Math.random() * 0.5);
+            float offsetX = (float)(radius * Math.cos(angle) + (Math.random() - 0.5) * 0.5);
+            float offsetZ = (float)(radius * Math.sin(angle) + (Math.random() - 0.5) * 0.5);
             Vector3f pos = new Vector3f(center.x + offsetX, 0, center.z + offsetZ);
             spawnDrop(pos, items.get(i));
         }
@@ -53,15 +55,9 @@ public class DropManager {
         DropItem drop = new DropItem(position, item);
         dropNode.attachChild(drop.node);
         drops.add(drop);
-        System.out.println("[DropManager] Drop spawned: " + item.name);
+        System.out.println("[DropManager] Drop spawned: " + item.getName());
     }
 
-    /**
-     * Проверяет попадание клика по экранным координатам.
-     * @param screenX экранная координата X (от левого нижнего угла)
-     * @param screenY экранная координата Y (от левого нижнего угла)
-     * @return DropItem, если клик попал в иконку, иначе null
-     */
     public DropItem getDropAt(float screenX, float screenY) {
         Camera cam = app.getCamera();
         Vector2f clickPos = new Vector2f(screenX, screenY);
@@ -87,7 +83,7 @@ public class DropManager {
             inventoryManager.addItem(drop.item);
             dropNode.detachChild(drop.node);
             drops.remove(drop);
-            System.out.println("[DropManager] Picked up: " + drop.item.name);
+            System.out.println("[DropManager] Picked up: " + drop.item.getName());
         }
     }
 
@@ -99,14 +95,24 @@ public class DropManager {
 
         public DropItem(Vector3f position, Item item) {
             this.item = item;
-            node = new Node("DropNode_" + item.name);
-            node.setLocalTranslation(position.x, 0, position.z);
+            node = new Node("DropNode_" + item.getName());
+            node.setLocalTranslation(position.x, 0.1f, position.z);
 
             // Иконка
             Quad quad = new Quad(ICON_SIZE, ICON_SIZE);
             iconGeom = new Geometry("DropIcon", quad);
             Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-            mat.setColor("Color", item.color);
+            
+            Texture tex = null;
+            try {
+                tex = app.getAssetManager().loadTexture(item.getIconPath());
+            } catch (Exception e) {}
+            if (tex != null) {
+                mat.setTexture("ColorMap", tex);
+                mat.setColor("Color", ColorRGBA.White);
+            } else {
+                mat.setColor("Color", item.getColor());
+            }
             iconGeom.setMaterial(mat);
             iconGeom.setLocalTranslation(-ICON_SIZE/2, 0, -ICON_SIZE/2);
             node.attachChild(iconGeom);
@@ -115,23 +121,19 @@ public class DropManager {
             Quad borderQuad = new Quad(ICON_SIZE + BORDER_SIZE, ICON_SIZE + BORDER_SIZE);
             Geometry borderGeom = new Geometry("DropBorder", borderQuad);
             Material borderMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-            borderMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.1f, 0.7f));
+            borderMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.1f, 0.8f));
             borderGeom.setMaterial(borderMat);
             borderGeom.setLocalTranslation(-(ICON_SIZE + BORDER_SIZE)/2, -BORDER_SIZE/2, -(ICON_SIZE + BORDER_SIZE)/2);
             node.attachChild(borderGeom);
 
-            // Текст над иконкой – используем корректный путь к шрифту
+            // ===== ТЕКСТ НАЗВАНИЯ (ПОДНЯТ ВЫШЕ) =====
             labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/Default.fnt"));
-            labelText.setText(item.name);
-            labelText.setSize(0.2f);
-            labelText.setColor(ColorRGBA.White);
+            labelText.setText(item.getName());
+            labelText.setSize(0.55f);
+            labelText.setColor(item.getColor());
             float textWidth = labelText.getLineWidth();
             labelText.setLocalTranslation(-textWidth/2, ICON_SIZE/2 + TEXT_OFFSET, 0);
             node.attachChild(labelText);
-        }
-
-        public Vector3f getPosition() {
-            return node.getWorldTranslation();
         }
     }
 }
