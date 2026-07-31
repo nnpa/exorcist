@@ -1,9 +1,14 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.control.RigidBodyControl;
+import com.jme3.bullet.util.CollisionShapeFactory;
 import com.jme3.light.DirectionalLight;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.FastMath;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
@@ -13,10 +18,11 @@ import com.jme3.scene.shape.Sphere;
 import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.SkeletonWarrior;
-import com.mygame.monsters.MonsterFactory;
 import com.mygame.dungeons.Dungeon;
 import com.mygame.dungeons.DungeonLoader;
 import com.mygame.dungeons.DungeonManager;
+import static com.mygame.managers.GameManager.GameState.CITY;
+import static com.mygame.managers.GameManager.GameState.DUNGEON;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,9 +46,17 @@ public class WorldManager {
     private DungeonLoader dungeonLoader;
     private DungeonManager dungeonManager;
 
+    // Добавляем поле для BulletAppState
+    private BulletAppState bulletAppState;
+
     public WorldManager(SimpleApplication app) {
         this.app = app;
         this.worldNode = new Node("WorldNode");
+    }
+
+    // Метод для установки BulletAppState
+    public void setBulletAppState(BulletAppState bas) {
+        this.bulletAppState = bas;
     }
 
     public void initialize() {
@@ -59,9 +73,7 @@ public class WorldManager {
     public void setPlayerManager(PlayerManager pm) {
         this.playerManager = pm;
         System.out.println("[WorldManager] PlayerManager set");
-        if (currentState == GameState.CITY && !testMonsterSpawned) {
-            spawnTestMonster();
-        }
+        // Не вызываем здесь spawnTestMonster, только в switchToCity
     }
 
     public void setDropManager(DropManager dm) {
@@ -91,17 +103,69 @@ public class WorldManager {
     }
 
     private void createCityScene() {
-        cityNode = new Node("CityNode");
-        cityNode.setCullHint(Node.CullHint.Always);
+    cityNode = new Node("CityNode");
+    cityNode.setCullHint(Node.CullHint.Always);
 
-        Box floorBox = new Box(30, 0.1f, 30);
-        Geometry floor = new Geometry("CityFloor", floorBox);
-        floor.setName("Ground");
-        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", new ColorRGBA(0.3f, 0.35f, 0.4f, 1.0f));
-        floor.setMaterial(mat);
-        floor.move(0, -0.05f, 0);
+    Spatial cityModel = null;
+    try {
+        System.out.println("[WorldManager] Loading city model from: Models/City/city.gltf");
+        cityModel = app.getAssetManager().loadModel("Models/City/city.gltf");
+    } catch (Exception e) {
+        System.err.println("[WorldManager] Exception loading city model: " + e.getMessage());
+    }
 
+    if (cityModel != null) {
+        System.out.println("[WorldManager] City model loaded.");
+        cityModel.rotate(0, FastMath.HALF_PI, 0);
+        cityModel.scale(1.0f);
+        cityModel.move(0, -2f, 0);
+
+        // ===== ФИЗИКА ГОРОДА =====
+        if (bulletAppState != null) {
+            try {
+                System.out.println("[WorldManager] Adding physics to city...");
+                CollisionShape shape = CollisionShapeFactory.createMeshShape(cityModel);
+                RigidBodyControl physics = new RigidBodyControl(shape, 0);
+                cityModel.addControl(physics);
+                bulletAppState.getPhysicsSpace().add(physics);
+                System.out.println("[WorldManager] Physics added to city.");
+            } catch (Exception e) {
+                System.err.println("[WorldManager] Physics error: " + e.getMessage());
+            }
+        } else {
+            System.err.println("[WorldManager] BulletAppState is NULL! City without physics!");
+        }
+
+        cityNode.attachChild(cityModel);
+    } else {
+        // fallback
+        createFallbackCity();
+    }
+
+    createInteractiveObjects();
+    worldNode.attachChild(cityNode);
+    System.out.println("[WorldManager] City scene ready.");
+}
+private void createFallbackCity() {
+    Box floorBox = new Box(30, 0.1f, 30);
+    Geometry floor = new Geometry("CityFloor", floorBox);
+    floor.setName("Ground");
+    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    mat.setColor("Color", new ColorRGBA(0.3f, 0.35f, 0.4f, 1.0f));
+    floor.setMaterial(mat);
+    floor.move(0, -0.05f, 0);
+    cityNode.attachChild(floor);
+    
+    // fallback физика
+    if (bulletAppState != null) {
+        RigidBodyControl floorPhysics = new RigidBodyControl(0);
+        floor.addControl(floorPhysics);
+        bulletAppState.getPhysicsSpace().add(floorPhysics);
+        System.out.println("[WorldManager] Fallback floor physics added.");
+    }
+}
+    private void createInteractiveObjects() {
+        // Портал
         Sphere portalSphere = new Sphere(16, 16, 1.5f);
         Geometry portal = new Geometry("Portal", portalSphere);
         portal.setName("Portal");
@@ -109,7 +173,9 @@ public class WorldManager {
         portalMat.setColor("Color", new ColorRGBA(0.2f, 0.6f, 1.0f, 0.7f));
         portal.setMaterial(portalMat);
         portal.move(5, 1.5f, 5);
+        cityNode.attachChild(portal);
 
+        // NPC Торговец
         Box npcBox = new Box(0.5f, 1f, 0.5f);
         Geometry npc = new Geometry("NPC_Trader", npcBox);
         npc.setName("NPC_Trader");
@@ -117,7 +183,9 @@ public class WorldManager {
         npcMat.setColor("Color", ColorRGBA.Green);
         npc.setMaterial(npcMat);
         npc.move(-5, 0.5f, 5);
+        cityNode.attachChild(npc);
 
+        // Телепорт
         Box teleportBox = new Box(1f, 0.5f, 0.5f);
         Geometry teleport = new Geometry("Teleport", teleportBox);
         teleport.setName("Teleport");
@@ -125,7 +193,9 @@ public class WorldManager {
         teleportMat.setColor("Color", new ColorRGBA(0.8f, 0.2f, 0.8f, 1.0f));
         teleport.setMaterial(teleportMat);
         teleport.move(0, 0.25f, 8);
+        cityNode.attachChild(teleport);
 
+        // Тестовый монстр (красный куб)
         Box monsterBox = new Box(0.8f, 1.2f, 0.8f);
         Geometry monster = new Geometry("TestMonster", monsterBox);
         monster.setName("TestMonster");
@@ -135,16 +205,7 @@ public class WorldManager {
         monster.move(5, 0.6f, -5);
         MonsterData md = new MonsterData(monster, 30, 10);
         monsters.add(md);
-
-        Node targetNode = (interactableNode != null) ? interactableNode : cityNode;
-        targetNode.attachChild(floor);
-        targetNode.attachChild(portal);
-        targetNode.attachChild(npc);
-        targetNode.attachChild(teleport);
-        targetNode.attachChild(monster);
-
-        worldNode.attachChild(cityNode);
-        System.out.println("[WorldManager] City created");
+        cityNode.attachChild(monster);
     }
 
     private void createDungeonScene() {
@@ -196,7 +257,6 @@ public class WorldManager {
 
         if (model != null) {
             model.setName("Monster");
-
             System.out.println("[WorldManager] Model loaded successfully!");
             model.scale(2.0f);
             model.move(0, 0.5f, 0);
@@ -222,67 +282,62 @@ public class WorldManager {
         System.out.println("[WorldManager] Test Skeleton spawned at " + spawnPos);
     }
 
-    public MonsterData getMonsterByGeometry(Geometry geom) {
-        for (MonsterData md : monsters) {
-            if (md.geom == geom) {
-                return md;
-            }
+    public Monster getMonsterByModel(Spatial model) {
+        for (Monster m : activeMonsters) {
+            if (m.getModelNode() == model) return m;
         }
         return null;
     }
 
-public Spatial getClosestInteractiveObject(Vector3f point, float radius) {
-    Spatial closest = null;
-    float closestDist = radius;
-
-    // 1. Проверяем новых монстров (activeMonsters)
-    for (Monster m : activeMonsters) {
-        Spatial model = m.getModelNode();
-        if (model == null) continue;
-        float dist = model.getWorldTranslation().distance(point);
-        if (dist < closestDist) {
-            closestDist = dist;
-            closest = model;
+    public MonsterData getMonsterByGeometry(Geometry geom) {
+        for (MonsterData md : monsters) {
+            if (md.geom == geom) return md;
         }
+        return null;
     }
 
-    // 2. Проверяем старые объекты (NPC, TestMonster)
-    if (interactableNode != null && interactableNode.getCullHint() != Node.CullHint.Always) {
-        for (Spatial child : interactableNode.getChildren()) {
-            String name = child.getName();
-            if (name == null) continue;
-            if (name.equals("NPC_Trader") || name.equals("TestMonster") || name.equals("Monster")) {
-                float dist = child.getWorldTranslation().distance(point);
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closest = child;
+    public Spatial getClosestInteractiveObject(Vector3f point, float radius) {
+        Spatial closest = null;
+        float closestDist = radius;
+
+        for (Monster m : activeMonsters) {
+            if (!m.isAlive()) continue;
+            Spatial model = m.getModelNode();
+            if (model == null) continue;
+            float dist = model.getWorldTranslation().distance(point);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closest = model;
+            }
+        }
+
+        if (interactableNode != null && interactableNode.getCullHint() != Node.CullHint.Always) {
+            for (Spatial child : interactableNode.getChildren()) {
+                String name = child.getName();
+                if (name == null) continue;
+                if (name.equals("NPC_Trader") || name.equals("TestMonster") || name.equals("Monster")) {
+                    float dist = child.getWorldTranslation().distance(point);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closest = child;
+                    }
                 }
             }
         }
+
+        return closest;
     }
 
-    return closest;
-}
-public Monster getMonsterByModel(Spatial model) {
-    for (Monster m : activeMonsters) {
-        if (m.getModelNode() == model) {
-            return m;
+    public void switchToCity() {
+        cityNode.setCullHint(Node.CullHint.Dynamic);
+        dungeonNode.setCullHint(Node.CullHint.Always);
+        if (interactableNode != null) {
+            interactableNode.setCullHint(Node.CullHint.Dynamic);
         }
+        currentState = GameState.CITY;
+        spawnTestMonster();
+        System.out.println("[WorldManager] Switched to City");
     }
-    return null;
-}
-
-public void switchToCity() {
-    cityNode.setCullHint(Node.CullHint.Dynamic);
-    dungeonNode.setCullHint(Node.CullHint.Always);
-    if (interactableNode != null) {
-        interactableNode.setCullHint(Node.CullHint.Dynamic);
-    }
-    currentState = GameState.CITY;
-    // ВЫЗЫВАЕМ СПАВН ЗДЕСЬ
-    spawnTestMonster();
-    System.out.println("[WorldManager] Switched to City");
-}
 
     public void switchToDungeon() {
         cityNode.setCullHint(Node.CullHint.Always);
@@ -314,10 +369,6 @@ public void switchToCity() {
     }
 
     public void update(float tpf) {
-        if (System.currentTimeMillis() % 5000 < 50) {
-        System.out.println("[WorldManager] Active monsters: " + activeMonsters.size());
-        }
-
         for (Monster m : activeMonsters) {
             m.update(tpf);
         }
@@ -356,6 +407,7 @@ public void switchToCity() {
         System.out.println("[WorldManager] Cleanup");
     }
 
+    // Геттеры
     public Node getWorldNode() { return worldNode; }
     public Node getCityNode() { return cityNode; }
     public Node getDungeonNode() { return dungeonNode; }

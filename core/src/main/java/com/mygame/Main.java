@@ -1,8 +1,7 @@
 package com.mygame;
 
 import com.jme3.app.SimpleApplication;
-import com.jme3.collision.CollisionResult;
-import com.jme3.collision.CollisionResults;
+import com.jme3.bullet.BulletAppState;
 import com.jme3.input.MouseInput;
 import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
@@ -10,7 +9,9 @@ import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.input.event.*;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
-import com.jme3.math.*;
+import com.jme3.math.ColorRGBA;
+import com.jme3.math.Vector2f;
+import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.system.AppSettings;
@@ -22,6 +23,7 @@ import com.simsilica.lemur.style.Attributes;
 import com.simsilica.lemur.style.Styles;
 import com.mygame.managers.*;
 import com.mygame.managers.GameManager.GameState;
+import com.mygame.monsters.Monster;
 
 public class Main extends SimpleApplication {
     private static Main instance;
@@ -33,6 +35,12 @@ public class Main extends SimpleApplication {
     private InventoryManager inventoryManager;
     private DropManager dropManager;
     private boolean isInitialized = false;
+
+    public void setBulletAppState(BulletAppState bas) {
+        this.bulletAppState = bas;
+        System.out.println("[WorldManager] BulletAppState set: " + (bas != null));
+    }
+    private BulletAppState bulletAppState;
 
     public static void main(String[] args) {
         AppSettings settings = new AppSettings(true);
@@ -56,6 +64,10 @@ public class Main extends SimpleApplication {
 
         viewPort.setBackgroundColor(new ColorRGBA(0.2f, 0.2f, 0.2f, 1f));
 
+        // ===== ФИЗИКА =====
+        bulletAppState = new BulletAppState();
+        stateManager.attach(bulletAppState);
+
         setupLighting();
         GuiGlobals.initialize(this);
         applyTextFieldStyle();
@@ -63,9 +75,15 @@ public class Main extends SimpleApplication {
         flyCam.setEnabled(false);
         inputManager.setCursorVisible(true);
 
-        // === ОТКЛЮЧАЕМ ПЕРЕХВАТ МЫШИ В LEMUR ===
-
         initializeManagers();
+
+        // ===== ПЕРЕДАЁМ ФИЗИКУ =====
+        if (playerManager != null) {
+            playerManager.setPhysicsSpace(bulletAppState.getPhysicsSpace());
+        }
+        if (worldManager != null) {
+            worldManager.setBulletAppState(bulletAppState);
+        }
 
         if (uiManager != null && playerManager != null) {
             uiManager.setPlayerManager(playerManager);
@@ -87,7 +105,7 @@ public class Main extends SimpleApplication {
 
         gameManager.setState(GameState.LOGIN);
 
-        // === ОСНОВНОЙ ОБРАБОТЧИК КЛИКОВ ===
+        // ===== ОБРАБОТЧИК КЛИКОВ =====
         inputManager.addMapping("MouseClick", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -102,7 +120,7 @@ public class Main extends SimpleApplication {
             }
         }, "MouseClick");
 
-        // === ДЛЯ ANDROID ===
+        // ===== ТАЧ ДЛЯ ANDROID =====
         inputManager.addRawInputListener(new RawInputListener() {
             @Override public void beginInput() {}
             @Override public void endInput() {}
@@ -116,80 +134,63 @@ public class Main extends SimpleApplication {
             public void onTouchEvent(TouchEvent evt) {
                 if (evt.getType() == TouchEvent.Type.DOWN) {
                     if (playerManager == null) return;
-                    if (uiManager != null && uiManager.isAnyWindowOpen()) {
-                        return;
-                    }
+                    if (uiManager != null && uiManager.isAnyWindowOpen()) return;
                     handleClick(evt.getX(), evt.getY());
                 }
             }
         });
+        Monster.setApp(this);
+
     }
 
     private void handleClick(float screenX, float screenY) {
-    System.out.println("[Main] handleClick at (" + screenX + ", " + screenY + ")");
+        DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
+        if (drop != null) {
+            dropManager.pickupDrop(drop);
+            return;
+        }
 
-    // 1. Проверка дропа
-    DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
-    if (drop != null) {
-        dropManager.pickupDrop(drop);
-        return;
-    }
+        Vector3f groundPoint = getGroundPoint(screenX, screenY);
+        if (groundPoint == null) return;
 
-    // 2. Вычисляем точку на земле
-    Vector3f groundPoint = getGroundPoint(screenX, screenY);
-    if (groundPoint == null) return;
-
-    // 3. Проверяем NPC и монстров
-    Spatial npc = null;
-    if (worldManager.getCityNode() != null) {
-        for (Spatial child : worldManager.getCityNode().getChildren()) {
-            if (child.getName() != null && child.getName().equals("NPC_Trader")) {
-                float dist = child.getWorldTranslation().distance(groundPoint);
-                if (dist < 1.8f) {
-                    npc = child;
-                    break;
+        Spatial npc = null;
+        if (worldManager.getCityNode() != null) {
+            for (Spatial child : worldManager.getCityNode().getChildren()) {
+                if (child.getName() != null && child.getName().equals("NPC_Trader")) {
+                    float dist = child.getWorldTranslation().distance(groundPoint);
+                    if (dist < 0.8f) {
+                        npc = child;
+                        break;
+                    }
                 }
             }
         }
-    }
-    if (npc != null) {
-        if (uiManager != null) uiManager.openTrader();
-        return;
-    }
-
-    // 4. Проверяем монстров (включая скелета)
-    Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 3.5f);
-    if (clicked != null) {
-        String objectName = clicked.getName();
-        if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
-            playerManager.attackTarget(clicked);
+        if (npc != null) {
+            if (uiManager != null) uiManager.openTrader();
             return;
         }
-    }
 
-    // 5. Движение
-    playerManager.moveTo(groundPoint);
-}
+        Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 1.2f);
+        if (clicked != null) {
+            String objectName = clicked.getName();
+            if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
+                playerManager.attackTarget(clicked);
+                return;
+            }
+        }
 
-    private Ray createRay(float screenX, float screenY) {
-        Vector2f click2d = new Vector2f(screenX, screenY);
-        Vector3f origin = cam.getWorldCoordinates(click2d, 0f);
-        Vector3f far = cam.getWorldCoordinates(click2d, 1f);
-        Vector3f direction = far.subtract(origin).normalizeLocal();
-        return new Ray(origin, direction);
+        playerManager.moveTo(groundPoint);
     }
 
     private Vector3f getGroundPoint(float screenX, float screenY) {
-        Ray ray = createRay(screenX, screenY);
-        if (ray == null) return null;
-        Plane groundPlane = new Plane(Vector3f.UNIT_Y, 0);
-        Vector3f intersection = new Vector3f();
-        boolean hit = ray.intersectsWherePlane(groundPlane, intersection);
-        if (hit) {
-            intersection.y = 0;
-            return intersection;
-        }
-        return null;
+        Vector3f origin = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 0f);
+        Vector3f direction = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 1f).subtract(origin).normalizeLocal();
+        if (direction.y == 0) return null;
+        float t = -origin.y / direction.y;
+        if (t < 0) return null;
+        Vector3f hitPoint = origin.add(direction.mult(t));
+        hitPoint.y = 0;
+        return hitPoint;
     }
 
     private void setupLighting() {
@@ -197,6 +198,7 @@ public class Main extends SimpleApplication {
         sun.setDirection(new Vector3f(-1, -1, -1).normalizeLocal());
         sun.setColor(ColorRGBA.White);
         rootNode.addLight(sun);
+
         AmbientLight ambient = new AmbientLight();
         ambient.setColor(new ColorRGBA(0.4f, 0.4f, 0.4f, 1.0f));
         rootNode.addLight(ambient);
@@ -211,7 +213,7 @@ public class Main extends SimpleApplication {
         attrs.set("insets", new Insets3f(2, 6, 2, 6));
     }
 
-   private void initializeManagers() {
+private void initializeManagers() {
     if (isInitialized) return;
     networkManager = new NetworkManager(this);
     networkManager.initialize();
@@ -226,7 +228,7 @@ public class Main extends SimpleApplication {
     inventoryManager = new InventoryManager(this, guiNode);
     dropManager = new DropManager(this, guiNode);
 
-    // Устанавливаем связи (ОБЯЗАТЕЛЬНО ДО ПЕРЕКЛЮЧЕНИЯ СОСТОЯНИЙ)
+    // ===== ВАЖНО: передаём ссылки =====
     worldManager.setPlayerManager(playerManager);
     worldManager.setDropManager(dropManager);
     playerManager.setWorldManager(worldManager);
@@ -235,24 +237,20 @@ public class Main extends SimpleApplication {
     uiManager.setPlayerManager(playerManager);
     uiManager.setInventoryManager(inventoryManager);
 
+    // Передаём BulletAppState в WorldManager для физики города (если есть)
+     worldManager.setBulletAppState(bulletAppState); // если у вас есть BulletAppState
+
     gameManager.setNetworkManager(networkManager);
     gameManager.setPlayerManager(playerManager);
     gameManager.setWorldManager(worldManager);
     gameManager.setUIManager(uiManager);
 
     isInitialized = true;
-
-    // Теперь можно показывать логин
-    if (uiManager != null) {
-        uiManager.forceShowLogin();
-    }
-    gameManager.setState(GameState.LOGIN);
 }
 
     @Override
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
-        if (worldManager != null) worldManager.update(tpf);
         if (gameManager != null) gameManager.update(tpf);
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);
