@@ -879,8 +879,10 @@ private void createManaBarStyle() {
         if (gm != null) {
             gm.setState(GameState.CITY);
         }
-
+        
         updatePlayerStats();
+        main.loadGameWorld();  // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+
     }
 
     public void onStateChanged(GameState newState) {

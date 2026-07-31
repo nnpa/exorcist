@@ -35,11 +35,8 @@ public class Main extends SimpleApplication {
     private InventoryManager inventoryManager;
     private DropManager dropManager;
     private boolean isInitialized = false;
+    private boolean worldLoaded = false;
 
-    public void setBulletAppState(BulletAppState bas) {
-        this.bulletAppState = bas;
-        System.out.println("[WorldManager] BulletAppState set: " + (bas != null));
-    }
     private BulletAppState bulletAppState;
 
     public static void main(String[] args) {
@@ -66,6 +63,7 @@ public class Main extends SimpleApplication {
 
         // ===== ФИЗИКА =====
         bulletAppState = new BulletAppState();
+        bulletAppState.setEnabled(false);
         stateManager.attach(bulletAppState);
 
         setupLighting();
@@ -133,6 +131,7 @@ public class Main extends SimpleApplication {
             @Override
             public void onTouchEvent(TouchEvent evt) {
                 if (evt.getType() == TouchEvent.Type.DOWN) {
+                    if (!worldLoaded) return;
                     if (playerManager == null) return;
                     if (uiManager != null && uiManager.isAnyWindowOpen()) return;
                     handleClick(evt.getX(), evt.getY());
@@ -140,10 +139,34 @@ public class Main extends SimpleApplication {
             }
         });
         Monster.setApp(this);
+    }
 
+    // ============================================================
+    //   ЗАГРУЗКА МИРА ПОСЛЕ ВХОДА
+    // ============================================================
+    public void loadGameWorld() {
+        if (worldLoaded) return;
+        
+        System.out.println("[Main] ===== ЗАГРУЗКА МИРА =====");
+        
+        // 1. Включаем физику
+        bulletAppState.setEnabled(true);
+        System.out.println("[Main] Физика включена");
+        
+        // 2. Загружаем город
+        worldManager.loadCityWithPhysics();
+        
+        // 3. Переключаем состояние
+        gameManager.setState(GameState.CITY);
+        worldManager.switchToCity();
+        
+        worldLoaded = true;
+        System.out.println("[Main] ===== МИР ЗАГРУЖЕН =====");
     }
 
     private void handleClick(float screenX, float screenY) {
+        if (!worldLoaded || playerManager == null) return;
+        
         DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
         if (drop != null) {
             dropManager.pickupDrop(drop);
@@ -213,41 +236,40 @@ public class Main extends SimpleApplication {
         attrs.set("insets", new Insets3f(2, 6, 2, 6));
     }
 
-private void initializeManagers() {
-    if (isInitialized) return;
-    networkManager = new NetworkManager(this);
-    networkManager.initialize();
-    gameManager = new GameManager(this);
-    gameManager.initialize();
-    playerManager = new PlayerManager(this);
-    playerManager.initialize();
-    worldManager = new WorldManager(this);
-    worldManager.initialize();
-    uiManager = new UIManager(this);
-    uiManager.initialize();
-    inventoryManager = new InventoryManager(this, guiNode);
-    dropManager = new DropManager(this, guiNode);
+    private void initializeManagers() {
+        if (isInitialized) return;
+        networkManager = new NetworkManager(this);
+        networkManager.initialize();
+        gameManager = new GameManager(this);
+        gameManager.initialize();
+        playerManager = new PlayerManager(this);
+        playerManager.initialize();
+        worldManager = new WorldManager(this);
+        worldManager.initialize();
+        uiManager = new UIManager(this);
+        uiManager.initialize();
+        inventoryManager = new InventoryManager(this, guiNode);
+        dropManager = new DropManager(this, guiNode);
 
-    // ===== ВАЖНО: передаём ссылки =====
-    worldManager.setPlayerManager(playerManager);
-    worldManager.setDropManager(dropManager);
-    playerManager.setWorldManager(worldManager);
-    playerManager.setDropManager(dropManager);
-    dropManager.setInventoryManager(inventoryManager);
-    uiManager.setPlayerManager(playerManager);
-    uiManager.setInventoryManager(inventoryManager);
+        worldManager.setPlayerManager(playerManager);
+        worldManager.setDropManager(dropManager);
+        playerManager.setWorldManager(worldManager);
+        playerManager.setDropManager(dropManager);
+        dropManager.setInventoryManager(inventoryManager);
+        uiManager.setPlayerManager(playerManager);
+        uiManager.setInventoryManager(inventoryManager);
 
-    // Передаём BulletAppState в WorldManager для физики города (если есть)
-     worldManager.setBulletAppState(bulletAppState); // если у вас есть BulletAppState
+        gameManager.setNetworkManager(networkManager);
+        gameManager.setPlayerManager(playerManager);
+        gameManager.setWorldManager(worldManager);
+        gameManager.setUIManager(uiManager);
 
-    gameManager.setNetworkManager(networkManager);
-    gameManager.setPlayerManager(playerManager);
-    gameManager.setWorldManager(worldManager);
-    gameManager.setUIManager(uiManager);
+        isInitialized = true;
+    }
 
-    isInitialized = true;
-}
-
+    // ============================================================
+    //   КАМЕРА КАК В ПЕРВОМ СООБЩЕНИИ
+    // ============================================================
     @Override
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
@@ -294,4 +316,5 @@ private void initializeManagers() {
     public PlayerManager getPlayerManager() { return playerManager; }
     public InventoryManager getInventoryManager() { return inventoryManager; }
     public DropManager getDropManager() { return dropManager; }
+    public boolean isWorldLoaded() { return worldLoaded; }
 }
