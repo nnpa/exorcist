@@ -32,6 +32,7 @@ public class WorldManager {
     private Node cityNode;
     private Node dungeonNode;
     private Node interactableNode;
+    private Node npcNode;
 
     private List<MonsterData> monsters = new ArrayList<>();
     private List<Monster> activeMonsters = new ArrayList<>();
@@ -51,6 +52,7 @@ public class WorldManager {
         this.worldNode = new Node("WorldNode");
         this.cityNode = new Node("CityNode");
         this.dungeonNode = new Node("DungeonNode");
+        this.npcNode = new Node("NPCNode");
     }
 
     public void setBulletAppState(BulletAppState bas) {
@@ -65,9 +67,11 @@ public class WorldManager {
         
         worldNode.attachChild(cityNode);
         worldNode.attachChild(dungeonNode);
+        worldNode.attachChild(npcNode);
         
         cityNode.setCullHint(Node.CullHint.Always);
         dungeonNode.setCullHint(Node.CullHint.Always);
+        npcNode.setCullHint(Node.CullHint.Always);
 
         dungeonLoader = new DungeonLoader(app);
         dungeonManager = new DungeonManager();
@@ -103,12 +107,24 @@ public class WorldManager {
     //   loadCityWithPhysics()
     // ============================================================
     public void loadCityWithPhysics() {
-        System.out.println("[WorldManager] Loading city with physics...");
+        System.out.println("[WorldManager] ===== LOADING CITY WITH PHYSICS =====");
         
+        // Очищаем
         cityNode.detachAllChildren();
-        cityNode.setCullHint(Node.CullHint.Dynamic);
+        npcNode.detachAllChildren();
+        monsters.clear();
+        activeMonsters.clear();
+        testMonsterSpawned = false;
         
         createCityScene();
+        loadNPCs();
+        createInteractiveObjects();
+        spawnTestMonster(); // Оригинальный метод с SkeletonWarrior
+        
+        cityNode.setCullHint(Node.CullHint.Dynamic);
+        npcNode.setCullHint(Node.CullHint.Dynamic);
+        
+        System.out.println("[WorldManager] City loaded!");
     }
 
     private void createCityScene() {
@@ -147,9 +163,6 @@ public class WorldManager {
         } else {
             createFallbackCity();
         }
-
-        createInteractiveObjects();
-        System.out.println("[WorldManager] City scene ready.");
     }
 
     private void createFallbackCity() {
@@ -172,126 +185,212 @@ public class WorldManager {
         }
     }
 
+    // ============================================================
+    //   NPC (КУЗНЕЦ И ТОРГОВЕЦ)
+    // ============================================================
+    private void loadNPCs() {
+        System.out.println("[WorldManager] Loading NPCs...");
+        
+        // ===== КУЗНЕЦ (Black) =====
+        loadBlacksmith();
+        
+        // ===== ТОРГОВЕЦ (зеленый куб) =====
+        createTraderNPC();
+        
+        System.out.println("[WorldManager] NPCs loaded");
+    }
+
+    private void loadBlacksmith() {
+    System.out.println("[WorldManager] Loading Blacksmith from: Models/City/NPC/Black/black.gltf");
+    try {
+        Spatial blacksmith = app.getAssetManager().loadModel("Models/City/NPC/Black/black.gltf");
+        if (blacksmith != null) {
+            System.out.println("[WorldManager] Blacksmith model loaded successfully!");
+            blacksmith.scale(0.7f);
+            blacksmith.rotate(0, FastMath.PI, 0);
+            blacksmith.setLocalTranslation(11.341951f, -1.9861704f, -6.05198f);
+            blacksmith.setName("NPC_Blacksmith");
+            npcNode.attachChild(blacksmith);
+            System.out.println("[WorldManager] Blacksmith placed at (11.342, -1.986, -6.052)");
+        } else {
+            System.err.println("[WorldManager] Blacksmith model is NULL! Skipping placeholder.");
+            // Убрали createBlacksmithPlaceholder()
+        }
+    } catch (Exception e) {
+        System.err.println("[WorldManager] Error loading Blacksmith: " + e.getMessage());
+        // Убрали createBlacksmithPlaceholder()
+    }
+}
+
+    private void createBlacksmithPlaceholder() {
+        System.out.println("[WorldManager] Creating Blacksmith placeholder...");
+        
+        Node npcNodeLocal = new Node("BlacksmithPlaceholder");
+        
+        Geometry body = new Geometry("Body", new Box(0.3f, 0.5f, 0.2f));
+        Material bodyMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        bodyMat.setColor("Color", new ColorRGBA(0.2f, 0.3f, 0.8f, 1f));
+        body.setMaterial(bodyMat);
+        body.move(0, 0.5f, 0);
+        npcNodeLocal.attachChild(body);
+        
+        Geometry head = new Geometry("Head", new com.jme3.scene.shape.Sphere(8, 8, 0.15f));
+        Material headMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        headMat.setColor("Color", new ColorRGBA(0.9f, 0.7f, 0.5f, 1f));
+        head.setMaterial(headMat);
+        head.move(0, 1.1f, 0);
+        npcNodeLocal.attachChild(head);
+        
+        npcNodeLocal.setLocalTranslation(6f, 0f, 3f);
+        npcNodeLocal.setName("NPC_Blacksmith");
+        npcNode.attachChild(npcNodeLocal);
+        
+        System.out.println("[WorldManager] Blacksmith placeholder at (6, 0, 3)");
+    }
+
+// ============================================================
+//   ТОРГОВЕЦ (trade.gltf) — с ручным позиционированием
+// ============================================================
+private void createTraderNPC() {
+    System.out.println("[WorldManager] Loading Trader NPC from: Models/City/NPC/Trade/trade.gltf");
+    try {
+        Spatial trader = app.getAssetManager().loadModel("Models/City/NPC/Trade/trade.gltf");
+        if (trader != null) {
+            trader.scale(0.65f);
+            trader.rotate(0, FastMath.PI, 0);
+            trader.setLocalTranslation(9.285181f, -0.5f, 10.98106f); // подберите Y под вашу модель
+            trader.setName("NPC_Trader");
+            npcNode.attachChild(trader);
+            System.out.println("[WorldManager] Trader NPC placed at (9.285, -0.5, 10.981)");
+        } else {
+            System.err.println("[WorldManager] Trader model is NULL! Skipping placeholder.");
+            // Убрали createTraderPlaceholder()
+        }
+    } catch (Exception e) {
+        System.err.println("[WorldManager] Error loading Trader: " + e.getMessage());
+        // Убрали createTraderPlaceholder()
+    }
+}
+
+private void createTraderPlaceholder() {
+    Box npcBox = new Box(0.5f, 0.8f, 0.5f); // чуть выше
+    Geometry npc = new Geometry("NPC_Trader_Placeholder", npcBox);
+    npc.setName("NPC_Trader");
+    Material npcMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    npcMat.setColor("Color", ColorRGBA.Green);
+    npc.setMaterial(npcMat);
+    npc.setLocalTranslation(9.285181f, 0.8f, 10.98106f); // половинка высоты
+    npcNode.attachChild(npc);
+    System.out.println("[WorldManager] Trader placeholder at (9.285, 0.8, 10.981)");
+}
+    // ============================================================
+    //   ИНТЕРАКТИВНЫЕ ОБЪЕКТЫ
+    // ============================================================
     private void createInteractiveObjects() {
         System.out.println("[WorldManager] Creating interactive objects...");
         
-        // Портал
-        Sphere portalSphere = new Sphere(16, 16, 1.5f);
-        Geometry portal = new Geometry("Portal", portalSphere);
-        portal.setName("Portal");
-        Material portalMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        portalMat.setColor("Color", new ColorRGBA(0.2f, 0.6f, 1.0f, 0.7f));
-        portal.setMaterial(portalMat);
-        portal.move(5, 1.5f, 5);
-        cityNode.attachChild(portal);
-        System.out.println("[WorldManager] Portal created");
-
-        // NPC Торговец
-        Box npcBox = new Box(0.5f, 1f, 0.5f);
-        Geometry npc = new Geometry("NPC_Trader", npcBox);
-        npc.setName("NPC_Trader");
-        Material npcMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        npcMat.setColor("Color", ColorRGBA.Green);
-        npc.setMaterial(npcMat);
-        npc.move(-5, 0.5f, 5);
-        cityNode.attachChild(npc);
-        System.out.println("[WorldManager] NPC Trader created");
-
-        // Телепорт
-        Box teleportBox = new Box(1f, 0.5f, 0.5f);
-        Geometry teleport = new Geometry("Teleport", teleportBox);
-        teleport.setName("Teleport");
-        Material teleportMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        teleportMat.setColor("Color", new ColorRGBA(0.8f, 0.2f, 0.8f, 1.0f));
-        teleport.setMaterial(teleportMat);
-        teleport.move(0, 0.25f, 8);
-        cityNode.attachChild(teleport);
-        System.out.println("[WorldManager] Teleport created");
-
-        // ===== ТЕСТОВЫЙ МОНСТР (СКЕЛЕТ) =====
-        createTestMonster();
+        
     }
 
-    private void createTestMonster() {
-        System.out.println("[WorldManager] Creating test monster...");
+    // ============================================================
+    //   ТЕСТОВЫЙ МОНСТР (ОРИГИНАЛЬНЫЙ SKELETON WARRIOR)
+    // ============================================================
+   public void spawnTestMonster() {
+    System.out.println("[WorldManager] spawnTestMonster() CALLED!");
+    if (testMonsterSpawned) {
+        System.out.println("[WorldManager] Already spawned, skipping");
+        return;
+    }
+    if (playerManager == null) {
+        System.err.println("[WorldManager] PlayerManager is NULL!");
+        return;
+    }
+    if (dropManager == null) {
+        System.err.println("[WorldManager] DropManager is NULL!");
+        return;
+    }
+
+    // Создаём скелета
+    Monster skeleton = new SkeletonWarrior();
+    Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f); // XZ остаются, Y пока 0
+    skeleton.setSpawnPosition(spawnPos);
+    skeleton.setPlayerManager(playerManager);
+    skeleton.setDropManager(dropManager);
+
+    Spatial model = null;
+    try {
+        System.out.println("[WorldManager] Loading model: Models/Monsters/skeleton_warrior.gltf");
+        model = app.getAssetManager().loadModel("Models/Monsters/skeleton_warrior.gltf");
+    } catch (Exception e) {
+        System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
+        e.printStackTrace();
+    }
+
+    Node targetNode = cityNode;
+
+    if (model != null) {
+        model.setName("Monster");
+        System.out.println("[WorldManager] Model loaded successfully!");
         
-        if (playerManager == null) {
-            System.err.println("[WorldManager] PlayerManager is NULL! Cannot create monster.");
-            return;
-        }
-        if (dropManager == null) {
-            System.err.println("[WorldManager] DropManager is NULL! Cannot create monster.");
-            return;
-        }
+        // ===== 1. СНАЧАЛА МАСШТАБ И ПОВОРОТ =====
+        model.scale(2.0f);
+        // Поворот не трогаем, если модель уже повёрнута правильно
         
-        try {
-            // Создаем скелета
-            Monster skeleton = new SkeletonWarrior();
-            Vector3f spawnPos = new Vector3f(5f, 0f, -5f);
-            skeleton.setSpawnPosition(spawnPos);
-            skeleton.setPlayerManager(playerManager);
-            skeleton.setDropManager(dropManager);
-            
-            // Загружаем модель
-            Spatial model = null;
-            try {
-                model = app.getAssetManager().loadModel("Models/Monsters/skeleton_warrior.gltf");
-            } catch (Exception e) {
-                System.err.println("[WorldManager] Cannot load skeleton model: " + e.getMessage());
-            }
-            
-            Node targetNode = cityNode;
-            
-            if (model != null) {
-                model.setName("Monster");
-                model.scale(2.0f);
-                model.move(0, 0.5f, 0);
-                skeleton.setModelNode((Node) model);
-                targetNode.attachChild(model);
-                System.out.println("[WorldManager] Skeleton model loaded and attached");
-            } else {
-                // Создаем заглушку - красный куб
-                System.out.println("[WorldManager] Creating placeholder for skeleton");
-                Geometry box = new Geometry("MonsterPlaceholder", new Box(0.5f, 1f, 0.3f));
-                Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-                mat.setColor("Color", ColorRGBA.Red);
-                box.setMaterial(mat);
-                box.setLocalTranslation(spawnPos);
-                box.setName("TestMonster");
-                
-                Node stubNode = new Node("StubNode");
-                stubNode.attachChild(box);
-                skeleton.setModelNode(stubNode);
-                targetNode.attachChild(stubNode);
-                System.out.println("[WorldManager] Skeleton placeholder created");
-            }
-            
-            // ===== ВАЖНО: ДОБАВЛЯЕМ В СПИСОК АКТИВНЫХ МОНСТРОВ =====
-            activeMonsters.add(skeleton);
-            testMonsterSpawned = true;
-            
-            // Также добавляем в список для отслеживания геометрии
-            if (skeleton.getModelNode() != null) {
-                // Ищем геометрию для MonsterData
-                Spatial modelNode = skeleton.getModelNode();
-                if (modelNode instanceof Node) {
-                    for (Spatial child : ((Node) modelNode).getChildren()) {
-                        if (child instanceof Geometry) {
-                            MonsterData md = new MonsterData((Geometry) child, 30, 10);
-                            monsters.add(md);
-                            break;
-                        }
-                    }
+        // ===== 2. ОБНОВЛЯЕМ BOUND, ЧТОБЫ ВЫЧИСЛИТЬ РАЗМЕР =====
+        model.updateModelBound();
+        com.jme3.bounding.BoundingBox bb = (com.jme3.bounding.BoundingBox) model.getWorldBound();
+        float bottomY = bb.getCenter().y - bb.getYExtent();
+        System.out.println("[WorldManager] Skeleton bottomY = " + bottomY + ", centerY = " + bb.getCenter().y);
+        
+        // ===== 3. СМЕЩАЕМ МОДЕЛЬ ТАК, ЧТОБЫ bottomY = 0 =====
+        float offsetY = -bottomY; // поднимаем так, чтобы низ был на 0
+        model.move(0, offsetY, 0); // теперь ноги будут на Y=0
+        
+        // ===== 4. УСТАНАВЛИВАЕМ КОНЕЧНУЮ ПОЗИЦИЮ =====
+        // Если хотим, чтобы скелет стоял на земле, Y уже не нужен (он уже в offsetY)
+        // Но координата XZ остаётся из spawnPos
+        model.setLocalTranslation(spawnPos.x, 0, spawnPos.z); // Y=0, т.к. мы сместили модель
+        
+        skeleton.setModelNode((Node) model);
+        targetNode.attachChild(model);
+        System.out.println("[WorldManager] Model attached to cityNode at Y=" + 0);
+    } else {
+        System.err.println("[WorldManager] Model is NULL! Creating placeholder...");
+        Geometry box = new Geometry("Stub", new Box(0.5f, 1f, 0.3f));
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setColor("Color", ColorRGBA.Red);
+        box.setMaterial(mat);
+        box.setLocalTranslation(spawnPos.x, 0.5f, spawnPos.z);
+        box.setName("Monster");
+        Node stubNode = new Node("StubNode");
+        stubNode.attachChild(box);
+        targetNode.attachChild(stubNode);
+        skeleton.setModelNode(stubNode);
+        System.out.println("[WorldManager] Red cube placeholder added");
+    }
+
+    // ===== 5. ДОБАВЛЯЕМ В СПИСКИ ДЛЯ ОТСЛЕЖИВАНИЯ =====
+    activeMonsters.add(skeleton);
+    testMonsterSpawned = true;
+    
+    // Добавляем в monsters для кликабельности
+    if (skeleton.getModelNode() != null) {
+        // Ищем геометрию для MonsterData
+        Spatial modelNode = skeleton.getModelNode();
+        if (modelNode instanceof Node) {
+            for (Spatial child : ((Node) modelNode).getChildren()) {
+                if (child instanceof Geometry) {
+                    MonsterData md = new MonsterData((Geometry) child, 30, 10);
+                    monsters.add(md);
+                    System.out.println("[WorldManager] MonsterData added for click detection");
+                    break;
                 }
             }
-            
-            System.out.println("[WorldManager] Test Monster spawned at " + spawnPos);
-            
-        } catch (Exception e) {
-            System.err.println("[WorldManager] Error creating test monster: " + e.getMessage());
-            e.printStackTrace();
         }
     }
+    
+    System.out.println("[WorldManager] Test Skeleton spawned at " + spawnPos);
+}
 
     public Monster getMonsterByModel(Spatial model) {
         for (Monster m : activeMonsters) {
@@ -311,13 +410,14 @@ public class WorldManager {
         Spatial closest = null;
         float closestDist = radius;
 
-        for (MonsterData md : monsters) {
-            if (md.isDead) continue;
-            if (md.geom == null) continue;
-            float dist = md.geom.getWorldTranslation().distance(point);
+        for (Monster m : activeMonsters) {
+            if (!m.isAlive()) continue;
+            Spatial model = m.getModelNode();
+            if (model == null) continue;
+            float dist = model.getWorldTranslation().distance(point);
             if (dist < closestDist) {
                 closestDist = dist;
-                closest = md.geom;
+                closest = model;
             }
         }
 
@@ -325,7 +425,21 @@ public class WorldManager {
             for (Spatial child : cityNode.getChildren()) {
                 String name = child.getName();
                 if (name == null) continue;
-                if (name.equals("NPC_Trader") || name.equals("TestMonster") || name.equals("Monster") || name.equals("Portal") || name.equals("Teleport")) {
+                if (name.equals("Portal") || name.equals("Teleport") || name.equals("Monster")) {
+                    float dist = child.getWorldTranslation().distance(point);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closest = child;
+                    }
+                }
+            }
+        }
+        
+        if (npcNode != null) {
+            for (Spatial child : npcNode.getChildren()) {
+                String name = child.getName();
+                if (name == null) continue;
+                if (name.equals("NPC_Trader") || name.equals("NPC_Blacksmith")) {
                     float dist = child.getWorldTranslation().distance(point);
                     if (dist < closestDist) {
                         closestDist = dist;
@@ -341,12 +455,16 @@ public class WorldManager {
     public void switchToCity() {
         cityNode.setCullHint(Node.CullHint.Dynamic);
         dungeonNode.setCullHint(Node.CullHint.Always);
+        npcNode.setCullHint(Node.CullHint.Dynamic);
         currentState = GameState.CITY;
-        System.out.println("[WorldManager] Switched to City - Active monsters: " + activeMonsters.size());
+        // Не спавним здесь, чтобы не дублировать
+        System.out.println("[WorldManager] Switched to City");
     }
 
     public void switchToDungeon() {
         cityNode.setCullHint(Node.CullHint.Always);
+        dungeonNode.setCullHint(Node.CullHint.Always);
+        npcNode.setCullHint(Node.CullHint.Always);
         dungeonNode.setCullHint(Node.CullHint.Dynamic);
         currentState = GameState.DUNGEON;
         System.out.println("[WorldManager] Switched to Dungeon");
@@ -364,6 +482,7 @@ public class WorldManager {
             default:
                 cityNode.setCullHint(Node.CullHint.Always);
                 dungeonNode.setCullHint(Node.CullHint.Always);
+                npcNode.setCullHint(Node.CullHint.Always);
                 break;
         }
     }
@@ -378,7 +497,7 @@ public class WorldManager {
     }
 
     public void loadDungeon(String dungeonId) {
-        // Реализация загрузки данжа
+        System.out.println("[WorldManager] Loading dungeon: " + dungeonId);
     }
 
     public void cleanup() {
@@ -390,6 +509,7 @@ public class WorldManager {
     public Node getCityNode() { return cityNode; }
     public Node getDungeonNode() { return dungeonNode; }
     public Node getInteractableNode() { return interactableNode; }
+    public Node getNpcNode() { return npcNode; }
     public List<Monster> getActiveMonsters() { return activeMonsters; }
     public DungeonManager getDungeonManager() { return dungeonManager; }
 

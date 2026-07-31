@@ -5,16 +5,16 @@ import com.jme3.anim.SkinningControl;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.PhysicsSpace;
-import com.jme3.bullet.control.CharacterControl;
-import com.jme3.bullet.collision.shapes.CapsuleCollisionShape;
+import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
-import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
+import com.jme3.scene.shape.Box;
+import com.jme3.scene.shape.Sphere;
 import com.mygame.Main;
 import com.mygame.items.Item;
 import com.mygame.items.ItemGenerator;
@@ -31,7 +31,7 @@ public class PlayerManager {
 
     private SimpleApplication app;
     private Node playerNode;
-    private CharacterControl characterControl;
+    private BetterCharacterControl characterControl;
 
     private AnimComposer animComposer;
     private SkinningControl skinningControl;
@@ -67,10 +67,11 @@ public class PlayerManager {
     private boolean isAttacking = false;
     private String currentAnimation = "";
 
-    private Vector3f position = new Vector3f(2f, 0f, 8f);
+    private Vector3f position = new Vector3f(0f, 2.5f, 0f);
     private Vector3f targetPosition = null;
-    private float speed = 8f;
-    private float arrivalThreshold = 0.3f;
+    private float arrivalThreshold = 0.5f;
+    
+    private boolean isMovingToTarget = false;
 
     private Spatial currentTarget = null;
     private float attackRange = 2.0f;
@@ -98,10 +99,15 @@ public class PlayerManager {
     private static final float MODEL_SCALE = 2.5f;
     private static final float PLAYER_HEIGHT_ABOVE_GROUND = 1.4f;
 
+    // ===== ИНТЕРПОЛЯЦИЯ ДЛЯ СГЛАЖИВАНИЯ ПОЗИЦИИ =====
+    private Vector3f smoothPosition = new Vector3f();
+    private float interpolationSpeed = 0.25f;
+
     public PlayerManager(SimpleApplication app) {
         this.app = app;
         playerNode = new Node("PlayerNode");
         playerNode.setLocalTranslation(position);
+        smoothPosition.set(position);
     }
 
     public void initialize() {
@@ -110,7 +116,6 @@ public class PlayerManager {
         loadPlayerData();
         attachToScene();
 
-        // Создаём физическое тело
         createPhysicsBody();
 
         talentManager = new TalentManager(this);
@@ -121,29 +126,34 @@ public class PlayerManager {
         manaPotions = 3;
     }
 
-private void createPhysicsBody() {
-    float radius = 0.4f;
-    float height = 1.8f;
-    CapsuleCollisionShape capsuleShape = new CapsuleCollisionShape(radius, height, 1); // 1 = ось Y (вертикально)
+    // ===== СОЗДАНИЕ BETTERCHARACTERCONTROL С НАСТРОЙКАМИ =====
+    private void createPhysicsBody() {
+        float radius = 0.4f;
+        float height = 1.8f;
+        float mass = 120f; // увеличена масса для стабильности
 
-    // ПРАВИЛЬНЫЙ КОНСТРУКТОР: форма + высота шага
-    characterControl = new CharacterControl(capsuleShape, 0.05f);
-    characterControl.setGravity(0.01f);
-    characterControl.setPhysicsLocation(new Vector3f(2f, 3f, 8f));
-    characterControl.setWalkDirection(Vector3f.ZERO);
+        characterControl = new BetterCharacterControl(radius, height, mass);
+        characterControl.setGravity(new Vector3f(0, -9.81f * 3, 0));
+        characterControl.warp(new Vector3f(0f, 2.5f, 0f));
+        characterControl.setWalkDirection(Vector3f.ZERO);
 
-    playerNode.addControl(characterControl);
+        // ===== ДЕМПФИРОВАНИЕ (уменьшает дрожание и отбрасывание) =====
+        characterControl.setPhysicsDamping(0.9f);
+        characterControl.getRigidBody().setDamping(0.1f, 0.9f);
 
-    System.out.println("[PlayerManager] Physics body created with gravity.");
-}
+        playerNode.addControl(characterControl);
+
+        System.out.println("[PlayerManager] BetterCharacterControl создан с массой " + mass + " и демпфированием.");
+    }
 
     public void setPhysicsSpace(PhysicsSpace space) {
         if (characterControl != null && space != null) {
             space.add(characterControl);
-            System.out.println("[PlayerManager] CharacterControl added to physics space.");
+            System.out.println("[PlayerManager] BetterCharacterControl добавлен в physics space.");
         }
     }
 
+    // ---- Загрузка модели, анимации, прочие методы ----
     private void loadPlayerModel() {
         try {
             Spatial model = app.getAssetManager().loadModel("Models/Player/player.gltf");
@@ -193,32 +203,28 @@ private void createPhysicsBody() {
         System.out.println("[PlayerManager] Creating placeholder model");
         Node modelNode = new Node("Placeholder");
 
-        Geometry body = new Geometry("Body",
-            new com.jme3.scene.shape.Box(0.4f, 0.6f, 0.3f));
+        Geometry body = new Geometry("Body", new Box(0.4f, 0.6f, 0.3f));
         Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         mat.setColor("Color", ColorRGBA.Blue);
         body.setMaterial(mat);
         body.move(0, 0.6f, 0);
         modelNode.attachChild(body);
 
-        Geometry head = new Geometry("Head",
-            new com.jme3.scene.shape.Sphere(8, 8, 0.2f));
+        Geometry head = new Geometry("Head", new Sphere(8, 8, 0.2f));
         Material headMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         headMat.setColor("Color", new ColorRGBA(1f, 0.8f, 0.6f, 1f));
         head.setMaterial(headMat);
         head.move(0, 1.2f, 0);
         modelNode.attachChild(head);
 
-        Geometry leftLeg = new Geometry("LeftLeg",
-            new com.jme3.scene.shape.Box(0.12f, 0.4f, 0.12f));
+        Geometry leftLeg = new Geometry("LeftLeg", new Box(0.12f, 0.4f, 0.12f));
         Material legMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         legMat.setColor("Color", ColorRGBA.DarkGray);
         leftLeg.setMaterial(legMat);
         leftLeg.move(-0.15f, 0.2f, 0);
         modelNode.attachChild(leftLeg);
 
-        Geometry rightLeg = new Geometry("RightLeg",
-            new com.jme3.scene.shape.Box(0.12f, 0.4f, 0.12f));
+        Geometry rightLeg = new Geometry("RightLeg", new Box(0.12f, 0.4f, 0.12f));
         rightLeg.setMaterial(legMat);
         rightLeg.move(0.15f, 0.2f, 0);
         modelNode.attachChild(rightLeg);
@@ -263,56 +269,73 @@ private void createPhysicsBody() {
     }
 
     // ===== ДВИЖЕНИЕ =====
-public void moveTo(Vector3f target) {
-    if (playerNode == null || target == null || characterControl == null) return;
+    public void moveTo(Vector3f target) {
+        if (playerNode == null || target == null || characterControl == null) return;
 
-    if (currentTarget != null) {
-        currentTarget = null;
-        isAttacking = false;
-    }
+        if (currentTarget != null) {
+            currentTarget = null;
+            isAttacking = false;
+        }
 
-    this.targetPosition = new Vector3f(target.x, 0, target.z);
-    setMoving(true);
-
-    Vector3f currentPos = characterControl.getPhysicsLocation();
-    Vector3f walkDir = new Vector3f(target.x - currentPos.x, 0, target.z - currentPos.z);
-
-    if (walkDir.length() > 0.01f) {
-        // ===== УМЕНЬШАЕМ СКОРОСТЬ =====
-        walkDir.normalizeLocal().multLocal(0.3f);
-        characterControl.setWalkDirection(walkDir);
+        this.targetPosition = new Vector3f(target.x, 0, target.z);
+        this.isMovingToTarget = true;
+        setMoving(true);
         lookAt(target);
-    } else {
-        characterControl.setWalkDirection(Vector3f.ZERO);
-        setMoving(false);
     }
-}
 
-public void lookAt(Vector3f target) {
-    if (playerNode == null) return;
-    
-    Vector3f currentPos = characterControl != null ? characterControl.getPhysicsLocation() : position;
-    Vector3f direction = new Vector3f(target.x - currentPos.x, 0, target.z - currentPos.z);
-    
-    if (direction.length() > 0.01f) {
-        direction.normalizeLocal();
-        // ===== ПОВОРАЧИВАЕМ ЧЕРЕЗ ФИЗИКУ =====
-        characterControl.setViewDirection(direction);
+    public void lookAt(Vector3f target) {
+        if (playerNode == null || characterControl == null) return;
+        
+        Vector3f currentPos = playerNode.getWorldTranslation();
+        Vector3f direction = new Vector3f(target.x - currentPos.x, 0, target.z - currentPos.z);
+        
+        if (direction.length() > 0.01f) {
+            direction.normalizeLocal();
+            characterControl.setViewDirection(direction);
+        }
     }
-}
+
+    public void stopMoving() {
+        if (characterControl != null) {
+            characterControl.setWalkDirection(Vector3f.ZERO);
+        }
+        setMoving(false);
+        targetPosition = null;
+        isMovingToTarget = false;
+        isAttacking = false;
+        currentTarget = null;
+        playAnimation(ANIM_IDLE);
+    }
 
     // ---------- АТАКА ----------
-    public void attackTarget(Spatial target) {
-        if (target == null) return;
-        this.currentTarget = target;
-        this.isAttacking = true;
-        Vector3f targetPos = target.getWorldTranslation();
+public void attackTarget(Spatial target) {
+    if (target == null) return;
+    this.currentTarget = target;
+    this.isAttacking = true;
+    
+    Vector3f targetPos = target.getWorldTranslation();
+    Vector3f currentPos = characterControl != null ? characterControl.getRigidBody().getPhysicsLocation() : position;
+    
+    Vector3f dir = new Vector3f(targetPos.x - currentPos.x, 0, targetPos.z - currentPos.z);
+    float dist = dir.length();
+    
+    if (dist > 0.01f) {
+        dir.normalizeLocal();
+        // Вычисляем позицию остановки на расстоянии attackRange от цели
+        // (умножаем dir на (dist - attackRange) и добавляем к текущей позиции)
+        // Но проще: от позиции цели отступаем в сторону игрока на attackRange
+        Vector3f stopPos = targetPos.subtract(dir.mult(attackRange));
+        this.targetPosition = new Vector3f(stopPos.x, 0, stopPos.z);
+    } else {
+        // Если игрок уже в центре цели — оставляем как есть
         this.targetPosition = new Vector3f(targetPos.x, 0, targetPos.z);
-        setMoving(true);
-        lookAt(targetPos);
-        attackTimer = 0;
-        skillAnimationTimer = 0;
     }
+    
+    setMoving(true);
+    lookAt(targetPos);
+    attackTimer = 0;
+    skillAnimationTimer = 0;
+}
 
     private void performAttack() {
         if (currentTarget == null) return;
@@ -329,10 +352,12 @@ public void lookAt(Vector3f target) {
                 currentTarget = null;
                 isAttacking = false;
                 targetPosition = null;
+                isMovingToTarget = false;
                 setMoving(false);
                 if (characterControl != null) {
                     characterControl.setWalkDirection(Vector3f.ZERO);
                 }
+                playAnimation(ANIM_IDLE);
             }
             return;
         }
@@ -356,10 +381,12 @@ public void lookAt(Vector3f target) {
                     currentTarget = null;
                     isAttacking = false;
                     targetPosition = null;
+                    isMovingToTarget = false;
                     setMoving(false);
                     if (characterControl != null) {
                         characterControl.setWalkDirection(Vector3f.ZERO);
                     }
+                    playAnimation(ANIM_IDLE);
                 }
             }
         }
@@ -378,7 +405,7 @@ public void lookAt(Vector3f target) {
     }
 
     // ---------- СКИЛЛЫ ----------
-   public void castSkill(String skillName) {
+    public void castSkill(String skillName) {
         if (animComposer == null) return;
         System.out.println("[Player] Using skill: " + skillName);
 
@@ -446,41 +473,79 @@ public void lookAt(Vector3f target) {
         }
     }
 
-    // ---------- ОБНОВЛЕНИЕ ----------
+    // ---------- ОБНОВЛЕНИЕ (СО ВСЕМИ ИСПРАВЛЕНИЯМИ) ----------
     public void update(float tpf) {
+        coordsLogTimer += tpf;
+    if (coordsLogTimer >= 0.5f) { // каждые 0.5 секунды
+        coordsLogTimer = 0f;
+        System.out.println("[Player] Position: " + position);
+    }
         if (skillAnimationTimer > 0) {
             skillAnimationTimer -= tpf;
             return;
         }
 
-        // 1. Синхронизация с физикой
+        // 1. Интерполяция позиции (сглаживание)
         if (characterControl != null) {
-            Vector3f physPos = characterControl.getPhysicsLocation();
-            playerNode.setLocalTranslation(physPos);
-            position.set(physPos);
+            Vector3f physPos = playerNode.getWorldTranslation();
+            smoothPosition.interpolateLocal(physPos, interpolationSpeed);
+            playerNode.setLocalTranslation(smoothPosition);
+            position.set(smoothPosition);
         }
 
-        // 2. Достижение цели
-        if (targetPosition != null && characterControl != null) {
-            Vector3f currentPos = characterControl.getPhysicsLocation();
+        // 2. ДВИЖЕНИЕ К ЦЕЛИ
+        if (isMovingToTarget && targetPosition != null && characterControl != null) {
+            Vector3f currentPos = smoothPosition;
             float dist = currentPos.distance(targetPosition);
 
             if (dist < arrivalThreshold) {
                 characterControl.setWalkDirection(Vector3f.ZERO);
                 setMoving(false);
+                isMovingToTarget = false;
                 targetPosition = null;
+                if (!currentAnimation.equals(ANIM_IDLE)) {
+                    playAnimation(ANIM_IDLE);
+                }
+                return;
             }
+
+            Vector3f dir = new Vector3f(
+                targetPosition.x - currentPos.x,
+                0,
+                targetPosition.z - currentPos.z
+            );
+            
+            if (dir.length() > 0.01f) {
+                dir.normalizeLocal();
+                // НЕ УМНОЖАЕМ НА tpf!
+                characterControl.setWalkDirection(dir.mult(4f));
+                setMoving(true);
+                if (!currentAnimation.equals(ANIM_WALK)) {
+                    playAnimation(ANIM_WALK);
+                }
+            } else {
+                characterControl.setWalkDirection(Vector3f.ZERO);
+                setMoving(false);
+                isMovingToTarget = false;
+                targetPosition = null;
+                playAnimation(ANIM_IDLE);
+            }
+            return;
         }
 
-        // 3. Бой
+        // 3. БОЙ
         if (currentTarget != null) {
             Vector3f targetPos = currentTarget.getWorldTranslation();
-            Vector3f currentPos = characterControl != null ? characterControl.getPhysicsLocation() : position;
+            Vector3f currentPos = smoothPosition;
             float dist = targetPos.distance(currentPos);
 
             if (dist <= attackRange) {
-                if (isMoving) setMoving(false);
+                if (isMoving) {
+                    setMoving(false);
+                    characterControl.setWalkDirection(Vector3f.ZERO);
+                }
                 targetPosition = null;
+                isMovingToTarget = false;
                 isAttacking = true;
                 attackTimer -= tpf;
                 if (attackTimer <= 0) {
@@ -491,27 +556,27 @@ public void lookAt(Vector3f target) {
                     characterControl.setWalkDirection(Vector3f.ZERO);
                 }
             } else {
-                Vector3f dir = new Vector3f(targetPos.x - currentPos.x, 0, targetPos.z - currentPos.z);
+                Vector3f dir = new Vector3f(
+                    targetPos.x - currentPos.x,
+                    0,
+                    targetPos.z - currentPos.z
+                );
                 if (dir.length() > 0.01f) {
-                    dir.normalizeLocal().multLocal(speed);
-                    if (characterControl != null) {
-                        characterControl.setWalkDirection(dir);
-                    }
+                    dir.normalizeLocal();
+                    characterControl.setWalkDirection(dir.mult(4f));
                     setMoving(true);
-                    lookAt(targetPos);
+                    if (!currentAnimation.equals(ANIM_WALK)) {
+                        playAnimation(ANIM_WALK);
+                    }
                 }
                 isAttacking = false;
                 attackTimer = 0;
             }
+            return;
         }
 
-        // 4. Анимации
-        if (skillAnimationTimer > 0) return;
-        if (isMoving) {
-            playAnimation(ANIM_WALK);
-        } else if (isAttacking && currentTarget != null) {
-            // атака уже запущена
-        } else {
+        // 4. Если ничего не происходит – Idle
+        if (!isMoving && !isAttacking && !currentAnimation.equals(ANIM_IDLE)) {
             playAnimation(ANIM_IDLE);
         }
     }
@@ -527,7 +592,7 @@ public void lookAt(Vector3f target) {
         this.isMoving = moving;
     }
 
-    // ---------- ХАРАКТЕРИСТИКИ ----------
+    // ---- Остальные методы (характеристики, здоровье, мана, уровни) ----
     public void applyTalentBonuses(Map<String, Float> bonuses) {
         statBonuses.clear();
         statBonuses.putAll(bonuses);
@@ -560,7 +625,6 @@ public void lookAt(Vector3f target) {
         return statBonuses.getOrDefault(key, 0f);
     }
 
-    // ---------- УРОВНИ И ОПЫТ ----------
     public void addExperience(int exp) {
         experience += exp;
         int newLevel = baseLevel + experience / 1000;
@@ -574,7 +638,6 @@ public void lookAt(Vector3f target) {
         }
     }
 
-    // ---------- ЗДОРОВЬЕ И МАНА ----------
     public void takeDamage(int damage) {
         if (!isAlive) return;
         float reduction = 1 - Math.min(0.8f, physicalDefense / 100f);
@@ -603,13 +666,13 @@ public void lookAt(Vector3f target) {
         if (finalMana < amount) return;
         finalMana -= amount;
         System.out.println("[Player] Mana used: " + amount + ", remaining: " + finalMana);
-        // Принудительно обновляем UI
         if (app instanceof Main) {
             UIManager ui = ((Main) app).getUIManager();
             if (ui != null) ui.updatePlayerStats();
         }
     }
 
+    // ---- Зелья ----
     public int getHealthPotions() { return healthPotions; }
     public int getManaPotions() { return manaPotions; }
     public void setHealthPotions(int count) { this.healthPotions = Math.max(0, count); }
@@ -617,44 +680,39 @@ public void lookAt(Vector3f target) {
     public void addHealthPotions(int count) { this.healthPotions += count; }
     public void addManaPotions(int count) { this.manaPotions += count; }
 
-public void useHealthPotion() {
-    if (healthPotions > 0) {
-        healthPotions--;
-        // ===== ВОССТАНАВЛИВАЕМ ЗДОРОВЬЕ =====
-        heal(50); // heal уже правильно добавляет здоровье
-        System.out.println("[Player] Used health potion. Remaining: " + healthPotions);
-        
-        if (app instanceof Main) {
-            UIManager ui = ((Main) app).getUIManager();
-            if (ui != null) {
-                ui.updatePotionCounts();
-                ui.updatePlayerStats();
+    public void useHealthPotion() {
+        if (healthPotions > 0) {
+            healthPotions--;
+            heal(50);
+            System.out.println("[Player] Used health potion. Remaining: " + healthPotions);
+            if (app instanceof Main) {
+                UIManager ui = ((Main) app).getUIManager();
+                if (ui != null) {
+                    ui.updatePotionCounts();
+                    ui.updatePlayerStats();
+                }
             }
+        } else {
+            System.out.println("[Player] No health potions!");
         }
-    } else {
-        System.out.println("[Player] No health potions!");
     }
-}
 
-public void useManaPotion() {
-    if (manaPotions > 0) {
-        manaPotions--;
-        // ===== ВОССТАНАВЛИВАЕМ МАНУ, А НЕ ТРАТИМ =====
-        finalMana = Math.min(finalMana + 30, finalMaxMana);
-        System.out.println("[Player] Used mana potion. Remaining: " + manaPotions + ", Mana: " + finalMana + "/" + finalMaxMana);
-        
-        // Обновляем UI
-        if (app instanceof Main) {
-            UIManager ui = ((Main) app).getUIManager();
-            if (ui != null) {
-                ui.updatePotionCounts();
-                ui.updatePlayerStats();
+    public void useManaPotion() {
+        if (manaPotions > 0) {
+            manaPotions--;
+            finalMana = Math.min(finalMana + 30, finalMaxMana);
+            System.out.println("[Player] Used mana potion. Remaining: " + manaPotions + ", Mana: " + finalMana + "/" + finalMaxMana);
+            if (app instanceof Main) {
+                UIManager ui = ((Main) app).getUIManager();
+                if (ui != null) {
+                    ui.updatePotionCounts();
+                    ui.updatePlayerStats();
+                }
             }
+        } else {
+            System.out.println("[Player] No mana potions!");
         }
-    } else {
-        System.out.println("[Player] No mana potions!");
     }
-}
 
     private void loadPlayerData() {
         this.playerName = "Test Player";
@@ -719,7 +777,7 @@ public void useManaPotion() {
     public SkinningControl getSkinningControl() { return skinningControl; }
     public Spatial getCurrentTarget() { return currentTarget; }
     public TalentManager getTalentManager() { return talentManager; }
-    public CharacterControl getCharacterControl() { return characterControl; }
+    public BetterCharacterControl getCharacterControl() { return characterControl; }
 
     public void setPlayerName(String name) { this.playerName = name; }
     public void setLevel(int level) { this.baseLevel = level; }
@@ -728,6 +786,15 @@ public void useManaPotion() {
     public void setMana(int mana) { this.finalMana = Math.min(mana, finalMaxMana); }
     public void setMaxMana(int maxMana) { this.baseMaxMana = maxMana; recalculateStats(); }
     public void setExperience(int exp) { this.experience = exp; }
-    public void setPosition(Vector3f pos) { this.position.set(pos); }
-    public void setSpeed(float speed) { this.speed = speed; }
+    public void setPosition(Vector3f pos) {
+        this.position.set(pos);
+        smoothPosition.set(pos);
+        if (characterControl != null) {
+            characterControl.warp(pos);
+        }
+        playerNode.setLocalTranslation(pos);
+    }
+    public void setSpeed(float speed) { /* не используется, оставлено для совместимости */ }
+    private float coordsLogTimer = 0f;
+
 }

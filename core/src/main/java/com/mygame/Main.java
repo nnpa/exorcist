@@ -2,11 +2,10 @@ package com.mygame;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.PhysicsSpace;
 import com.jme3.input.MouseInput;
-import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.MouseButtonTrigger;
-import com.jme3.input.event.*;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.math.ColorRGBA;
@@ -38,6 +37,10 @@ public class Main extends SimpleApplication {
     private boolean worldLoaded = false;
 
     private BulletAppState bulletAppState;
+    
+    // Параметры камеры (используются в CameraFollowControl)
+    private float camDistance = 12f;
+    private float camHeight = 8f;
 
     public static void main(String[] args) {
         AppSettings settings = new AppSettings(true);
@@ -61,9 +64,10 @@ public class Main extends SimpleApplication {
 
         viewPort.setBackgroundColor(new ColorRGBA(0.2f, 0.2f, 0.2f, 1f));
 
-        // ===== ФИЗИКА =====
+        // ===== ФИЗИКА (SEQUENTIAL + ВЫСОКАЯ ТОЧНОСТЬ) =====
         bulletAppState = new BulletAppState();
         bulletAppState.setEnabled(false);
+        bulletAppState.setThreadingType(BulletAppState.ThreadingType.SEQUENTIAL);
         stateManager.attach(bulletAppState);
 
         setupLighting();
@@ -75,7 +79,6 @@ public class Main extends SimpleApplication {
 
         initializeManagers();
 
-        // ===== ПЕРЕДАЁМ ФИЗИКУ =====
         if (playerManager != null) {
             playerManager.setPhysicsSpace(bulletAppState.getPhysicsSpace());
         }
@@ -103,7 +106,7 @@ public class Main extends SimpleApplication {
 
         gameManager.setState(GameState.LOGIN);
 
-        // ===== ОБРАБОТЧИК КЛИКОВ =====
+        // ===== УПРАВЛЕНИЕ =====
         inputManager.addMapping("MouseClick", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -118,45 +121,63 @@ public class Main extends SimpleApplication {
             }
         }, "MouseClick");
 
-        // ===== ТАЧ ДЛЯ ANDROID =====
-        inputManager.addRawInputListener(new RawInputListener() {
-            @Override public void beginInput() {}
-            @Override public void endInput() {}
-            @Override public void onJoyAxisEvent(JoyAxisEvent evt) {}
-            @Override public void onJoyButtonEvent(JoyButtonEvent evt) {}
-            @Override public void onMouseMotionEvent(MouseMotionEvent evt) {}
-            @Override public void onMouseButtonEvent(MouseButtonEvent evt) {}
-            @Override public void onKeyEvent(KeyInputEvent evt) {}
-
+        inputManager.addMapping("RightClick", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
+        inputManager.addListener(new ActionListener() {
             @Override
-            public void onTouchEvent(TouchEvent evt) {
-                if (evt.getType() == TouchEvent.Type.DOWN) {
+            public void onAction(String name, boolean isPressed, float tpf) {
+                if (isPressed && "RightClick".equals(name)) {
                     if (!worldLoaded) return;
-                    if (playerManager == null) return;
                     if (uiManager != null && uiManager.isAnyWindowOpen()) return;
-                    handleClick(evt.getX(), evt.getY());
+                    if (playerManager == null) return;
+                    
+                    Vector2f cursor = inputManager.getCursorPosition();
+                    Vector3f groundPoint = getGroundPoint(cursor.x, cursor.y);
+                    if (groundPoint != null) {
+                        playerManager.moveTo(groundPoint);
+                    }
                 }
             }
-        });
+        }, "RightClick");
+
         Monster.setApp(this);
     }
 
-    // ============================================================
-    //   ЗАГРУЗКА МИРА ПОСЛЕ ВХОДА
-    // ============================================================
     public void loadGameWorld() {
         if (worldLoaded) return;
         
         System.out.println("[Main] ===== ЗАГРУЗКА МИРА =====");
         
-        // 1. Включаем физику
+        // Включаем физику и настраиваем точность
         bulletAppState.setEnabled(true);
-        System.out.println("[Main] Физика включена");
+        PhysicsSpace space = bulletAppState.getPhysicsSpace();
+        space.setAccuracy(0.001f);
+        space.setMaxSubSteps(10);
+        bulletAppState.setSpeed(0.8f);
+        System.out.println("[Main] Физика включена с высокой точностью");
         
-        // 2. Загружаем город
         worldManager.loadCityWithPhysics();
         
-        // 3. Переключаем состояние
+        if (playerManager != null) {
+            Node playerNode = playerManager.getPlayerNode();
+            if (playerNode != null && !rootNode.hasChild(playerNode)) {
+                rootNode.attachChild(playerNode);
+                System.out.println("[Main] Персонаж добавлен в rootNode");
+            }
+            
+Vector3f spawnPos = new Vector3f(0f, 0.5f, -8f);
+            playerManager.setPosition(spawnPos);
+            if (playerManager.getCharacterControl() != null) {
+                playerManager.getCharacterControl().warp(spawnPos);
+                playerManager.getCharacterControl().setWalkDirection(Vector3f.ZERO);
+            }
+            System.out.println("[Main] Персонаж на позиции: " + spawnPos);
+
+            // ===== ДОБАВЛЯЕМ CAMERA FOLLOW CONTROL =====
+            Vector3f camOffset = new Vector3f(0, camHeight, camDistance);
+            playerNode.addControl(new CameraFollowControl(cam, camOffset));
+            System.out.println("[Main] CameraFollowControl добавлен на персонажа");
+        }
+        
         gameManager.setState(GameState.CITY);
         worldManager.switchToCity();
         
@@ -164,47 +185,49 @@ public class Main extends SimpleApplication {
         System.out.println("[Main] ===== МИР ЗАГРУЖЕН =====");
     }
 
-    private void handleClick(float screenX, float screenY) {
-        if (!worldLoaded || playerManager == null) return;
-        
-        DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
-        if (drop != null) {
-            dropManager.pickupDrop(drop);
-            return;
-        }
+   private void handleClick(float screenX, float screenY) {
+    if (!worldLoaded || playerManager == null) return;
+    
+    DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
+    if (drop != null) {
+        dropManager.pickupDrop(drop);
+        return;
+    }
 
-        Vector3f groundPoint = getGroundPoint(screenX, screenY);
-        if (groundPoint == null) return;
+    Vector3f groundPoint = getGroundPoint(screenX, screenY);
+    if (groundPoint == null) return;
 
-        Spatial npc = null;
-        if (worldManager.getCityNode() != null) {
-            for (Spatial child : worldManager.getCityNode().getChildren()) {
-                if (child.getName() != null && child.getName().equals("NPC_Trader")) {
-                    float dist = child.getWorldTranslation().distance(groundPoint);
-                    if (dist < 0.8f) {
-                        npc = child;
-                        break;
-                    }
+    // ===== ИЩЕМ ТОРГОВЦА (NPC) =====
+    Spatial npc = null;
+    if (worldManager.getNpcNode() != null) {
+        for (Spatial child : worldManager.getNpcNode().getChildren()) {
+            if (child.getName() != null && child.getName().equals("NPC_Trader")) {
+                float dist = child.getWorldTranslation().distance(groundPoint);
+                if (dist < 1.5f) {
+                    npc = child;
+                    break;
                 }
             }
         }
-        if (npc != null) {
-            if (uiManager != null) uiManager.openTrader();
-            return;
-        }
-
-        Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 1.2f);
-        if (clicked != null) {
-            String objectName = clicked.getName();
-            if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
-                playerManager.attackTarget(clicked);
-                return;
-            }
-        }
-
-        playerManager.moveTo(groundPoint);
+    }
+    if (npc != null) {
+        if (uiManager != null) uiManager.openTrader();
+        return;
     }
 
+    // ===== ИЩЕМ МОНСТРОВ С УВЕЛИЧЕННЫМ РАДИУСОМ =====
+    Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f); // было 1.2f
+    if (clicked != null) {
+        String objectName = clicked.getName();
+        if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
+            playerManager.attackTarget(clicked);
+            return;
+        }
+    }
+
+    // ===== ПРОСТОЕ ДВИЖЕНИЕ =====
+    playerManager.moveTo(groundPoint);
+}
     private Vector3f getGroundPoint(float screenX, float screenY) {
         Vector3f origin = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 0f);
         Vector3f direction = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 1f).subtract(origin).normalizeLocal();
@@ -216,6 +239,7 @@ public class Main extends SimpleApplication {
         return hitPoint;
     }
 
+    // ---------- ОСВЕЩЕНИЕ, GUI, МЕНЕДЖЕРЫ ----------
     private void setupLighting() {
         DirectionalLight sun = new DirectionalLight();
         sun.setDirection(new Vector3f(-1, -1, -1).normalizeLocal());
@@ -267,29 +291,19 @@ public class Main extends SimpleApplication {
         isInitialized = true;
     }
 
-    // ============================================================
-    //   КАМЕРА КАК В ПЕРВОМ СООБЩЕНИИ
-    // ============================================================
+    // ===== simpleUpdate – ТОЛЬКО ЛОГИКА (КАМЕРА НЕ ОБНОВЛЯЕТСЯ) =====
     @Override
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
+        
         if (gameManager != null) gameManager.update(tpf);
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);
         if (uiManager != null) uiManager.update(tpf);
-
-        if (gameManager != null && gameManager.getCurrentState() == GameState.CITY) {
-            Node playerNode = playerManager.getPlayerNode();
-            if (playerNode != null) {
-                Vector3f playerPos = playerNode.getWorldTranslation();
-                float camDistance = 12f;
-                float camHeight = 8f;
-                Vector3f camPos = playerPos.add(new Vector3f(0, camHeight, camDistance));
-                cam.setLocation(camPos);
-                cam.lookAt(playerPos, Vector3f.UNIT_Y);
-            }
-        }
     }
+
+    // ===== simpleRender – УДАЛЯЕМ, Т.К. КАМЕРА УПРАВЛЯЕТСЯ CONTROL =====
+    // (оставляем пустым или удаляем)
 
     @Override
     public void destroy() {
@@ -308,6 +322,7 @@ public class Main extends SimpleApplication {
         }
     }
 
+    // ---------- ГЕТТЕРЫ ----------
     public static Main getInstance() { return instance; }
     public GameManager getGameManager() { return gameManager; }
     public NetworkManager getNetworkManager() { return networkManager; }

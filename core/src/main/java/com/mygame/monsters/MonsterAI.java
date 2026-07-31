@@ -13,6 +13,8 @@ public class MonsterAI {
     private State currentState = State.IDLE;
     private float attackCooldown = 0f;
     private static final float ATTACK_COOLDOWN_TIME = 1.5f;
+    private float attackAnimTimer = 0f;
+    private boolean isAttacking = false;
 
     public MonsterAI(Monster monster) {
         this.monster = monster;
@@ -24,26 +26,33 @@ public class MonsterAI {
 
     public void update(float tpf) {
         if (attackCooldown > 0) attackCooldown -= tpf;
+        if (attackAnimTimer > 0) attackAnimTimer -= tpf;
 
         Vector3f playerPos = getPlayerPosition();
         if (playerPos == null) return;
 
-        float dist = monster.getPosition().distance(playerPos);
+        Vector3f monsterPos = monster.getPosition();
+        float dist = monsterPos.distance(playerPos);
+
+        // Логирование для отладки
+        // System.out.println("Monster state: " + currentState + ", dist: " + dist + ", attackRange: " + monster.getAttackRange());
 
         switch (currentState) {
             case IDLE:
                 if (dist < monster.getAggroRange()) {
                     currentState = State.CHASING;
                     monster.playAnimation("Walk");
+                    System.out.println("Monster CHASING");
                 }
                 break;
             case CHASING:
-                if (dist > monster.getAggroRange() * 1.5f) {
-                    currentState = State.IDLE;
-                    monster.playAnimation("Idle");
-                } else if (dist < monster.getAttackRange()) {
+                if (dist < monster.getAttackRange() * 0.9f) {
                     currentState = State.ATTACKING;
-                    monster.playAnimation("Attack");
+                    // Если кулдаун активен, показываем Idle, иначе атакуем в следующем шаге
+                    if (attackCooldown > 0) {
+                        monster.playAnimation("Idle");
+                    }
+                    System.out.println("Monster ATTACKING, dist=" + dist);
                 } else {
                     moveTowards(playerPos, tpf);
                 }
@@ -52,45 +61,62 @@ public class MonsterAI {
                 if (dist > monster.getAttackRange() * 1.2f) {
                     currentState = State.CHASING;
                     monster.playAnimation("Walk");
+                    System.out.println("Monster CHASING (lost target)");
                 } else {
+                    // Если кулдаун прошел и анимация атаки завершилась - бьем
                     attackPlayer();
                 }
                 break;
         }
     }
 
-private void moveTowards(Vector3f target, float tpf) {
-    Vector3f currentPos = monster.getPosition();
-    Vector3f direction = new Vector3f(target.x - currentPos.x, 0, target.z - currentPos.z);
-    
-    if (direction.length() < 0.01f) return;
-    direction.normalizeLocal();
-
-    // Движение
-    Vector3f newPos = currentPos.add(direction.mult(monster.getMoveSpeed() * tpf));
-    monster.setPosition(newPos);
-
-    // Поворот модели в сторону движения с компенсацией
-    if (monster.getModelNode() != null) {
-        // 1. Вычисляем поворот, чтобы смотреть в направлении direction
-        Quaternion rot = new Quaternion();
-        rot.lookAt(direction, Vector3f.UNIT_Y);
+    private void moveTowards(Vector3f target, float tpf) {
+        Vector3f currentPos = monster.getPosition();
+        Vector3f direction = new Vector3f(target.x - currentPos.x, 0, target.z - currentPos.z);
         
-        // 2. Добавляем постоянный поворот на -90° вокруг Y (компенсация)
-        // Если модель смотрит в противоположную сторону, меняем знак на +HALF_PI
-        rot.multLocal(new Quaternion().fromAngleAxis(-FastMath.HALF_PI, Vector3f.UNIT_Y));
-        
-        monster.getModelNode().setLocalRotation(rot);
+        float dist = direction.length();
+        if (dist < 0.01f) return;
+        direction.normalizeLocal();
+
+        // Останавливаемся на дистанции атаки с небольшим запасом
+        float stopDistance = monster.getAttackRange() * 0.85f;
+        if (dist <= stopDistance) {
+            // Если мы уже достаточно близко, но еще не в ATTACKING (может быть, не перешли из-за задержки)
+            // Можно принудительно переключить состояние, но мы это делаем в update
+            return;
+        }
+
+        Vector3f newPos = currentPos.add(direction.mult(monster.getMoveSpeed() * tpf));
+        monster.setPosition(newPos);
+
+        if (monster.getModelNode() != null) {
+            Quaternion rot = new Quaternion();
+            rot.lookAt(direction, Vector3f.UNIT_Y);
+            rot.multLocal(new Quaternion().fromAngleAxis(-FastMath.HALF_PI, Vector3f.UNIT_Y));
+            monster.getModelNode().setLocalRotation(rot);
+        }
     }
-}
 
     private void attackPlayer() {
-        if (attackCooldown <= 0) {
-            if (playerManager != null) {
-                playerManager.takeDamage((int) monster.getDamage());
+        // Если кулдаун активен, не атакуем
+        if (attackCooldown > 0) {
+            // Если анимация атаки закончилась, показываем Idle
+            if (attackAnimTimer <= 0) {
+                monster.playAnimation("Idle");
             }
-            attackCooldown = ATTACK_COOLDOWN_TIME;
+            return;
         }
+
+        // Атакуем
+        if (playerManager != null) {
+            playerManager.takeDamage((int) monster.getDamage());
+            System.out.println("[MonsterAI] Attacked player for " + monster.getDamage());
+        }
+        // Запускаем анимацию атаки
+        monster.playAnimation("Attack");
+        attackCooldown = ATTACK_COOLDOWN_TIME;
+        attackAnimTimer = 0.5f; // Длительность анимации, чтобы не перебивать раньше времени
+        // После атаки монстр должен остаться на месте и ждать кулдаун
     }
 
     private Vector3f getPlayerPosition() {
