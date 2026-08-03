@@ -1,6 +1,7 @@
 package com.mygame;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.asset.AssetManager;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.input.MouseInput;
@@ -14,15 +15,20 @@ import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.system.AppSettings;
+import com.jme3.texture.Texture;
 import com.simsilica.lemur.GuiGlobals;
 import com.simsilica.lemur.TextField;
 import com.simsilica.lemur.Insets3f;
-import com.simsilica.lemur.component.QuadBackgroundComponent;
-import com.simsilica.lemur.style.Attributes;
-import com.simsilica.lemur.style.Styles;
 import com.mygame.managers.*;
 import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
+import com.simsilica.lemur.Button;
+import com.simsilica.lemur.Container;
+import com.simsilica.lemur.Label;
+import com.simsilica.lemur.Panel;
+import com.simsilica.lemur.style.Attributes;
+import com.simsilica.lemur.style.Styles;
+import com.simsilica.lemur.component.QuadBackgroundComponent;
 
 public class Main extends SimpleApplication {
     private static Main instance;
@@ -72,7 +78,9 @@ public class Main extends SimpleApplication {
 
         setupLighting();
         GuiGlobals.initialize(this);
+        applySkinStyle();
         applyTextFieldStyle();
+            GuiGlobals.getInstance().getStyles().setDefaultStyle("glass");
 
         flyCam.setEnabled(false);
         inputManager.setCursorVisible(true);
@@ -332,4 +340,24 @@ Vector3f spawnPos = new Vector3f(0f, 0.5f, -8f);
     public InventoryManager getInventoryManager() { return inventoryManager; }
     public DropManager getDropManager() { return dropManager; }
     public boolean isWorldLoaded() { return worldLoaded; }
+
+private void applySkinStyle() {
+    Styles styles = GuiGlobals.getInstance().getStyles();
+
+    // ===== НЕ ЗАДАЁМ ФОН ДЛЯ КОНТЕЙНЕРОВ =====
+    // Убираем строки:
+    // containerAttrs.set("background", leatherBg);
+    // panelAttrs.set("background", leatherBg);
+
+    // ===== НАСТРАИВАЕМ ТЕКСТ =====
+    Attributes labelAttrs = styles.getSelector(Label.ELEMENT_ID, null);
+    labelAttrs.set("fontSize", 18f);
+    labelAttrs.set("color", new ColorRGBA(0.9f, 0.7f, 0.4f, 1f));
+
+    // ===== НАСТРАИВАЕМ ПОЛЯ ВВОДА (TextField) =====
+    Attributes textFieldAttrs = styles.getSelector(TextField.ELEMENT_ID, null);
+    textFieldAttrs.set("background", new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.1f, 0.03f, 0.9f)));
+    textFieldAttrs.set("color", ColorRGBA.White);
+    textFieldAttrs.set("fontSize", 18f);
+}
 }

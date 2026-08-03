@@ -28,7 +28,11 @@ public class InventoryManager {
     private Node inventoryNode;
     private List<Spatial> uiElements = new ArrayList<>();
     private boolean isVisible = false;
+    
+    // Tooltip – вынесен на отдельный узел поверх всех
+    private Node tooltipNode;
     private Label tooltipLabel;
+    
     private List<Button> slotButtons = new ArrayList<>();
     private UIManager uiManager;
 
@@ -39,7 +43,6 @@ public class InventoryManager {
     private float currentScreenHeight = 720;
     private float scale = 1f;
 
-    // Пустые иконки для слотов (если есть)
     private static final String[] EMPTY_SLOT_ICONS = {
         "Interface/Icons/empty_helmet.png",
         "Interface/Icons/empty_armor.png",
@@ -55,6 +58,13 @@ public class InventoryManager {
         this.guiNode = guiNode;
         inventoryNode = new Node("InventoryNode");
         inventoryNode.setName("InventoryNode");
+        
+        // Создаём узел для tooltip поверх всего
+        tooltipNode = new Node("TooltipNode");
+        tooltipNode.setName("TooltipNode");
+        tooltipNode.setCullHint(Node.CullHint.Always);
+        guiNode.attachChild(tooltipNode);
+        
         generateTestItems();
         updateScreenSize();
         createUI(currentScreenWidth, currentScreenHeight);
@@ -89,7 +99,6 @@ public class InventoryManager {
     }
 
     private void generateTestItems() {
-        // Генерируем несколько случайных предметов для демонстрации
         for (int i = 0; i < 8; i++) {
             Item item = ItemGenerator.generateItem(1, "Weapon");
             inventoryItems.add(item);
@@ -129,15 +138,36 @@ public class InventoryManager {
         float startX = (screenWidth - totalWidth) / 2;
         float startY = (screenHeight - (eqHeight + invHeight) / 2) / 2 + 80 * scale;
 
-        // ===== ЭКИПИРОВКА =====
         float eqX = startX;
         float eqY = startY;
+        float invX = startX + eqWidth + spacing;
+        float invY = startY;
 
-        Geometry eqBg = createBackground(eqX, eqY, eqWidth, eqHeight, new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
-        eqBg.setCullHint(Node.CullHint.Always);
-        inventoryNode.attachChild(eqBg);
-        uiElements.add(eqBg);
+        // ===== ФОН ДЛЯ ЭКИПИРОВКИ =====
+        if (uiManager != null) {
+            Geometry eqBg = uiManager.createBackgroundGeometry(eqWidth, eqHeight);
+            eqBg.setLocalTranslation(eqX, eqY, -0.1f);
+            inventoryNode.attachChild(eqBg);
+            uiElements.add(eqBg);
+        } else {
+            Geometry eqBg = createBackground(eqX, eqY, eqWidth, eqHeight, new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
+            inventoryNode.attachChild(eqBg);
+            uiElements.add(eqBg);
+        }
 
+        // ===== ФОН ДЛЯ ИНВЕНТАРЯ =====
+        if (uiManager != null) {
+            Geometry invBg = uiManager.createBackgroundGeometry(invWidth, invHeight);
+            invBg.setLocalTranslation(invX, invY, -0.1f);
+            inventoryNode.attachChild(invBg);
+            uiElements.add(invBg);
+        } else {
+            Geometry invBg = createBackground(invX, invY, invWidth, invHeight, new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
+            inventoryNode.attachChild(invBg);
+            uiElements.add(invBg);
+        }
+
+        // ===== ЭКИПИРОВКА =====
         float slotSize = 60 * scale;
         float offsetY = 70 * scale;
 
@@ -158,14 +188,6 @@ public class InventoryManager {
         uiElements.add(closeEq);
 
         // ===== ИНВЕНТАРЬ =====
-        float invX = startX + eqWidth + spacing;
-        float invY = startY;
-
-        Geometry invBg = createBackground(invX, invY, invWidth, invHeight, new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
-        invBg.setCullHint(Node.CullHint.Always);
-        inventoryNode.attachChild(invBg);
-        uiElements.add(invBg);
-
         float cellSize = 55 * scale;
         float spacingCell = 8 * scale;
         float startXCell = invX + 20 * scale;
@@ -190,14 +212,12 @@ public class InventoryManager {
                     cell.setBackground(new QuadBackgroundComponent(tex));
                     cell.setText("");
                 } else {
-                    // Заглушка: цвет + первая буква
                     cell.setBackground(new QuadBackgroundComponent(item.getFallbackColor()));
                     cell.setText(item.getName().substring(0, 1));
                     cell.setFontSize(20 * scale);
                     cell.setColor(ColorRGBA.Black);
                 }
             } else {
-                // Пустая ячейка
                 cell.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f)));
                 cell.setText("");
             }
@@ -222,15 +242,17 @@ public class InventoryManager {
         inventoryNode.attachChild(closeInv);
         uiElements.add(closeInv);
 
-        tooltipLabel = new Label("");
-        tooltipLabel.setFontSize(14 * scale);
-        tooltipLabel.setColor(ColorRGBA.White);
-        tooltipLabel.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f)));
-        tooltipLabel.setPreferredSize(new Vector3f(250 * scale, 60 * scale, 0));
-        tooltipLabel.setLocalTranslation(10 * scale, screenHeight - 80 * scale, 0);
-        tooltipLabel.setCullHint(Node.CullHint.Always);
-        inventoryNode.attachChild(tooltipLabel);
-        uiElements.add(tooltipLabel);
+        // ===== СОЗДАЁМ TOOLTIP НА ОТДЕЛЬНОМ УЗЛЕ =====
+tooltipLabel = new Label("");
+tooltipLabel.setFontSize(14 * scale);
+tooltipLabel.setColor(ColorRGBA.White);
+tooltipLabel.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f)));
+tooltipLabel.setPreferredSize(new Vector3f(280 * scale, 100 * scale, 0));
+// Поднимаем выше: Y = 160 (было 80)
+tooltipLabel.setLocalTranslation(10 * scale, 160 * scale, 10f);
+tooltipLabel.setCullHint(Node.CullHint.Always);
+tooltipNode.attachChild(tooltipLabel);
+tooltipNode.setCullHint(Node.CullHint.Always);
     }
 
     private void createSlot(float x, float y, int slotIndex, float slotSize) {
@@ -255,7 +277,6 @@ public class InventoryManager {
                 slot.setColor(ColorRGBA.Black);
             }
         } else {
-            // Пустой слот – пытаемся загрузить иконку, если есть, иначе плюс
             String iconPath = EMPTY_SLOT_ICONS[slotIndex];
             Texture emptyTex = null;
             try {
@@ -265,7 +286,6 @@ public class InventoryManager {
                 slotBg = new QuadBackgroundComponent(emptyTex);
                 slot.setText("");
             } else {
-                // Цветная заглушка с плюсом
                 slotBg = new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
                 slot.setText("+");
                 slot.setFontSize(18 * scale);
@@ -306,6 +326,7 @@ public class InventoryManager {
                 if (!text.isEmpty() && tooltipLabel != null) {
                     tooltipLabel.setText(text);
                     tooltipLabel.setCullHint(Node.CullHint.Dynamic);
+                    tooltipNode.setCullHint(Node.CullHint.Dynamic); // Показываем узел
                 }
             }
 
@@ -313,6 +334,7 @@ public class InventoryManager {
             public void mouseExited(MouseMotionEvent evt, Spatial spatial, Spatial target) {
                 if (tooltipLabel != null) {
                     tooltipLabel.setCullHint(Node.CullHint.Always);
+                    tooltipNode.setCullHint(Node.CullHint.Always);
                 }
             }
 
@@ -337,11 +359,14 @@ public class InventoryManager {
                 guiNode.attachChild(inventoryNode);
             }
             if (uiManager != null) uiManager.onInventoryOpened(inventoryNode);
+            // tooltip узел всегда скрыт до наведения
+            tooltipNode.setCullHint(Node.CullHint.Always);
         } else {
             if (guiNode.hasChild(inventoryNode)) {
                 guiNode.detachChild(inventoryNode);
             }
             if (uiManager != null) uiManager.onInventoryClosed(inventoryNode);
+            tooltipNode.setCullHint(Node.CullHint.Always);
         }
         for (Spatial s : uiElements) {
             s.setCullHint(visible ? Node.CullHint.Dynamic : Node.CullHint.Always);
@@ -453,6 +478,9 @@ public class InventoryManager {
     public void cleanup() {
         if (guiNode.hasChild(inventoryNode)) {
             guiNode.detachChild(inventoryNode);
+        }
+        if (guiNode.hasChild(tooltipNode)) {
+            guiNode.detachChild(tooltipNode);
         }
     }
 }

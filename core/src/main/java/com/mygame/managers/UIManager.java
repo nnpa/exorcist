@@ -11,6 +11,7 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Quad;
+import com.jme3.texture.Texture;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.component.SpringGridLayout;
@@ -19,13 +20,14 @@ import com.mygame.Main;
 import com.mygame.items.ItemGenerator;
 import com.mygame.managers.GameManager.GameState;
 import com.simsilica.lemur.style.Attributes;
+import com.simsilica.lemur.Panel;
+import com.simsilica.lemur.ProgressBar;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.simsilica.lemur.style.Styles;
-import com.simsilica.lemur.style.Attributes;
+
 public class UIManager {
 
     private SimpleApplication app;
@@ -131,14 +133,41 @@ public class UIManager {
     public void onTraderOpened(Node node) { attachNode(node); }
     public void onTraderClosed(Node node) { detachNode(node); }
 
-    // ===== ИНИЦИАЛИЗАЦИЯ =====
-  public void initialize() {
-        // ===== 1. СОЗДАЁМ СТИЛЬ ДЛЯ СИНЕГО БАРА МАНЫ =====
-        createManaBarStyle();
+    // ===== ФОНОВАЯ ГЕОМЕТРИЯ (ДЛЯ ВСЕХ ОКОН) =====
+    /**
+     * Создаёт геометрию с текстурой для фона окна.
+     * @param width  ширина окна
+     * @param height высота окна
+     * @return Geometry с текстурой, готовая к добавлению в контейнер
+     */
+    public Geometry createBackgroundGeometry(float width, float height) {
+        Texture leatherTexture = null;
+        try {
+            leatherTexture = app.getAssetManager().loadTexture("Interface/leather_border.png");
+        } catch (Exception e) {
+            System.err.println("[UIManager] Текстура не загружена, используем цвет.");
+        }
 
+        Quad quad = new Quad(width, height);
+        Geometry bgGeom = new Geometry("WindowBg", quad);
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+
+        if (leatherTexture != null) {
+            mat.setTexture("ColorMap", leatherTexture);
+        } else {
+            mat.setColor("Color", new ColorRGBA(0.4f, 0.2f, 0.05f, 1f));
+        }
+        bgGeom.setMaterial(mat);
+        bgGeom.setLocalTranslation(0, 0, -0.1f); // позади всех элементов
+        return bgGeom;
+    }
+
+    // ===== ИНИЦИАЛИЗАЦИЯ =====
+    public void initialize() {
         createLoginScreen();
         createRegisterScreen();
         createHUD();
+        createPlayerStatsUI();
 
         hudNode = new Node("HUDNode");
         hudNode.setName("HUDNode");
@@ -147,8 +176,6 @@ public class UIManager {
             hudNode.attachChild(btn);
         }
         hudNode.attachChild(talentButton);
-        // Добавляем контейнер с информацией игрока
-        createPlayerStatsUI();
         hudNode.attachChild(playerStatsContainer);
 
         hideAllWindows();
@@ -169,6 +196,7 @@ public class UIManager {
         showLoginScreen();
     }
 
+    // ===== КЛАВИАТУРНЫЕ ЯРЛЫКИ =====
     private void setupKeyboardShortcuts() {
         app.getInputManager().addMapping(KEY_SKILL1, new KeyTrigger(com.jme3.input.KeyInput.KEY_1));
         app.getInputManager().addMapping(KEY_SKILL2, new KeyTrigger(com.jme3.input.KeyInput.KEY_2));
@@ -418,79 +446,66 @@ public class UIManager {
     }
 
     // ===== СОЗДАНИЕ КОНТЕЙНЕРА С ИМЕНЕМ И БАРАМИ =====
-   private void createPlayerStatsUI() {
-    float screenWidth = app.getCamera().getWidth();
-    float screenHeight = app.getCamera().getHeight();
+    private void createPlayerStatsUI() {
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
 
-    playerStatsContainer = new Container();
-    playerStatsContainer.setName("PlayerStatsContainer");
-    playerStatsContainer.setLayout(new SpringGridLayout(Axis.Y, Axis.X));
-    playerStatsContainer.setPreferredSize(new Vector3f(200 * scale, 80 * scale, 0));
-    playerStatsContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0f, 0f, 0f, 0.5f)));
-    playerStatsContainer.setLocalTranslation(10 * scale, screenHeight - 110 * scale, 0);
-    playerStatsContainer.setCullHint(Node.CullHint.Always);
+        playerStatsContainer = new Container();
+        playerStatsContainer.setName("PlayerStatsContainer");
+        playerStatsContainer.setLayout(new SpringGridLayout(Axis.Y, Axis.X));
+        playerStatsContainer.setPreferredSize(new Vector3f(200 * scale, 80 * scale, 0));
+        playerStatsContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0f, 0f, 0f, 0.5f)));
+        playerStatsContainer.setLocalTranslation(10 * scale, screenHeight - 110 * scale, 0);
+        playerStatsContainer.setCullHint(Node.CullHint.Always);
 
-    // Имя игрока
-    playerNameLabel = new Label("Player");
-    playerNameLabel.setFontSize(18 * scale);
-    playerNameLabel.setColor(ColorRGBA.White);
-    playerNameLabel.setLocalTranslation(5 * scale, 0, 0);
-    playerStatsContainer.addChild(playerNameLabel);
+        // Имя игрока
+        playerNameLabel = new Label("Player");
+        playerNameLabel.setFontSize(18 * scale);
+        playerNameLabel.setColor(ColorRGBA.White);
+        playerNameLabel.setLocalTranslation(5 * scale, 0, 0);
+        playerStatsContainer.addChild(playerNameLabel);
 
-    // HP бар (зелёный)
-    hpBar = new ProgressBar();
-    hpBar.setPreferredSize(new Vector3f(180 * scale, 18 * scale, 0));
-    hpBar.setProgressPercent(1.0f);
-    hpBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.0f, 0.0f, 0.8f)));
-    // Зелёный цвет для HP
-    Panel hpIndicator = hpBar.getValueIndicator();
-    if (hpIndicator != null) {
-        hpIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Green));
+        // HP бар (зелёный)
+        hpBar = new ProgressBar();
+        hpBar.setPreferredSize(new Vector3f(180 * scale, 18 * scale, 0));
+        hpBar.setProgressPercent(1.0f);
+        hpBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.0f, 0.0f, 0.8f)));
+        Panel hpIndicator = hpBar.getValueIndicator();
+        if (hpIndicator != null) {
+            hpIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Green));
+        }
+        playerStatsContainer.addChild(hpBar);
+
+        hpTextLabel = new Label("100/100");
+        hpTextLabel.setFontSize(12 * scale);
+        hpTextLabel.setColor(ColorRGBA.White);
+        hpTextLabel.setLocalTranslation(5 * scale, 0, 0);
+        playerStatsContainer.addChild(hpTextLabel);
+
+        // ===== MANA БАР (СИНИЙ) =====
+        manaBar = new ProgressBar();
+        manaBar.setPreferredSize(new Vector3f(180 * scale, 18 * scale, 0));
+        manaBar.setProgressPercent(1.0f);
+        manaBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.0f, 0.0f, 0.2f, 0.8f)));
+        Panel manaIndicator = manaBar.getValueIndicator();
+        if (manaIndicator != null) {
+            manaIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Blue));
+        }
+        playerStatsContainer.addChild(manaBar);
+
+        manaTextLabel = new Label("50/50");
+        manaTextLabel.setFontSize(12 * scale);
+        manaTextLabel.setColor(ColorRGBA.White);
+        manaTextLabel.setLocalTranslation(5 * scale, 0, 0);
+        playerStatsContainer.addChild(manaTextLabel);
+
+        lastHealth = -1;
+        lastMaxHealth = -1;
+        lastMana = -1;
+        lastMaxMana = -1;
+        lastName = "";
     }
-    playerStatsContainer.addChild(hpBar);
 
-    hpTextLabel = new Label("100/100");
-    hpTextLabel.setFontSize(12 * scale);
-    hpTextLabel.setColor(ColorRGBA.White);
-    hpTextLabel.setLocalTranslation(5 * scale, 0, 0);
-    playerStatsContainer.addChild(hpTextLabel);
-
-    // ===== MANA БАР (СИНИЙ) =====
-    manaBar = new ProgressBar();
-    manaBar.setPreferredSize(new Vector3f(180 * scale, 18 * scale, 0));
-    manaBar.setProgressPercent(1.0f);
-    // Фон бара (тёмно-синий)
-    manaBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.0f, 0.0f, 0.2f, 0.8f)));
-    // Синий цвет для заполнения
-    Panel manaIndicator = manaBar.getValueIndicator();
-    if (manaIndicator != null) {
-        manaIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Blue));
-    }
-    playerStatsContainer.addChild(manaBar);
-
-    manaTextLabel = new Label("50/50");
-    manaTextLabel.setFontSize(12 * scale);
-    manaTextLabel.setColor(ColorRGBA.White);
-    manaTextLabel.setLocalTranslation(5 * scale, 0, 0);
-    playerStatsContainer.addChild(manaTextLabel);
-
-    lastHealth = -1;
-    lastMaxHealth = -1;
-    lastMana = -1;
-    lastMaxMana = -1;
-    lastName = "";
-}
-private void createManaBarStyle() {
-    Styles styles = GuiGlobals.getInstance().getStyles();
-
-    // 1. Получаем существующие атрибуты для ProgressBar с ID "manaBar"
-    // Если их нет — создаёт новые
-    Attributes attrs = styles.getSelector(ProgressBar.ELEMENT_ID, "manaBar");
-
-    // 2. Устанавливаем цвет заполнения и фон
-    attrs.set("color", ColorRGBA.Blue);
-    attrs.set("background", new QuadBackgroundComponent(new ColorRGBA(0.0f, 0.0f, 0.2f, 0.8f)));
-}
     // ===== ОБНОВЛЕНИЕ СТАТИСТИКИ ИГРОКА =====
     public void updatePlayerStats() {
         if (playerManager == null) return;
@@ -619,14 +634,11 @@ private void createManaBarStyle() {
         if (y < 0) y = 0;
         loginWindow.setLocalTranslation(x, y, 0);
 
-        Quad bgQuad = new Quad(winW, winH);
-        Geometry bgGeom = new Geometry("LoginBg", bgQuad);
-        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bgMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
-        bgGeom.setMaterial(bgMat);
-        bgGeom.setLocalTranslation(0, 0, -0.1f);
+        // === ФОН ===
+        Geometry bgGeom = createBackgroundGeometry(winW, winH);
         loginWindow.attachChild(bgGeom);
 
+        // === ЭЛЕМЕНТЫ ===
         Label title = new Label("Login");
         title.setFontSize(30 * scale);
         title.setColor(ColorRGBA.White);
@@ -665,7 +677,6 @@ private void createManaBarStyle() {
 
         Button loginButton = new Button("Login");
         loginButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-        loginButton.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.5f, 0.8f, 0.9f)));
         loginButton.setColor(ColorRGBA.White);
         loginButton.setFontSize(18 * scale);
         loginButton.setLocalTranslation(85 * scale, 45 * scale, 0.1f);
@@ -682,7 +693,6 @@ private void createManaBarStyle() {
 
         Button registerButton = new Button("Register");
         registerButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-        registerButton.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.5f, 0.2f, 0.9f)));
         registerButton.setColor(ColorRGBA.White);
         registerButton.setFontSize(18 * scale);
         registerButton.setLocalTranslation(220 * scale, 45 * scale, 0.1f);
@@ -692,109 +702,112 @@ private void createManaBarStyle() {
         loginWindow.attachChild(registerButton);
     }
 
+    // ===== ОКНО РЕГИСТРАЦИИ =====
     private void createRegisterScreen() {
-        updateScale();
-        float screenWidth = app.getCamera().getWidth();
-        float screenHeight = app.getCamera().getHeight();
+    updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
 
-        float winW = 480 * scale;
-        float winH = 380 * scale;
+    float winW = 480 * scale;
+    float winH = 420 * scale; // увеличим высоту для трёх полей
 
-        registerWindow = new Container();
-        registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
-        registerWindow.setLayout(null);
-        registerWindow.setName("RegisterWindow");
+    registerWindow = new Container();
+    registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+    registerWindow.setLayout(null);
+    registerWindow.setName("RegisterWindow");
 
-        float x = (screenWidth - winW) / 2;
-        float y = (screenHeight - winH) / 2;
-        if (y < 0) y = 0;
-        registerWindow.setLocalTranslation(x, y, 0);
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    registerWindow.setLocalTranslation(x, y, 0);
 
-        Quad bgQuad = new Quad(winW, winH);
-        Geometry bgGeom = new Geometry("RegisterBg", bgQuad);
-        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bgMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f));
-        bgGeom.setMaterial(bgMat);
-        bgGeom.setLocalTranslation(0, 0, -0.1f);
-        registerWindow.attachChild(bgGeom);
+    // === ФОН ===
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    registerWindow.attachChild(bgGeom);
 
-        Label title = new Label("Registration");
-        title.setFontSize(30 * scale);
-        title.setColor(ColorRGBA.White);
-        title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
-        registerWindow.attachChild(title);
+    // === ЗАГОЛОВОК ===
+    Label title = new Label("Registration");
+    title.setFontSize(30 * scale);
+    title.setColor(ColorRGBA.White);
+    title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+    registerWindow.attachChild(title);
 
-        float labelY1 = winH - 85 * scale;
-        Label emailLabel = new Label("Email:");
-        emailLabel.setFontSize(18 * scale);
-        emailLabel.setColor(ColorRGBA.White);
-        emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
-        registerWindow.attachChild(emailLabel);
+    // === ПОЛЕ EMAIL ===
+    float labelY1 = winH - 85 * scale;
+    Label emailLabel = new Label("Email:");
+    emailLabel.setFontSize(18 * scale);
+    emailLabel.setColor(ColorRGBA.White);
+    emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+    registerWindow.attachChild(emailLabel);
 
-        emailField = new TextField("");
-        emailField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-        emailField.setColor(ColorRGBA.Black);
-        emailField.setFontSize(18 * scale);
-        emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
-        registerWindow.attachChild(emailField);
+    emailField = new TextField("");
+    emailField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+    emailField.setColor(ColorRGBA.Black);
+    emailField.setFontSize(18 * scale);
+    emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
+    emailField.setSize(emailField.getPreferredSize());
+    registerWindow.attachChild(emailField);
 
-        float labelY2 = winH - 140 * scale;
-        Label regLoginLabel = new Label("Login:");
-        regLoginLabel.setFontSize(18 * scale);
-        regLoginLabel.setColor(ColorRGBA.White);
-        regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
-        registerWindow.attachChild(regLoginLabel);
+    // === ПОЛЕ LOGIN ===
+    float labelY2 = winH - 140 * scale;
+    Label regLoginLabel = new Label("Login:");
+    regLoginLabel.setFontSize(18 * scale);
+    regLoginLabel.setColor(ColorRGBA.White);
+    regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+    registerWindow.attachChild(regLoginLabel);
 
-        regLoginField = new TextField("");
-        regLoginField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-        regLoginField.setColor(ColorRGBA.Black);
-        regLoginField.setFontSize(18 * scale);
-        regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
-        registerWindow.attachChild(regLoginField);
+    regLoginField = new TextField("");
+    regLoginField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+    regLoginField.setColor(ColorRGBA.Black);
+    regLoginField.setFontSize(18 * scale);
+    regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
+    regLoginField.setSize(regLoginField.getPreferredSize());
+    registerWindow.attachChild(regLoginField);
 
-        float labelY3 = winH - 195 * scale;
-        Label regPassLabel = new Label("Password:");
-        regPassLabel.setFontSize(18 * scale);
-        regPassLabel.setColor(ColorRGBA.White);
-        regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
-        registerWindow.attachChild(regPassLabel);
+    // === ПОЛЕ PASSWORD ===
+    float labelY3 = winH - 195 * scale;
+    Label regPassLabel = new Label("Password:");
+    regPassLabel.setFontSize(18 * scale);
+    regPassLabel.setColor(ColorRGBA.White);
+    regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
+    registerWindow.attachChild(regPassLabel);
 
-        regPasswordField = new TextField("");
-        regPasswordField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-        regPasswordField.setColor(ColorRGBA.Black);
-        regPasswordField.setFontSize(18 * scale);
-        regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
-        registerWindow.attachChild(regPasswordField);
+    regPasswordField = new TextField("");
+    regPasswordField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+    regPasswordField.setColor(ColorRGBA.Black);
+    regPasswordField.setFontSize(18 * scale);
+    regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
+    regPasswordField.setSize(regPasswordField.getPreferredSize());
+    registerWindow.attachChild(regPasswordField);
 
-        Button registerButton = new Button("Register");
-        registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
-        registerButton.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.5f, 0.2f, 0.9f)));
-        registerButton.setColor(ColorRGBA.White);
-        registerButton.setFontSize(18 * scale);
-        registerButton.setLocalTranslation(110 * scale, 85 * scale, 0.1f);
-        registerButton.addClickCommands((source) -> {
-            if (registerVisible) {
-                String email = emailField.getText();
-                String login = regLoginField.getText();
-                String pass = regPasswordField.getText();
-                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
-                    handleRegister(email, login, pass);
-                }
+    // === КНОПКИ ===
+    Button registerButton = new Button("Register");
+    registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
+    registerButton.setColor(ColorRGBA.White);
+    registerButton.setFontSize(18 * scale);
+    registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
+    registerButton.addClickCommands((source) -> {
+        if (registerVisible) {
+            String email = emailField.getText();
+            String login = regLoginField.getText();
+            String pass = regPasswordField.getText();
+            if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                handleRegister(email, login, pass);
             }
-        });
-        registerWindow.attachChild(registerButton);
+        }
+    });
+    registerWindow.attachChild(registerButton);
 
-        Button backButton = new Button("Back");
-        backButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-        backButton.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.5f, 0.5f, 0.5f, 0.9f)));
-        backButton.setColor(ColorRGBA.White);
-        backButton.setFontSize(18 * scale);
-        backButton.setLocalTranslation(260 * scale, 85 * scale, 0.1f);
-        backButton.addClickCommands((source) -> {
-            showLoginScreen();
-        });
-        registerWindow.attachChild(backButton);
-    }
+    Button backButton = new Button("Back");
+    backButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
+    backButton.setColor(ColorRGBA.White);
+    backButton.setFontSize(18 * scale);
+    backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
+    backButton.addClickCommands((source) -> {
+        showLoginScreen();
+    });
+    registerWindow.attachChild(backButton);
+}
 
     // ===== УПРАВЛЕНИЕ ОКНАМИ =====
     public void showLoginScreen() {
@@ -845,11 +858,19 @@ private void createManaBarStyle() {
     private void handleLogin(String login, String password) {
         System.out.println("[UI] Login: " + login);
         loadTestCharacter();
+        Main main = (Main) app;
+        if (main != null) {
+            main.loadGameWorld();
+        }
     }
 
     private void handleRegister(String email, String login, String password) {
         System.out.println("[UI] Register: " + login);
         loadTestCharacter();
+        Main main = (Main) app;
+        if (main != null) {
+            main.loadGameWorld();
+        }
     }
 
     private void loadTestCharacter() {
@@ -879,10 +900,8 @@ private void createManaBarStyle() {
         if (gm != null) {
             gm.setState(GameState.CITY);
         }
-        
-        updatePlayerStats();
-        main.loadGameWorld();  // <--- ДОБАВИТЬ ЭТУ СТРОКУ
 
+        updatePlayerStats();
     }
 
     public void onStateChanged(GameState newState) {
@@ -893,6 +912,8 @@ private void createManaBarStyle() {
             hideLoginScreen();
             hideRegisterScreen();
             showHUD();
+            updatePlayerStats();
+            updatePotionCounts();
         } else {
             hideHUD();
         }
@@ -943,4 +964,7 @@ private void createManaBarStyle() {
         if (talentWindow != null) talentWindow.hide();
         if (traderWindow != null) traderWindow.hide();
     }
+
+    // ===== ДОСТУП К GUI =====
+    public Node getGuiNode() { return guiNode; }
 }

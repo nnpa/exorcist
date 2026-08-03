@@ -1,13 +1,11 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
-import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.scene.shape.Quad;
 import com.mygame.items.Item;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
@@ -69,14 +67,20 @@ public class TraderWindow {
         windowNode = new Node("TraderWindowNode");
         windowNode.setName("TraderWindowNode");
 
-        // Фон
-        Quad bgQuad = new Quad(windowWidth, windowHeight);
-        Geometry bgGeom = new Geometry("TraderBg", bgQuad);
-        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bgMat.setColor("Color", new ColorRGBA(0.08f, 0.08f, 0.15f, 0.97f));
-        bgGeom.setMaterial(bgMat);
-        bgGeom.setLocalTranslation(0, 0, -0.1f);
-        windowNode.attachChild(bgGeom);
+        // ===== ФОН через UIManager =====
+        if (uiManager != null) {
+            Geometry bgGeom = uiManager.createBackgroundGeometry(windowWidth, windowHeight);
+            windowNode.attachChild(bgGeom);
+        } else {
+            // Запасной вариант
+            com.jme3.scene.shape.Quad bgQuad = new com.jme3.scene.shape.Quad(windowWidth, windowHeight);
+            Geometry bgGeom = new Geometry("TraderBg", bgQuad);
+            com.jme3.material.Material bgMat = new com.jme3.material.Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+            bgMat.setColor("Color", new ColorRGBA(0.08f, 0.08f, 0.15f, 0.97f));
+            bgGeom.setMaterial(bgMat);
+            bgGeom.setLocalTranslation(0, 0, -0.1f);
+            windowNode.attachChild(bgGeom);
+        }
 
         // Заголовок
         Label title = new Label("Trader");
@@ -278,12 +282,9 @@ public class TraderWindow {
 
     public void updateLayout(int screenWidth, int screenHeight) {
         if (isVisible) {
-            // Пересоздать окно или просто перепозиционировать
             if (uiManager != null) {
-                // временно отключаем
                 uiManager.onTraderClosed(windowNode);
             }
-            // пересоздаём
             windowNode.detachAllChildren();
             createWindow();
             if (uiManager != null) {

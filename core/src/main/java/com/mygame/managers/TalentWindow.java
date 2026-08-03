@@ -1,12 +1,10 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
-import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
-import com.jme3.scene.shape.Quad;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 
@@ -109,27 +107,32 @@ public class TalentWindow {
         buttonSpacingV = 30 * scale;
 
         float x = (screenWidth - currentWidth) / 2;
-        // ПОДНИМАЕМ ОКНО НА 30 ПИКСЕЛЕЙ (вместо 15)
         float y = (screenHeight - currentHeight) / 2 + 48 * scale;
 
         windowNode = new Node("TalentWindowNode");
         windowNode.setName("TalentWindowNode");
         windowNode.setLocalTranslation(x, y, 0);
 
-        // Фон
-        Quad quad = new Quad(currentWidth, currentHeight);
-        Geometry background = new Geometry("Bg", quad);
-        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", new ColorRGBA(0.08f, 0.08f, 0.15f, 0.97f));
-        background.setMaterial(mat);
-        background.setLocalTranslation(0, 0, -1);
-        windowNode.attachChild(background);
+        // ===== ФОН через UIManager =====
+        if (uiManager != null) {
+            Geometry bgGeom = uiManager.createBackgroundGeometry(currentWidth, currentHeight);
+            windowNode.attachChild(bgGeom);
+        } else {
+            // Запасной вариант (если uiManager не задан)
+            com.jme3.scene.shape.Quad quad = new com.jme3.scene.shape.Quad(currentWidth, currentHeight);
+            Geometry background = new Geometry("Bg", quad);
+            com.jme3.material.Material mat = new com.jme3.material.Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+            mat.setColor("Color", new ColorRGBA(0.08f, 0.08f, 0.15f, 0.97f));
+            background.setMaterial(mat);
+            background.setLocalTranslation(0, 0, -0.1f);
+            windowNode.attachChild(background);
+        }
 
         // Заголовок
         Label title = new Label("Talents");
         title.setFontSize(24 * scale);
         title.setColor(ColorRGBA.White);
-        title.setLocalTranslation(currentWidth / 2 - 45 * scale, currentHeight - 25 * scale, 1);
+        title.setLocalTranslation(currentWidth / 2 - 45 * scale, currentHeight - 25 * scale, 0.1f);
         windowNode.attachChild(title);
 
         // Вкладки
@@ -137,21 +140,21 @@ public class TalentWindow {
         Button defTab = new Button("Defense");
         defTab.setPreferredSize(new Vector3f(90 * scale, 25 * scale, 0));
         defTab.setFontSize(12 * scale);
-        defTab.setLocalTranslation(40 * scale, tabY, 1);
+        defTab.setLocalTranslation(40 * scale, tabY, 0.1f);
         defTab.addClickCommands((source) -> switchBranch(Talent.Branch.DEFENSE));
         windowNode.attachChild(defTab);
 
         Button lightTab = new Button("Light");
         lightTab.setPreferredSize(new Vector3f(90 * scale, 25 * scale, 0));
         lightTab.setFontSize(12 * scale);
-        lightTab.setLocalTranslation(150 * scale, tabY, 1);
+        lightTab.setLocalTranslation(150 * scale, tabY, 0.1f);
         lightTab.addClickCommands((source) -> switchBranch(Talent.Branch.LIGHT));
         windowNode.attachChild(lightTab);
 
         Button attackTab = new Button("Attack");
         attackTab.setPreferredSize(new Vector3f(90 * scale, 25 * scale, 0));
         attackTab.setFontSize(12 * scale);
-        attackTab.setLocalTranslation(260 * scale, tabY, 1);
+        attackTab.setLocalTranslation(260 * scale, tabY, 0.1f);
         attackTab.addClickCommands((source) -> switchBranch(Talent.Branch.ATTACK));
         windowNode.attachChild(attackTab);
 
@@ -159,14 +162,14 @@ public class TalentWindow {
         pointsLabel = new Label("Points: 0");
         pointsLabel.setFontSize(16 * scale);
         pointsLabel.setColor(ColorRGBA.White);
-        pointsLabel.setLocalTranslation(15 * scale, 25 * scale, 1);
+        pointsLabel.setLocalTranslation(15 * scale, 25 * scale, 0.1f);
         windowNode.attachChild(pointsLabel);
 
         // Кнопка сброса
         Button resetButton = new Button("Reset");
         resetButton.setPreferredSize(new Vector3f(70 * scale, 25 * scale, 0));
         resetButton.setFontSize(12 * scale);
-        resetButton.setLocalTranslation(currentWidth - 90 * scale, 25 * scale, 1);
+        resetButton.setLocalTranslation(currentWidth - 90 * scale, 25 * scale, 0.1f);
         resetButton.addClickCommands((source) -> {
             if (isVisible) {
                 talentManager.resetTalents();
@@ -179,13 +182,14 @@ public class TalentWindow {
         Button closeButton = new Button("X");
         closeButton.setPreferredSize(new Vector3f(25 * scale, 25 * scale, 0));
         closeButton.setFontSize(14 * scale);
-        closeButton.setLocalTranslation(currentWidth - 35 * scale, currentHeight - 30 * scale, 1);
+        closeButton.setLocalTranslation(currentWidth - 35 * scale, currentHeight - 30 * scale, 0.1f);
         closeButton.addClickCommands((source) -> hide());
         windowNode.attachChild(closeButton);
 
         switchBranch(Talent.Branch.DEFENSE);
     }
 
+    // ... остальные методы без изменений ...
     private void switchBranch(Talent.Branch branch) {
         this.currentBranch = branch;
         updateUI();
@@ -233,7 +237,7 @@ public class TalentWindow {
 
                     Button btn = new Button("");
                     btn.setPreferredSize(new Vector3f(buttonSize, buttonSize, 0));
-                    btn.setLocalTranslation(x, y, 10);
+                    btn.setLocalTranslation(x, y, 0.1f);
 
                     if (level >= talent.getMaxLevel()) {
                         btn.setColor(new ColorRGBA(0.8f, 0.7f, 0.1f, 0.9f));
