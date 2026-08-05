@@ -102,7 +102,57 @@ public class WorldManager {
         sun.setColor(ColorRGBA.White);
         worldNode.addLight(sun);
     }
+private void createTeleporter() {
+    System.out.println("[WorldManager] Loading Teleporter model from: Models/City/NPC/Teleport/Teleport.gltf");
+    try {
+        Spatial teleporterModel = app.getAssetManager().loadModel("Models/City/NPC/Teleport/teleport.gltf");
+        if (teleporterModel != null) {
+            teleporterModel.setName("Teleporter");
+            teleporterModel.scale(2.5f); // возможно, подобрать масштаб
+            Vector3f pos = new Vector3f(-3.711333f, -1.9884592f, -11.55361f);
+            pos.y += 0.7f; // поднять на 2 единицы
+            teleporterModel.setLocalTranslation(pos);
+            teleporterModel.rotate(0, -FastMath.HALF_PI / 2.0f, 0); // 30 градусов = PI/6 ≈ 0.5236, но -0.5236 для по часовой
 
+            cityNode.attachChild(teleporterModel);
+            this.teleporter = teleporterModel;
+            System.out.println("[WorldManager] Teleporter model loaded and placed at (0, 0, -8)");
+        } else {
+            System.err.println("[WorldManager] Teleporter model is NULL, creating placeholder.");
+            createTeleporterPlaceholder();
+        }
+    } catch (Exception e) {
+        System.err.println("[WorldManager] Error loading Teleporter: " + e.getMessage());
+        createTeleporterPlaceholder();
+    }
+}
+
+private void createTeleporterPlaceholder() {
+    Box box = new Box(0.8f, 0.8f, 0.8f);
+    Geometry teleporterGeom = new Geometry("Teleporter", box);
+    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    mat.setColor("Color", new ColorRGBA(1f, 0.4f, 0.8f, 1f));
+    teleporterGeom.setMaterial(mat);
+    teleporterGeom.setName("Teleporter");
+    teleporterGeom.setLocalTranslation(0f, 0.8f, -8f);
+    cityNode.attachChild(teleporterGeom);
+    this.teleporter = teleporterGeom;
+    System.out.println("[WorldManager] Teleporter placeholder created at (0, 0.8, -8)");
+}
+
+// Добавить метод для телепортации игрока в данж
+public void teleportToDungeon() {
+    if (playerManager == null) return;
+    // Сохраняем текущую позицию в городе (опционально)
+    // Переключаемся на данж
+    loadDungeon("dungeon_1"); // предполагаем, что есть такой метод
+    // Перемещаем игрока в точку спавна данжа
+    playerManager.setPosition(new Vector3f(0f, 2.5f, 0f));
+    if (playerManager.getCharacterControl() != null) {
+        playerManager.getCharacterControl().warp(new Vector3f(0f, 2.5f, 0f));
+    }
+    System.out.println("[WorldManager] Игрок телепортирован в данж");
+}
     // ============================================================
     //   loadCityWithPhysics()
     // ============================================================
@@ -120,7 +170,8 @@ public class WorldManager {
         loadNPCs();
         createInteractiveObjects();
         spawnTestMonster(); // Оригинальный метод с SkeletonWarrior
-        
+        createTeleporter();
+
         cityNode.setCullHint(Node.CullHint.Dynamic);
         npcNode.setCullHint(Node.CullHint.Dynamic);
         
@@ -291,6 +342,7 @@ private void createTraderPlaceholder() {
         
         
     }
+private Spatial teleporter;
 
     // ============================================================
     //   ТЕСТОВЫЙ МОНСТР (ОРИГИНАЛЬНЫЙ SKELETON WARRIOR)

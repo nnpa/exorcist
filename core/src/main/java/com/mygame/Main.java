@@ -205,7 +205,27 @@ Vector3f spawnPos = new Vector3f(0f, 0.5f, -8f);
     Vector3f groundPoint = getGroundPoint(screenX, screenY);
     if (groundPoint == null) return;
 
-    // ===== ИЩЕМ ТОРГОВЦА (NPC) =====
+    // ===== ИЩЕМ ТЕЛЕПОРТЕР =====
+    Spatial teleporter = null;
+    if (worldManager.getCityNode() != null) {
+        for (Spatial child : worldManager.getCityNode().getChildren()) {
+            if (child.getName() != null && child.getName().equals("Teleporter")) {
+                float dist = child.getWorldTranslation().distance(groundPoint);
+                if (dist < 1.5f) {
+                    teleporter = child;
+                    break;
+                }
+            }
+        }
+    }
+    if (teleporter != null) {
+        if (uiManager != null) {
+            uiManager.showTeleporterDialog();
+        }
+        return;
+    }
+
+    // ===== ИЩЕМ ТОРГОВЦА =====
     Spatial npc = null;
     if (worldManager.getNpcNode() != null) {
         for (Spatial child : worldManager.getNpcNode().getChildren()) {
@@ -223,8 +243,8 @@ Vector3f spawnPos = new Vector3f(0f, 0.5f, -8f);
         return;
     }
 
-    // ===== ИЩЕМ МОНСТРОВ С УВЕЛИЧЕННЫМ РАДИУСОМ =====
-    Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f); // было 1.2f
+    // ===== ИЩЕМ МОНСТРОВ =====
+    Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f);
     if (clicked != null) {
         String objectName = clicked.getName();
         if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {

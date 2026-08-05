@@ -808,6 +808,86 @@ public class UIManager {
     });
     registerWindow.attachChild(backButton);
 }
+private Container teleporterDialog;
+private boolean teleporterDialogVisible = false;
+
+public void showTeleporterDialog() {
+    if (teleporterDialog == null) {
+        createTeleporterDialog();
+    }
+    if (teleporterDialogVisible) return;
+    teleporterDialogVisible = true;
+    attachNode(teleporterDialog);
+}
+
+// Метод скрытия диалога
+public void hideTeleporterDialog() {
+    if (teleporterDialog != null && teleporterDialogVisible) {
+        detachNode(teleporterDialog);
+        teleporterDialogVisible = false;
+    }
+}
+
+// Создание окна диалога
+private void createTeleporterDialog() {
+    updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
+
+    float winW = 350 * scale;
+    float winH = 160 * scale;
+
+    teleporterDialog = new Container();
+    teleporterDialog.setPreferredSize(new Vector3f(winW, winH, 0));
+    teleporterDialog.setLayout(null);
+    teleporterDialog.setName("TeleporterDialog");
+
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    teleporterDialog.setLocalTranslation(x, y, 0);
+
+    // ===== ФОН (кожаный) =====
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    teleporterDialog.attachChild(bgGeom);
+
+    // ===== Текст вопроса =====
+    Label question = new Label("Teleport to dungeon?");
+    question.setFontSize(22 * scale);
+    question.setColor(ColorRGBA.White);
+    question.setLocalTranslation(winW/2 - 120*scale, winH - 40*scale, 0.1f);
+    teleporterDialog.attachChild(question);
+
+    // ===== Кнопка "Да" =====
+    Button yesButton = new Button("Yes");
+    yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+    yesButton.setFontSize(18 * scale);
+    yesButton.setColor(ColorRGBA.White);
+    yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
+    yesButton.addClickCommands((source) -> {
+        hideTeleporterDialog();
+        // Вызываем телепортацию
+        Main main = (Main) app;
+        if (main != null) {
+            WorldManager wm = main.getWorldManager();
+            if (wm != null) {
+                wm.teleportToDungeon();
+            }
+        }
+    });
+    teleporterDialog.attachChild(yesButton);
+
+    // ===== Кнопка "Нет" =====
+    Button noButton = new Button("No");
+    noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+    noButton.setFontSize(18 * scale);
+    noButton.setColor(ColorRGBA.White);
+    noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
+    noButton.addClickCommands((source) -> {
+        hideTeleporterDialog();
+    });
+    teleporterDialog.attachChild(noButton);
+}
 
     // ===== УПРАВЛЕНИЕ ОКНАМИ =====
     public void showLoginScreen() {
@@ -838,21 +918,22 @@ public class UIManager {
         registerVisible = false;
     }
 
-    public void hideAllWindows() {
-        hideLoginScreen();
-        hideRegisterScreen();
-        if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
-        if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
-        if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
-    }
+public void hideAllWindows() {
+    hideLoginScreen();
+    hideRegisterScreen();
+    hideTeleporterDialog(); // добавить
+    if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
+    if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
+    if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
+}
 
-    public boolean isAnyWindowOpen() {
-        if (loginVisible || registerVisible) return true;
-        if (inventoryManager != null && inventoryManager.isVisible()) return true;
-        if (talentWindow != null && talentWindow.isVisible()) return true;
-        if (traderWindow != null && traderWindow.isVisible()) return true;
-        return false;
-    }
+public boolean isAnyWindowOpen() {
+    if (loginVisible || registerVisible || teleporterDialogVisible) return true;
+    if (inventoryManager != null && inventoryManager.isVisible()) return true;
+    if (talentWindow != null && talentWindow.isVisible()) return true;
+    if (traderWindow != null && traderWindow.isVisible()) return true;
+    return false;
+}
 
     // ===== ОБРАБОТЧИКИ =====
     private void handleLogin(String login, String password) {

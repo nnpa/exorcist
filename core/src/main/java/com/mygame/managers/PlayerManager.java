@@ -518,7 +518,7 @@ public void attackTarget(Spatial target) {
             if (dir.length() > 0.01f) {
                 dir.normalizeLocal();
                 // НЕ УМНОЖАЕМ НА tpf!
-                characterControl.setWalkDirection(dir.mult(4f));
+                characterControl.setWalkDirection(dir.mult(6f));
                 setMoving(true);
                 if (!currentAnimation.equals(ANIM_WALK)) {
                     playAnimation(ANIM_WALK);
@@ -649,7 +649,7 @@ public void attackTarget(Spatial target) {
             playAnimation(ANIM_DIE);
             System.out.println("[Player] Player died!");
         } else {
-            playAnimation(ANIM_HIT);
+           // playAnimation(ANIM_HIT);
         }
         System.out.println("[Player] Taken damage: " + actualDamage + ", HP: " + finalHealth + "/" + finalMaxHealth);
     }
