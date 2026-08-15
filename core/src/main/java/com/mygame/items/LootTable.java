@@ -13,25 +13,36 @@ public class LootTable {
         entries.add(new LootEntry(item, chance));
     }
 
-    public List<Item> rollForLoot() {
-        List<Item> dropped = new ArrayList<>();
-        for (LootEntry entry : entries) {
-            if (random.nextFloat() < entry.chance) {
-                dropped.add(entry.item);
-            }
+    // Основной метод дропа – теперь принимает difficulty
+public List<Item> rollForLoot(int difficulty) {
+    List<Item> dropped = new ArrayList<>();
+    for (LootEntry entry : entries) {
+        if (random.nextFloat() < entry.chance) {
+            dropped.add(entry.item);
         }
-        return dropped;
+    }
+    return dropped;
+}
+
+    // Перегрузка без параметров для обратной совместимости (использует difficulty = 1)
+    public List<Item> rollForLoot() {
+        return rollForLoot(1);
     }
 
-    public static LootTable generateForLevel(int level) {
+    // Генерирует таблицу для уровня с учётом difficulty
+    public static LootTable generateForLevel(int level, int difficulty) {
         LootTable table = new LootTable();
-        // Генерируем 1-3 предмета с разными шансами
         int count = 1 + new Random().nextInt(3);
         for (int i = 0; i < count; i++) {
-            Item item = ItemGenerator.generateItem(level, "Weapon");
+            Item item = ItemGenerator.generateItem(level, "Weapon", difficulty);
             table.addEntry(item, 0.3f + new Random().nextFloat() * 0.4f);
         }
         return table;
+    }
+
+    // Перегрузка для обратной совместимости
+    public static LootTable generateForLevel(int level) {
+        return generateForLevel(level, 1);
     }
 
     private static class LootEntry {

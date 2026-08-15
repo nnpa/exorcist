@@ -19,11 +19,13 @@ import com.mygame.items.Item;
 import com.mygame.items.LootTable;
 import com.mygame.managers.DropManager;
 import com.mygame.managers.PlayerManager;
+import com.mygame.managers.WorldManager;
 
 import java.util.List;
 
 public class Monster {
 
+    // ===== БАЗОВЫЕ ПОЛЯ =====
     private String id;
     private String name;
     private int level;
@@ -34,6 +36,7 @@ public class Monster {
     private float moveSpeed;
     private float aggroRange;
 
+    // ===== МОДЕЛЬ И АНИМАЦИЯ =====
     private Node modelNode;
     private Node healthBarNode;
     private Geometry hpBarBackground;
@@ -42,16 +45,28 @@ public class Monster {
     private Vector3f spawnPosition;
     private Vector3f currentPosition;
 
+    // ===== СИСТЕМЫ =====
     private LootTable lootTable;
     private MonsterAI ai;
     private DropManager dropManager;
+    private PlayerManager playerManager;
+    private WorldManager worldManager; // для смены данжа
 
+    // ===== СОСТОЯНИЕ =====
     private boolean isAlive = true;
     private float deathTimer = -1f;
     private static final float DEATH_DELAY_FALLBACK = 3.0f;
 
+    // ===== ФЛАГИ БОССА (НОВЫЕ ПОЛЯ) =====
+    private boolean isBoss = false;
+    private boolean isFinalBoss = false;
+    private String nextDungeonId = null;
+    private boolean increaseDifficultyOnDeath = false;
+
+    // ===== ВСПОМОГАТЕЛЬНОЕ =====
     private static SimpleApplication app;
 
+    // ===== КОНСТРУКТОРЫ =====
     public Monster() {
         this.ai = new MonsterAI(this);
         System.out.println("[Monster] AI created");
@@ -61,7 +76,7 @@ public class Monster {
         app = application;
     }
 
-    // ===== ГЕТТЕРЫ И СЕТТЕРЫ =====
+    // ===== ГЕТТЕРЫ И СЕТТЕРЫ (базовые) =====
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -90,101 +105,18 @@ public class Monster {
     public void setAggroRange(float aggroRange) { this.aggroRange = aggroRange; }
 
     public Node getModelNode() { return modelNode; }
-
     public void setModelNode(Node modelNode) {
         this.modelNode = modelNode;
         if (modelNode != null) {
             modelNode.rotate(0, -FastMath.HALF_PI, 0);
             modelNode.setName("Monster");
-
             if (spawnPosition != null) modelNode.setLocalTranslation(spawnPosition);
-            this.currentPosition = spawnPosition != null ? spawnPosition.clone() : new Vector3f(0,0,0);
-
+            this.currentPosition = spawnPosition != null ? spawnPosition.clone() : new Vector3f(0, 0, 0);
             animComposer = findAnimComposer(modelNode);
             if (animComposer != null) {
                 animComposer.setCurrentAction("Idle");
             }
-
             createHealthBar();
-        }
-    }
-
-    private void createHealthBar() {
-        if (app == null) {
-            System.err.println("[Monster] app is null, cannot create health bar. Call Monster.setApp() first!");
-            return;
-        }
-
-        healthBarNode = new Node("HealthBarNode");
-        healthBarNode.setQueueBucket(RenderQueue.Bucket.Transparent);
-
-        // ===== УМЕНЬШЕННЫЕ РАЗМЕРЫ =====
-        float barWidth = 1.2f;   // было 2.0f
-        float barHeight = 0.15f; // было 0.25f
-        float yOffset = 1.2f;
-
-        // Фон (серый)
-        Quad bgQuad = new Quad(barWidth, barHeight);
-        hpBarBackground = new Geometry("HPBarBg", bgQuad);
-        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bgMat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.2f, 0.8f));
-        hpBarBackground.setMaterial(bgMat);
-        hpBarBackground.setLocalTranslation(-barWidth/2, yOffset, 0);
-        healthBarNode.attachChild(hpBarBackground);
-
-        // Заполнение (зелёное)
-        Quad fgQuad = new Quad(barWidth - 0.04f, barHeight - 0.04f);
-        hpBarForeground = new Geometry("HPBarFg", fgQuad);
-        Material fgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        fgMat.setColor("Color", ColorRGBA.Green);
-        hpBarForeground.setMaterial(fgMat);
-        hpBarForeground.setLocalTranslation(-(barWidth - 0.04f)/2, yOffset + 0.02f, 0.01f);
-        healthBarNode.attachChild(hpBarForeground);
-
-        // Billboard
-        BillboardControl billboard = new BillboardControl();
-        healthBarNode.addControl(billboard);
-
-        modelNode.attachChild(healthBarNode);
-        System.out.println("[Monster] Health bar created for " + name);
-    }
-
-    public void updateHealthBar() {
-        if (hpBarForeground == null) return;
-
-        float percent = Math.max(0, health / maxHealth);
-        float barWidth = 1.2f - 0.04f; // синхронизация
-        float newWidth = barWidth * percent;
-
-        Quad quad = (Quad) hpBarForeground.getMesh();
-        quad.updateGeometry(newWidth, 0.15f - 0.04f);
-
-        float yOffset = 1.2f;
-        hpBarForeground.setLocalTranslation(-barWidth/2 + 0.02f, yOffset + 0.02f, 0.01f);
-
-        Material mat = hpBarForeground.getMaterial();
-        if (percent > 0.5f) {
-            mat.setColor("Color", ColorRGBA.Green);
-        } else if (percent > 0.25f) {
-            mat.setColor("Color", ColorRGBA.Yellow);
-        } else {
-            mat.setColor("Color", ColorRGBA.Red);
-        }
-    }
-
-    private AnimComposer findAnimComposer(Spatial spatial) {
-        if (spatial instanceof Node) {
-            for (Spatial child : ((Node) spatial).getChildren()) {
-                AnimComposer found = findAnimComposer(child);
-                if (found != null) return found;
-            }
-        }
-        return spatial.getControl(AnimComposer.class);
-    }
-
-    public void playAnimation(String animName) {
-        if (animComposer != null) {
-            animComposer.setCurrentAction(animName);
         }
     }
 
@@ -212,12 +144,30 @@ public class Monster {
     }
 
     public void setPlayerManager(PlayerManager playerManager) {
+        this.playerManager = playerManager;
         if (ai != null) {
             ai.setPlayerManager(playerManager);
-            System.out.println("[Monster] PlayerManager passed to AI");
         }
     }
 
+    public void setWorldManager(WorldManager worldManager) {
+        this.worldManager = worldManager;
+    }
+
+    // ===== НОВЫЕ ГЕТТЕРЫ И СЕТТЕРЫ ДЛЯ БОССОВ =====
+    public boolean isBoss() { return isBoss; }
+    public void setBoss(boolean boss) { isBoss = boss; }
+
+    public boolean isFinalBoss() { return isFinalBoss; }
+    public void setFinalBoss(boolean finalBoss) { isFinalBoss = finalBoss; }
+
+    public String getNextDungeonId() { return nextDungeonId; }
+    public void setNextDungeonId(String nextDungeonId) { this.nextDungeonId = nextDungeonId; }
+
+    public boolean isIncreaseDifficultyOnDeath() { return increaseDifficultyOnDeath; }
+    public void setIncreaseDifficultyOnDeath(boolean increase) { this.increaseDifficultyOnDeath = increase; }
+
+    // ===== ЗДОРОВЬЕ И АНИМАЦИЯ =====
     public void takeDamage(float amount) {
         if (!isAlive) return;
         health -= amount;
@@ -232,21 +182,33 @@ public class Monster {
         }
     }
 
-    private void onDeath() {
-        Action dieAction = animComposer.makeAction("Die");
-        Tween doneTween = Tweens.callMethod(this, "removeModel");
-        Action sequence = animComposer.actionSequence("die_sequence", dieAction, doneTween);
-        animComposer.setCurrentAction("die_sequence");
+    protected void onDeath() {
+        // Анимация смерти и удаление модели
+        if (animComposer != null) {
+            Action dieAction = animComposer.makeAction("Die");
+            Tween doneTween = Tweens.callMethod(this, "removeModel");
+            Action sequence = animComposer.actionSequence("die_sequence", dieAction, doneTween);
+            animComposer.setCurrentAction("die_sequence");
+        } else {
+            removeModel();
+        }
 
         if (healthBarNode != null) {
             healthBarNode.setCullHint(Spatial.CullHint.Always);
         }
 
+        // Дроп предметов
         if (lootTable != null && dropManager != null) {
-            List<Item> items = lootTable.rollForLoot();
+            int difficulty = playerManager != null ? playerManager.getCurrentDifficulty() : 1;
+            List<Item> items = lootTable.rollForLoot(difficulty);
             if (!items.isEmpty()) {
                 dropManager.spawnDrops(currentPosition, items);
             }
+        }
+
+        // ===== ЛОГИКА БОССА: СМЕНА ДАНЖА =====
+        if ((isBoss || isFinalBoss) && nextDungeonId != null && worldManager != null) {
+            worldManager.changeDungeon(nextDungeonId, increaseDifficultyOnDeath);
         }
     }
 
@@ -257,6 +219,73 @@ public class Monster {
         }
     }
 
+    // ===== ПОЛОСКА ЗДОРОВЬЯ =====
+    private void createHealthBar() {
+        if (app == null) {
+            System.err.println("[Monster] app is null, cannot create health bar. Call Monster.setApp() first!");
+            return;
+        }
+        healthBarNode = new Node("HealthBarNode");
+        healthBarNode.setQueueBucket(RenderQueue.Bucket.Transparent);
+
+        float barWidth = 1.2f;
+        float barHeight = 0.15f;
+        float yOffset = 1.2f;
+
+        Quad bgQuad = new Quad(barWidth, barHeight);
+        hpBarBackground = new Geometry("HPBarBg", bgQuad);
+        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        bgMat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.2f, 0.8f));
+        hpBarBackground.setMaterial(bgMat);
+        hpBarBackground.setLocalTranslation(-barWidth/2, yOffset, 0);
+        healthBarNode.attachChild(hpBarBackground);
+
+        Quad fgQuad = new Quad(barWidth - 0.04f, barHeight - 0.04f);
+        hpBarForeground = new Geometry("HPBarFg", fgQuad);
+        Material fgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        fgMat.setColor("Color", ColorRGBA.Green);
+        hpBarForeground.setMaterial(fgMat);
+        hpBarForeground.setLocalTranslation(-(barWidth - 0.04f)/2, yOffset + 0.02f, 0.01f);
+        healthBarNode.attachChild(hpBarForeground);
+
+        BillboardControl billboard = new BillboardControl();
+        healthBarNode.addControl(billboard);
+        modelNode.attachChild(healthBarNode);
+    }
+
+    public void updateHealthBar() {
+        if (hpBarForeground == null) return;
+        float percent = Math.max(0, health / maxHealth);
+        float barWidth = 1.2f - 0.04f;
+        float newWidth = barWidth * percent;
+        Quad quad = (Quad) hpBarForeground.getMesh();
+        quad.updateGeometry(newWidth, 0.15f - 0.04f);
+        float yOffset = 1.2f;
+        hpBarForeground.setLocalTranslation(-barWidth/2 + 0.02f, yOffset + 0.02f, 0.01f);
+        Material mat = hpBarForeground.getMaterial();
+        if (percent > 0.5f) mat.setColor("Color", ColorRGBA.Green);
+        else if (percent > 0.25f) mat.setColor("Color", ColorRGBA.Yellow);
+        else mat.setColor("Color", ColorRGBA.Red);
+    }
+
+    // ===== АНИМАЦИИ =====
+    private AnimComposer findAnimComposer(Spatial spatial) {
+        if (spatial instanceof Node) {
+            for (Spatial child : ((Node) spatial).getChildren()) {
+                AnimComposer found = findAnimComposer(child);
+                if (found != null) return found;
+            }
+        }
+        return spatial.getControl(AnimComposer.class);
+    }
+
+    public void playAnimation(String animName) {
+        if (animComposer != null) {
+            animComposer.setCurrentAction(animName);
+        }
+    }
+
+    // ===== ОБНОВЛЕНИЕ =====
     public void update(float tpf) {
         if (!isAlive) {
             if (deathTimer > 0) {

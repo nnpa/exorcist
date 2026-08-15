@@ -28,7 +28,18 @@ import java.util.Map;
 import java.util.Set;
 
 public class PlayerManager {
+    private Vector3f lastDungeonPosition = new Vector3f(0f, 2.5f, 0f);
 
+public Vector3f getLastDungeonPosition() { return lastDungeonPosition; }
+public void setLastDungeonPosition(Vector3f pos) { 
+    if (pos != null) this.lastDungeonPosition.set(pos);
+}
+    public int getCurrentDifficulty() { return currentDifficulty; }
+public void setCurrentDifficulty(int difficulty) { this.currentDifficulty = difficulty; }
+public String getCurrentDungeonId() { return currentDungeonId; }
+public void setCurrentDungeonId(String dungeonId) { this.currentDungeonId = dungeonId; }
+private int currentDifficulty = 1;
+private String currentDungeonId = "dungeon_1";
     private SimpleApplication app;
     private Node playerNode;
     private BetterCharacterControl characterControl;
@@ -124,6 +135,8 @@ public class PlayerManager {
 
         healthPotions = 3;
         manaPotions = 3;
+        this.currentDifficulty = 1;
+    this.currentDungeonId = "dungeon_1";
     }
 
     // ===== СОЗДАНИЕ BETTERCHARACTERCONTROL С НАСТРОЙКАМИ =====
@@ -337,18 +350,49 @@ public void attackTarget(Spatial target) {
     skillAnimationTimer = 0;
 }
 
-    private void performAttack() {
-        if (currentTarget == null) return;
-        lookAt(currentTarget.getWorldTranslation());
-        float damage = baseDamage + getBonusStat("base_damage");
-        playAnimation(ANIM_ATTACK);
-        skillAnimationTimer = 0.6f;
-        attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
+   private void performAttack() {
+    if (currentTarget == null) return;
+    lookAt(currentTarget.getWorldTranslation());
+    float damage = baseDamage + getBonusStat("base_damage");
+    playAnimation(ANIM_ATTACK);
+    skillAnimationTimer = 0.6f;
+    attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
 
-        Monster monster = worldManager.getMonsterByModel(currentTarget);
-        if (monster != null && monster.isAlive()) {
-            monster.takeDamage(damage);
-            if (!monster.isAlive()) {
+    Monster monster = worldManager.getMonsterByModel(currentTarget);
+    if (monster != null && monster.isAlive()) {
+        monster.takeDamage(damage);
+        if (!monster.isAlive()) {
+            // Убираем генерацию предметов здесь – она теперь в onDeath монстра
+            // Очистка состояния
+            currentTarget = null;
+            isAttacking = false;
+            targetPosition = null;
+            isMovingToTarget = false;
+            setMoving(false);
+            if (characterControl != null) {
+                characterControl.setWalkDirection(Vector3f.ZERO);
+            }
+            playAnimation(ANIM_IDLE);
+        }
+        return;
+    }
+
+    // Старая логика для Geometry (если используется)
+    if (currentTarget instanceof Geometry) {
+        Geometry geom = (Geometry) currentTarget;
+        WorldManager.MonsterData md = worldManager.getMonsterByGeometry(geom);
+        if (md != null && !md.isDead) {
+            md.hp -= (int) damage;
+            if (md.hp <= 0) {
+                md.isDead = true;
+                Vector3f pos = geom.getWorldTranslation();
+                // Если для геометрии нужен дроп – оставляем старый код с ItemGenerator
+                int difficulty = this.getCurrentDifficulty();
+                List<Item> items = ItemGenerator.generateDrop(baseLevel, 3, difficulty);
+                if (dropManager != null) {
+                    dropManager.spawnDrops(pos, items);
+                }
+                geom.setCullHint(Node.CullHint.Always);
                 currentTarget = null;
                 isAttacking = false;
                 targetPosition = null;
@@ -359,39 +403,53 @@ public void attackTarget(Spatial target) {
                 }
                 playAnimation(ANIM_IDLE);
             }
-            return;
-        }
-
-        if (currentTarget instanceof Geometry) {
-            Geometry geom = (Geometry) currentTarget;
-            WorldManager.MonsterData md = worldManager.getMonsterByGeometry(geom);
-            if (md != null && !md.isDead) {
-                md.hp -= (int) damage;
-                if (md.hp <= 0) {
-                    md.isDead = true;
-                    Vector3f pos = geom.getWorldTranslation();
-                    List<Item> items = new ArrayList<>();
-                    for (int i = 0; i < 3; i++) {
-                        items.add(ItemGenerator.generateItem(baseLevel, "Weapon"));
-                    }
-                    if (dropManager != null) {
-                        dropManager.spawnDrops(pos, items);
-                    }
-                    geom.setCullHint(Node.CullHint.Always);
-                    currentTarget = null;
-                    isAttacking = false;
-                    targetPosition = null;
-                    isMovingToTarget = false;
-                    setMoving(false);
-                    if (characterControl != null) {
-                        characterControl.setWalkDirection(Vector3f.ZERO);
-                    }
-                    playAnimation(ANIM_IDLE);
-                }
-            }
         }
     }
+}
+   
+   public void setAlive(boolean alive) {
+    this.isAlive = alive;
+    }
 
+// В respawnPlayer:
+   
+     private void respawnPlayer() {
+        if (isRespawning) return;
+        isRespawning = true;
+
+        System.out.println("[PlayerManager] Respawning player...");
+
+        // 1. Восстанавливаем здоровье и ману
+        setHealth(getMaxHealth());
+        setMana(getMaxMana());
+        setAlive(true);
+
+        // 2. Сбрасываем состояние движения и боя
+        setMoving(false);
+        isMovingToTarget = false;
+        targetPosition = null;
+        currentTarget = null;
+        isAttacking = false;
+        if (characterControl != null) {
+            characterControl.setWalkDirection(Vector3f.ZERO);
+        }
+
+        // 3. Возвращаем в город (через WorldManager)
+        if (worldManager != null) {
+            worldManager.returnToCity();
+        }
+
+        // 4. Сбрасываем анимацию на Idle
+        playAnimation(ANIM_IDLE);
+
+        // 5. Сбрасываем таймер смерти
+        deathTimer = 0f;
+        isRespawning = false;
+
+        System.out.println("[PlayerManager] Respawn complete.");
+    }
+    private float deathTimer = 0f;
+    private boolean isRespawning = false;
     private void dealDamageToTarget(float amount) {
         if (currentTarget == null) return;
         System.out.println("[Player] Damage dealt: " + amount + " to " + currentTarget.getName());
@@ -475,6 +533,16 @@ public void attackTarget(Spatial target) {
 
     // ---------- ОБНОВЛЕНИЕ (СО ВСЕМИ ИСПРАВЛЕНИЯМИ) ----------
     public void update(float tpf) {
+        
+        if (!isAlive) {
+            deathTimer += tpf;
+            if (deathTimer >= 0.3f && !isRespawning) {
+                respawnPlayer();
+            }
+            // Не выполняем остальную логику, пока мёртв
+            return;
+        }
+        
         coordsLogTimer += tpf;
     if (coordsLogTimer >= 0.5f) { // каждые 0.5 секунды
         coordsLogTimer = 0f;
@@ -649,9 +717,8 @@ public void attackTarget(Spatial target) {
             playAnimation(ANIM_DIE);
             System.out.println("[Player] Player died!");
         } else {
-           // playAnimation(ANIM_HIT);
+            //playAnimation(ANIM_HIT);
         }
-        System.out.println("[Player] Taken damage: " + actualDamage + ", HP: " + finalHealth + "/" + finalMaxHealth);
     }
 
     public void heal(int amount) {

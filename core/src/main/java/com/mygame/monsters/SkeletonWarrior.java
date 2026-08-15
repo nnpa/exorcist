@@ -21,15 +21,15 @@ public class SkeletonWarrior extends Monster {
         // Таблица дропа – только одеваемые предметы
         LootTable loot = new LootTable();
         
-        // Генерируем только стандартные типы: Weapon, Helmet, Chest, Shield, Legs, Boots, Gloves
-        // Шансы можно настроить
-        loot.addEntry(ItemGenerator.generateItem(1, "Weapon"), 0.25f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Helmet"), 0.2f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Chest"), 0.2f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Shield"), 0.15f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Legs"), 0.2f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Boots"), 0.15f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Gloves"), 0.15f);
+        // Передаём difficulty = 1 для базовых монстров (в реальности сложность будет передаваться из DungeonLoader)
+        int diff = 1;
+        loot.addEntry(ItemGenerator.generateItem(1, "Weapon", diff), 0.25f);
+        loot.addEntry(ItemGenerator.generateItem(1, "Helmet", diff), 0.2f);
+        loot.addEntry(ItemGenerator.generateItem(1, "Chest", diff), 0.2f);
+        loot.addEntry(ItemGenerator.generateItem(1, "Shield", diff), 0.15f);
+        loot.addEntry(ItemGenerator.generateItem(1, "Legs", diff), 0.2f);
+        loot.addEntry(ItemGenerator.generateItem(1, "Boots", diff), 0.15f);
+        loot.addEntry(ItemGenerator.generateItem(1, "Gloves", diff), 0.15f);
 
         setLootTable(loot);
     }

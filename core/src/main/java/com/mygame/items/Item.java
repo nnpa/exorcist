@@ -13,6 +13,8 @@ public class Item {
     private String description;
     private int damage;
     private int defense;
+    private int healthBonus;
+    private int manaBonus;
     private String iconPath;
     private int socketCount;
     private List<String> runes;
@@ -25,7 +27,7 @@ public class Item {
     }
 
     public Item(String id, String name, String type, int level, ItemRarity rarity, String description,
-                int damage, int defense, String iconPath) {
+                int damage, int defense, int healthBonus, int manaBonus, String iconPath) {
         this.id = id;
         this.name = name;
         this.type = type;
@@ -34,6 +36,8 @@ public class Item {
         this.description = description;
         this.damage = damage;
         this.defense = defense;
+        this.healthBonus = healthBonus;
+        this.manaBonus = manaBonus;
         this.iconPath = iconPath;
         this.socketCount = 0;
         this.runes = new ArrayList<>();
@@ -64,6 +68,12 @@ public class Item {
 
     public int getDefense() { return defense; }
     public void setDefense(int defense) { this.defense = defense; }
+
+    public int getHealthBonus() { return healthBonus; }
+    public void setHealthBonus(int healthBonus) { this.healthBonus = healthBonus; }
+
+    public int getManaBonus() { return manaBonus; }
+    public void setManaBonus(int manaBonus) { this.manaBonus = manaBonus; }
 
     public String getIconPath() { return iconPath; }
     public void setIconPath(String iconPath) { this.iconPath = iconPath; }

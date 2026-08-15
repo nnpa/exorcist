@@ -972,10 +972,7 @@ public boolean isAnyWindowOpen() {
         pm.setManaPotions(3);
 
         InventoryManager im = main.getInventoryManager();
-        if (im != null) {
-            im.addItem(ItemGenerator.generateItem(1, "Weapon"));
-            im.addItem(ItemGenerator.generateItem(1, "Helmet"));
-        }
+
 
         GameManager gm = main.getGameManager();
         if (gm != null) {

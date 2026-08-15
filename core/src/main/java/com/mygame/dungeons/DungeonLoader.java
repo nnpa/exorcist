@@ -1,86 +1,243 @@
 package com.mygame.dungeons;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.jme3.app.SimpleApplication;
-import com.jme3.asset.AssetInfo;
-import com.jme3.asset.AssetKey;
+import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.control.RigidBodyControl;
+import com.jme3.bullet.util.CollisionShapeFactory;
+import com.jme3.material.Material;
+import com.jme3.math.ColorRGBA;
+import com.jme3.math.FastMath;
+import com.jme3.math.Vector3f;
+import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
+import com.jme3.scene.shape.Box;
 import com.mygame.managers.DropManager;
 import com.mygame.managers.PlayerManager;
+import com.mygame.managers.WorldManager;
 import com.mygame.monsters.Monster;
-import com.mygame.monsters.MonsterFactory;
+import com.mygame.monsters.SkeletonWarrior;
+import com.mygame.monsters.BossMonster;
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DungeonLoader {
 
+    private static final Logger LOG = Logger.getLogger(DungeonLoader.class.getName());
+
     private SimpleApplication app;
-    private Gson gson = new Gson();
-    private DropManager dropManager;
     private PlayerManager playerManager;
+    private DropManager dropManager;
+    private WorldManager worldManager;
+    private BulletAppState bulletAppState;
 
     public DungeonLoader(SimpleApplication app) {
         this.app = app;
     }
 
-    public void setDropManager(DropManager dm) { this.dropManager = dm; }
-    public void setPlayerManager(PlayerManager pm) { this.playerManager = pm; }
+    public void setPlayerManager(PlayerManager pm) {
+        this.playerManager = pm;
+    }
 
-    public Dungeon loadDungeon(String path) {
+    public void setDropManager(DropManager dm) {
+        this.dropManager = dm;
+    }
+
+    public void setWorldManager(WorldManager wm) {
+        this.worldManager = wm;
+    }
+
+    public void setBulletAppState(BulletAppState bas) {
+        this.bulletAppState = bas;
+    }
+
+    public Dungeon loadDungeon(String filePath) {
         try {
-            AssetKey<Object> key = new AssetKey<>(path);
-            AssetInfo info = app.getAssetManager().locateAsset(key);
-            if (info == null) {
-                System.err.println("[DungeonLoader] Asset not found: " + path);
+            InputStream is = getClass().getClassLoader().getResourceAsStream(filePath);
+            if (is == null) {
+                LOG.warning("File not found: " + filePath);
                 return null;
             }
-            InputStreamReader reader = new InputStreamReader(info.openStream());
-            return gson.fromJson(reader, Dungeon.class);
+            InputStreamReader reader = new InputStreamReader(is);
+            Gson gson = new Gson();
+            Type listType = new TypeToken<List<MonsterSpawnData>>(){}.getType();
+            List<MonsterSpawnData> spawnDataList = gson.fromJson(reader, listType);
+            reader.close();
+
+            String id = filePath.substring(filePath.lastIndexOf('/') + 1, filePath.lastIndexOf('.'));
+            Dungeon dungeon = new Dungeon(id);
+            for (MonsterSpawnData data : spawnDataList) {
+                dungeon.addSpawn(new Dungeon.MonsterSpawn(
+                    data.className,
+                    data.x, data.y, data.z,
+                    data.level,
+                    data.health,
+                    data.damage,
+                    data.nextDungeon,
+                    data.isBoss,
+                    data.isFinalBoss,
+                    data.increaseDifficulty
+                ));
+            }
+            return dungeon;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.log(Level.SEVERE, "Error loading dungeon: " + e.getMessage(), e);
             return null;
         }
     }
 
-    public List<Monster> spawnDungeon(Dungeon dungeon, Node worldNode) {
+    public List<Monster> spawnDungeon(Dungeon dungeon, Node parentNode, int difficulty) {
         List<Monster> spawned = new ArrayList<>();
-        if (dungeon == null || worldNode == null) return spawned;
+
+        createDungeonScene(parentNode, dungeon.getId());
 
         for (Dungeon.MonsterSpawn spawn : dungeon.getSpawns()) {
             try {
-                Monster monster = MonsterFactory.createMonster(spawn.monsterClass);
+                Monster monster = createMonster(spawn, difficulty);
                 if (monster == null) continue;
 
-                monster.setSpawnPosition(spawn.getPosition());
+                Vector3f pos = new Vector3f(spawn.x, spawn.y, spawn.z);
+                monster.setSpawnPosition(pos);
+                monster.setPosition(pos);
+                monster.setPlayerManager(playerManager);
                 monster.setDropManager(dropManager);
-                if (playerManager != null) {
-                    monster.setPlayerManager(playerManager);
-                }
+                monster.setWorldManager(worldManager);
 
-                // Загружаем модель
-                try {
-                    Node model = (Node) app.getAssetManager().loadModel("Models/Monsters/" + monster.getId() + ".gltf");
-                    if (model != null) {
-                        monster.setModelNode(model);
-                        worldNode.attachChild(model);
-                    } else {
-                        System.err.println("[DungeonLoader] Model not found for " + monster.getId());
-                        continue;
-                    }
-                } catch (Exception e) {
-                    System.err.println("[DungeonLoader] Error loading model for " + monster.getId());
-                    e.printStackTrace();
-                    continue;
+                // ===== ЗАГРУЖАЕМ МОДЕЛЬ МОНСТРА =====
+                Spatial model = loadMonsterModel(monster);
+                Node modelNode = new Node("MonsterNode");
+                if (model != null) {
+                    modelNode.attachChild(model);
+                } else {
+                    // Если модель не загрузилась – красный куб
+                    Geometry box = new Geometry("Monster", new Box(0.5f, 0.5f, 0.5f));
+                    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+                    mat.setColor("Color", ColorRGBA.Red);
+                    box.setMaterial(mat);
+                    modelNode.attachChild(box);
                 }
+                modelNode.setLocalTranslation(pos);
+                monster.setModelNode(modelNode);
 
+                parentNode.attachChild(modelNode);
                 spawned.add(monster);
             } catch (Exception e) {
-                System.err.println("[DungeonLoader] Error spawning monster: " + spawn.monsterClass);
-                e.printStackTrace();
+                LOG.log(Level.SEVERE, "Error creating monster: " + e.getMessage(), e);
             }
         }
+
         return spawned;
+    }
+
+    private Monster createMonster(Dungeon.MonsterSpawn spawn, int difficulty) {
+        try {
+            Class<?> clazz = Class.forName(spawn.className);
+            Constructor<?> ctor = clazz.getDeclaredConstructor();
+            Monster monster = (Monster) ctor.newInstance();
+
+            monster.setLevel(spawn.level);
+            float health = spawn.health * difficulty;
+            float damage = spawn.damage * difficulty;
+            monster.setMaxHealth(health);
+            monster.setHealth(health);
+            monster.setDamage(damage);
+
+            monster.setBoss(spawn.isBoss);
+            monster.setFinalBoss(spawn.isFinalBoss);
+            monster.setNextDungeonId(spawn.nextDungeon);
+            monster.setIncreaseDifficultyOnDeath(spawn.increaseDifficulty);
+
+            return monster;
+        } catch (Exception e) {
+            LOG.log(Level.SEVERE, "Reflection error: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    // ===== ЗАГРУЗКА МОДЕЛИ МОНСТРА ПО ЕГО КЛАССУ =====
+    private Spatial loadMonsterModel(Monster monster) {
+        String modelPath = null;
+
+        // Определяем путь к модели в зависимости от класса монстра
+        if (monster instanceof SkeletonWarrior) {
+            modelPath = "Models/Monsters/skeleton_warrior.gltf";
+        } else if (monster instanceof BossMonster) {
+            modelPath = "Models/Monsters/boss_monster.gltf"; // если есть такая модель
+        } else {
+            // По умолчанию – скелет
+            modelPath = "Models/Monsters/skeleton_warrior.gltf";
+        }
+
+        try {
+            Spatial model = app.getAssetManager().loadModel(modelPath);
+            if (model != null) {
+                // Применяем трансформации, если нужно
+                model.scale(2.0f);
+                model.move(0, 0.5f, 0);
+                return model;
+            } else {
+                LOG.warning("Model not found for: " + monster.getClass().getSimpleName());
+            }
+        } catch (Exception e) {
+            LOG.warning("Error loading model " + modelPath + ": " + e.getMessage());
+        }
+        return null;
+    }
+
+    private void createDungeonScene(Node parentNode, String dungeonId) {
+        // ... (без изменений, как было)
+        try {
+            Spatial sceneModel = app.getAssetManager().loadModel("Models/Dungeons/" + dungeonId + ".gltf");
+            if (sceneModel != null) {
+                if (bulletAppState != null) {
+                    CollisionShape shape = CollisionShapeFactory.createMeshShape(sceneModel);
+                    RigidBodyControl physics = new RigidBodyControl(shape, 0);
+                    sceneModel.addControl(physics);
+                    bulletAppState.getPhysicsSpace().add(physics);
+                }
+                parentNode.attachChild(sceneModel);
+                LOG.info("Dungeon scene model loaded for " + dungeonId);
+                return;
+            }
+        } catch (Exception e) {
+            LOG.warning("No scene model found for " + dungeonId + ", creating default floor.");
+        }
+
+        Box floorBox = new Box(20f, 0.1f, 20f);
+        Geometry floor = new Geometry("DungeonFloor", floorBox);
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setColor("Color", new ColorRGBA(0.2f, 0.15f, 0.1f, 1f));
+        floor.setMaterial(mat);
+        floor.move(0, -0.05f, 0);
+
+        if (bulletAppState != null) {
+            RigidBodyControl floorPhysics = new RigidBodyControl(0f);
+            floor.addControl(floorPhysics);
+            bulletAppState.getPhysicsSpace().add(floorPhysics);
+        }
+
+        parentNode.attachChild(floor);
+    }
+
+    // Класс для десериализации JSON
+    private static class MonsterSpawnData {
+        String className;
+        float x, y, z;
+        int level;
+        float health, damage;
+        String nextDungeon;
+        boolean isBoss;
+        boolean isFinalBoss;
+        boolean increaseDifficulty;
     }
 }

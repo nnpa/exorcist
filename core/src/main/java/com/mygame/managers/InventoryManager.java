@@ -99,19 +99,7 @@ public class InventoryManager {
     }
 
     private void generateTestItems() {
-        for (int i = 0; i < 8; i++) {
-            Item item = ItemGenerator.generateItem(1, "Weapon");
-            inventoryItems.add(item);
-        }
-        for (int i = 0; i < 5; i++) {
-            Item item = ItemGenerator.generateItem(1, "Helmet");
-            inventoryItems.add(item);
-        }
-        inventoryItems.add(ItemGenerator.generateItem(1, "Chest"));
-        inventoryItems.add(ItemGenerator.generateItem(1, "Shield"));
-        inventoryItems.add(ItemGenerator.generateItem(1, "Legs"));
-        inventoryItems.add(ItemGenerator.generateItem(1, "Boots"));
-        inventoryItems.add(ItemGenerator.generateItem(1, "Gloves"));
+        
     }
 
     private Geometry createBackground(float x, float y, float w, float h, ColorRGBA color) {

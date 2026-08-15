@@ -1,0 +1,58 @@
+[
+
+  {
+    "className": "com.mygame.monsters.BossMonster",
+    "x": 0.0,
+    "y": 0.0,
+    "z": -5.0,
+    "level": 3,
+    "health": 50,
+    "damage": 25,
+    "nextDungeon": "dungeon_2",
+    "isBoss": true,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  }
+/**
+  {
+    "className": "com.mygame.monsters.SkeletonWarrior",
+    "x": 2.0,
+    "y": 0.0,
+    "z": 3.0,
+    "level": 1,
+    "health": 100,
+    "damage": 10,
+    "nextDungeon": null,
+    "isBoss": false,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  }
+
+  {
+    "className": "com.mygame.monsters.SkeletonWarrior",
+    "x": -2.0,
+    "y": 0.0,
+    "z": -1.0,
+    "level": 1,
+    "health": 100,
+    "damage": 10,
+    "nextDungeon": null,
+    "isBoss": false,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  },
+  {
+    "className": "com.mygame.monsters.BossMonster",
+    "x": 0.0,
+    "y": 0.0,
+    "z": -5.0,
+    "level": 3,
+    "health": 300,
+    "damage": 25,
+    "nextDungeon": "dungeon_2",
+    "isBoss": true,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  }
+**/
+]

@@ -1,43 +1,42 @@
 package com.mygame.dungeons;
 
-import com.jme3.math.Vector3f;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Представляет данж со списком спавнов монстров.
- */
 public class Dungeon {
     private String id;
-    private String name;
-    private int level;
     private List<MonsterSpawn> spawns = new ArrayList<>();
 
-    // Геттеры и сеттеры
+    public Dungeon(String id) {
+        this.id = id;
+    }
+
     public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public int getLevel() { return level; }
-    public void setLevel(int level) { this.level = level; }
-
     public List<MonsterSpawn> getSpawns() { return spawns; }
-    public void setSpawns(List<MonsterSpawn> spawns) { this.spawns = spawns; }
+    public void addSpawn(MonsterSpawn spawn) { spawns.add(spawn); }
 
-    /**
-     * Внутренний класс для описания спавна монстра.
-     */
     public static class MonsterSpawn {
-        public String monsterClass; // полное имя класса, например "com.mygame.monsters.SkeletonWarrior"
-        public float x;
-        public float y;
-        public float z;
+        public String className;
+        public float x, y, z;
+        public int level;
+        public float health, damage;
+        public String nextDungeon;          // следующий данж после босса
+        public boolean isBoss;              // флаг босса
+        public boolean isFinalBoss;         // финальный босс (увеличивает сложность)
+        public boolean increaseDifficulty;  // увеличивать ли сложность после смерти
 
-        public Vector3f getPosition() {
-            return new Vector3f(x, y, z);
+        public MonsterSpawn(String className, float x, float y, float z, int level,
+                            float health, float damage, String nextDungeon,
+                            boolean isBoss, boolean isFinalBoss, boolean increaseDifficulty) {
+            this.className = className;
+            this.x = x; this.y = y; this.z = z;
+            this.level = level;
+            this.health = health;
+            this.damage = damage;
+            this.nextDungeon = nextDungeon;
+            this.isBoss = isBoss;
+            this.isFinalBoss = isFinalBoss;
+            this.increaseDifficulty = increaseDifficulty;
         }
     }
 }

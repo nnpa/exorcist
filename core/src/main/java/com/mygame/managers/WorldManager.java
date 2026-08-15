@@ -15,6 +15,7 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
+import com.mygame.Main;
 import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.SkeletonWarrior;
@@ -64,18 +65,21 @@ public class WorldManager {
         System.out.println("[WorldManager] Initializing...");
         app.getRootNode().attachChild(worldNode);
         addLighting();
-        
+
         worldNode.attachChild(cityNode);
         worldNode.attachChild(dungeonNode);
         worldNode.attachChild(npcNode);
-        
+
         cityNode.setCullHint(Node.CullHint.Always);
         dungeonNode.setCullHint(Node.CullHint.Always);
         npcNode.setCullHint(Node.CullHint.Always);
 
         dungeonLoader = new DungeonLoader(app);
         dungeonManager = new DungeonManager();
-        
+
+        // Передаём ссылку на этот WorldManager в DungeonLoader
+        dungeonLoader.setWorldManager(this);
+
         System.out.println("[WorldManager] Initialization complete");
     }
 
@@ -102,79 +106,31 @@ public class WorldManager {
         sun.setColor(ColorRGBA.White);
         worldNode.addLight(sun);
     }
-private void createTeleporter() {
-    System.out.println("[WorldManager] Loading Teleporter model from: Models/City/NPC/Teleport/Teleport.gltf");
-    try {
-        Spatial teleporterModel = app.getAssetManager().loadModel("Models/City/NPC/Teleport/teleport.gltf");
-        if (teleporterModel != null) {
-            teleporterModel.setName("Teleporter");
-            teleporterModel.scale(2.5f); // возможно, подобрать масштаб
-            Vector3f pos = new Vector3f(-3.711333f, -1.9884592f, -11.55361f);
-            pos.y += 0.7f; // поднять на 2 единицы
-            teleporterModel.setLocalTranslation(pos);
-            teleporterModel.rotate(0, -FastMath.HALF_PI / 2.0f, 0); // 30 градусов = PI/6 ≈ 0.5236, но -0.5236 для по часовой
 
-            cityNode.attachChild(teleporterModel);
-            this.teleporter = teleporterModel;
-            System.out.println("[WorldManager] Teleporter model loaded and placed at (0, 0, -8)");
-        } else {
-            System.err.println("[WorldManager] Teleporter model is NULL, creating placeholder.");
-            createTeleporterPlaceholder();
-        }
-    } catch (Exception e) {
-        System.err.println("[WorldManager] Error loading Teleporter: " + e.getMessage());
-        createTeleporterPlaceholder();
-    }
-}
-
-private void createTeleporterPlaceholder() {
-    Box box = new Box(0.8f, 0.8f, 0.8f);
-    Geometry teleporterGeom = new Geometry("Teleporter", box);
-    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-    mat.setColor("Color", new ColorRGBA(1f, 0.4f, 0.8f, 1f));
-    teleporterGeom.setMaterial(mat);
-    teleporterGeom.setName("Teleporter");
-    teleporterGeom.setLocalTranslation(0f, 0.8f, -8f);
-    cityNode.attachChild(teleporterGeom);
-    this.teleporter = teleporterGeom;
-    System.out.println("[WorldManager] Teleporter placeholder created at (0, 0.8, -8)");
-}
-
-// Добавить метод для телепортации игрока в данж
-public void teleportToDungeon() {
-    if (playerManager == null) return;
-    // Сохраняем текущую позицию в городе (опционально)
-    // Переключаемся на данж
-    loadDungeon("dungeon_1"); // предполагаем, что есть такой метод
-    // Перемещаем игрока в точку спавна данжа
-    playerManager.setPosition(new Vector3f(0f, 2.5f, 0f));
-    if (playerManager.getCharacterControl() != null) {
-        playerManager.getCharacterControl().warp(new Vector3f(0f, 2.5f, 0f));
-    }
-    System.out.println("[WorldManager] Игрок телепортирован в данж");
-}
     // ============================================================
-    //   loadCityWithPhysics()
+    //   ЗАГРУЗКА ГОРОДА
     // ============================================================
     public void loadCityWithPhysics() {
         System.out.println("[WorldManager] ===== LOADING CITY WITH PHYSICS =====");
-        
-        // Очищаем
-        cityNode.detachAllChildren();
+
+        // Очищаем город и удаляем его физику
+        if (cityNode != null) {
+            removePhysicsFromNode(cityNode);
+            cityNode.detachAllChildren();
+        }
         npcNode.detachAllChildren();
         monsters.clear();
         activeMonsters.clear();
         testMonsterSpawned = false;
-        
+
         createCityScene();
         loadNPCs();
         createInteractiveObjects();
-        spawnTestMonster(); // Оригинальный метод с SkeletonWarrior
-        createTeleporter();
+        spawnTestMonster();
 
         cityNode.setCullHint(Node.CullHint.Dynamic);
         npcNode.setCullHint(Node.CullHint.Dynamic);
-        
+
         System.out.println("[WorldManager] City loaded!");
     }
 
@@ -218,7 +174,7 @@ public void teleportToDungeon() {
 
     private void createFallbackCity() {
         System.out.println("[WorldManager] Creating fallback city...");
-        
+
         Box floorBox = new Box(30, 0.1f, 30);
         Geometry floor = new Geometry("CityFloor", floorBox);
         floor.setName("Ground");
@@ -227,7 +183,7 @@ public void teleportToDungeon() {
         floor.setMaterial(mat);
         floor.move(0, -0.05f, 0);
         cityNode.attachChild(floor);
-        
+
         if (bulletAppState != null) {
             RigidBodyControl floorPhysics = new RigidBodyControl(0);
             floor.addControl(floorPhysics);
@@ -237,212 +193,179 @@ public void teleportToDungeon() {
     }
 
     // ============================================================
-    //   NPC (КУЗНЕЦ И ТОРГОВЕЦ)
+    //   NPC
     // ============================================================
     private void loadNPCs() {
         System.out.println("[WorldManager] Loading NPCs...");
-        
-        // ===== КУЗНЕЦ (Black) =====
+
         loadBlacksmith();
-        
-        // ===== ТОРГОВЕЦ (зеленый куб) =====
         createTraderNPC();
-        
+
         System.out.println("[WorldManager] NPCs loaded");
     }
 
     private void loadBlacksmith() {
-    System.out.println("[WorldManager] Loading Blacksmith from: Models/City/NPC/Black/black.gltf");
-    try {
-        Spatial blacksmith = app.getAssetManager().loadModel("Models/City/NPC/Black/black.gltf");
-        if (blacksmith != null) {
-            System.out.println("[WorldManager] Blacksmith model loaded successfully!");
-            blacksmith.scale(0.7f);
-            blacksmith.rotate(0, FastMath.PI, 0);
-            blacksmith.setLocalTranslation(11.341951f, -1.9861704f, -6.05198f);
-            blacksmith.setName("NPC_Blacksmith");
-            npcNode.attachChild(blacksmith);
-            System.out.println("[WorldManager] Blacksmith placed at (11.342, -1.986, -6.052)");
-        } else {
-            System.err.println("[WorldManager] Blacksmith model is NULL! Skipping placeholder.");
-            // Убрали createBlacksmithPlaceholder()
+        System.out.println("[WorldManager] Loading Blacksmith from: Models/City/NPC/Black/black.gltf");
+        try {
+            Spatial blacksmith = app.getAssetManager().loadModel("Models/City/NPC/Black/black.gltf");
+            if (blacksmith != null) {
+                System.out.println("[WorldManager] Blacksmith model loaded successfully!");
+                blacksmith.scale(0.7f);
+                blacksmith.rotate(0, FastMath.PI, 0);
+                blacksmith.setLocalTranslation(11.341951f, -1.9861704f, -6.05198f);
+                blacksmith.setName("NPC_Blacksmith");
+                npcNode.attachChild(blacksmith);
+                System.out.println("[WorldManager] Blacksmith placed at (11.342, -1.986, -6.052)");
+            } else {
+                System.err.println("[WorldManager] Blacksmith model is NULL!");
+            }
+        } catch (Exception e) {
+            System.err.println("[WorldManager] Error loading Blacksmith: " + e.getMessage());
         }
-    } catch (Exception e) {
-        System.err.println("[WorldManager] Error loading Blacksmith: " + e.getMessage());
-        // Убрали createBlacksmithPlaceholder()
-    }
-}
-
-    private void createBlacksmithPlaceholder() {
-        System.out.println("[WorldManager] Creating Blacksmith placeholder...");
-        
-        Node npcNodeLocal = new Node("BlacksmithPlaceholder");
-        
-        Geometry body = new Geometry("Body", new Box(0.3f, 0.5f, 0.2f));
-        Material bodyMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bodyMat.setColor("Color", new ColorRGBA(0.2f, 0.3f, 0.8f, 1f));
-        body.setMaterial(bodyMat);
-        body.move(0, 0.5f, 0);
-        npcNodeLocal.attachChild(body);
-        
-        Geometry head = new Geometry("Head", new com.jme3.scene.shape.Sphere(8, 8, 0.15f));
-        Material headMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        headMat.setColor("Color", new ColorRGBA(0.9f, 0.7f, 0.5f, 1f));
-        head.setMaterial(headMat);
-        head.move(0, 1.1f, 0);
-        npcNodeLocal.attachChild(head);
-        
-        npcNodeLocal.setLocalTranslation(6f, 0f, 3f);
-        npcNodeLocal.setName("NPC_Blacksmith");
-        npcNode.attachChild(npcNodeLocal);
-        
-        System.out.println("[WorldManager] Blacksmith placeholder at (6, 0, 3)");
     }
 
-// ============================================================
-//   ТОРГОВЕЦ (trade.gltf) — с ручным позиционированием
-// ============================================================
-private void createTraderNPC() {
-    System.out.println("[WorldManager] Loading Trader NPC from: Models/City/NPC/Trade/trade.gltf");
-    try {
-        Spatial trader = app.getAssetManager().loadModel("Models/City/NPC/Trade/trade.gltf");
-        if (trader != null) {
-            trader.scale(0.65f);
-            trader.rotate(0, FastMath.PI, 0);
-            trader.setLocalTranslation(9.285181f, -0.5f, 10.98106f); // подберите Y под вашу модель
-            trader.setName("NPC_Trader");
-            npcNode.attachChild(trader);
-            System.out.println("[WorldManager] Trader NPC placed at (9.285, -0.5, 10.981)");
-        } else {
-            System.err.println("[WorldManager] Trader model is NULL! Skipping placeholder.");
-            // Убрали createTraderPlaceholder()
+    private void createTraderNPC() {
+        System.out.println("[WorldManager] Loading Trader NPC from: Models/City/NPC/Trade/trade.gltf");
+        try {
+            Spatial trader = app.getAssetManager().loadModel("Models/City/NPC/Trade/trade.gltf");
+            if (trader != null) {
+                trader.scale(0.65f);
+                trader.rotate(0, FastMath.PI, 0);
+                trader.setLocalTranslation(9.285181f, -0.5f, 10.98106f);
+                trader.setName("NPC_Trader");
+                npcNode.attachChild(trader);
+                System.out.println("[WorldManager] Trader NPC placed at (9.285, -0.5, 10.981)");
+            } else {
+                System.err.println("[WorldManager] Trader model is NULL!");
+            }
+        } catch (Exception e) {
+            System.err.println("[WorldManager] Error loading Trader: " + e.getMessage());
         }
-    } catch (Exception e) {
-        System.err.println("[WorldManager] Error loading Trader: " + e.getMessage());
-        // Убрали createTraderPlaceholder()
     }
-}
 
-private void createTraderPlaceholder() {
-    Box npcBox = new Box(0.5f, 0.8f, 0.5f); // чуть выше
-    Geometry npc = new Geometry("NPC_Trader_Placeholder", npcBox);
-    npc.setName("NPC_Trader");
-    Material npcMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-    npcMat.setColor("Color", ColorRGBA.Green);
-    npc.setMaterial(npcMat);
-    npc.setLocalTranslation(9.285181f, 0.8f, 10.98106f); // половинка высоты
-    npcNode.attachChild(npc);
-    System.out.println("[WorldManager] Trader placeholder at (9.285, 0.8, 10.981)");
-}
     // ============================================================
     //   ИНТЕРАКТИВНЫЕ ОБЪЕКТЫ
     // ============================================================
     private void createInteractiveObjects() {
         System.out.println("[WorldManager] Creating interactive objects...");
-        
-        
-    }
-private Spatial teleporter;
 
-    // ============================================================
-    //   ТЕСТОВЫЙ МОНСТР (ОРИГИНАЛЬНЫЙ SKELETON WARRIOR)
-    // ============================================================
-   public void spawnTestMonster() {
-    System.out.println("[WorldManager] spawnTestMonster() CALLED!");
-    if (testMonsterSpawned) {
-        System.out.println("[WorldManager] Already spawned, skipping");
-        return;
-    }
-    if (playerManager == null) {
-        System.err.println("[WorldManager] PlayerManager is NULL!");
-        return;
-    }
-    if (dropManager == null) {
-        System.err.println("[WorldManager] DropManager is NULL!");
-        return;
+        // Портал
+        Sphere portalSphere = new Sphere(16, 16, 1.5f);
+        Geometry portal = new Geometry("Portal", portalSphere);
+        portal.setName("Portal");
+        Material portalMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        portalMat.setColor("Color", new ColorRGBA(0.2f, 0.6f, 1.0f, 0.7f));
+        portal.setMaterial(portalMat);
+        portal.move(5, 1.5f, 5);
+        cityNode.attachChild(portal);
+        System.out.println("[WorldManager] Portal at (5, 1.5, 5)");
+
+        // Телепортер (розовый куб)
+        createTeleporter();
     }
 
-    // Создаём скелета
-    Monster skeleton = new SkeletonWarrior();
-    Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f); // XZ остаются, Y пока 0
-    skeleton.setSpawnPosition(spawnPos);
-    skeleton.setPlayerManager(playerManager);
-    skeleton.setDropManager(dropManager);
+    private Spatial teleporter;
 
-    Spatial model = null;
+private void createTeleporter() {
+    System.out.println("[WorldManager] Loading Teleporter model from: Models/City/NPC/Teleport/teleport.gltf");
     try {
-        System.out.println("[WorldManager] Loading model: Models/Monsters/skeleton_warrior.gltf");
-        model = app.getAssetManager().loadModel("Models/Monsters/skeleton_warrior.gltf");
-    } catch (Exception e) {
-        System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
-        e.printStackTrace();
-    }
-
-    Node targetNode = cityNode;
-
-    if (model != null) {
-        model.setName("Monster");
-        System.out.println("[WorldManager] Model loaded successfully!");
-        
-        // ===== 1. СНАЧАЛА МАСШТАБ И ПОВОРОТ =====
-        model.scale(2.0f);
-        // Поворот не трогаем, если модель уже повёрнута правильно
-        
-        // ===== 2. ОБНОВЛЯЕМ BOUND, ЧТОБЫ ВЫЧИСЛИТЬ РАЗМЕР =====
-        model.updateModelBound();
-        com.jme3.bounding.BoundingBox bb = (com.jme3.bounding.BoundingBox) model.getWorldBound();
-        float bottomY = bb.getCenter().y - bb.getYExtent();
-        System.out.println("[WorldManager] Skeleton bottomY = " + bottomY + ", centerY = " + bb.getCenter().y);
-        
-        // ===== 3. СМЕЩАЕМ МОДЕЛЬ ТАК, ЧТОБЫ bottomY = 0 =====
-        float offsetY = -bottomY; // поднимаем так, чтобы низ был на 0
-        model.move(0, offsetY, 0); // теперь ноги будут на Y=0
-        
-        // ===== 4. УСТАНАВЛИВАЕМ КОНЕЧНУЮ ПОЗИЦИЮ =====
-        // Если хотим, чтобы скелет стоял на земле, Y уже не нужен (он уже в offsetY)
-        // Но координата XZ остаётся из spawnPos
-        model.setLocalTranslation(spawnPos.x, 0, spawnPos.z); // Y=0, т.к. мы сместили модель
-        
-        skeleton.setModelNode((Node) model);
-        targetNode.attachChild(model);
-        System.out.println("[WorldManager] Model attached to cityNode at Y=" + 0);
-    } else {
-        System.err.println("[WorldManager] Model is NULL! Creating placeholder...");
-        Geometry box = new Geometry("Stub", new Box(0.5f, 1f, 0.3f));
-        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", ColorRGBA.Red);
-        box.setMaterial(mat);
-        box.setLocalTranslation(spawnPos.x, 0.5f, spawnPos.z);
-        box.setName("Monster");
-        Node stubNode = new Node("StubNode");
-        stubNode.attachChild(box);
-        targetNode.attachChild(stubNode);
-        skeleton.setModelNode(stubNode);
-        System.out.println("[WorldManager] Red cube placeholder added");
-    }
-
-    // ===== 5. ДОБАВЛЯЕМ В СПИСКИ ДЛЯ ОТСЛЕЖИВАНИЯ =====
-    activeMonsters.add(skeleton);
-    testMonsterSpawned = true;
-    
-    // Добавляем в monsters для кликабельности
-    if (skeleton.getModelNode() != null) {
-        // Ищем геометрию для MonsterData
-        Spatial modelNode = skeleton.getModelNode();
-        if (modelNode instanceof Node) {
-            for (Spatial child : ((Node) modelNode).getChildren()) {
-                if (child instanceof Geometry) {
-                    MonsterData md = new MonsterData((Geometry) child, 30, 10);
-                    monsters.add(md);
-                    System.out.println("[WorldManager] MonsterData added for click detection");
-                    break;
-                }
-            }
+        Spatial teleporterModel = app.getAssetManager().loadModel("Models/City/NPC/Teleport/teleport.gltf");
+        if (teleporterModel != null) {
+            teleporterModel.setName("Teleporter");
+            teleporterModel.scale(2.5f);
+            Vector3f pos = new Vector3f(-3.711333f, -1.9884592f, -11.55361f);
+            pos.y += 0.7f;
+            teleporterModel.setLocalTranslation(pos);
+            teleporterModel.rotate(0, -FastMath.HALF_PI / 2.0f, 0);
+            cityNode.attachChild(teleporterModel);
+            this.teleporter = teleporterModel;
+            System.out.println("[WorldManager] Teleporter model loaded and placed.");
+        } else {
+            System.err.println("[WorldManager] Teleporter model is NULL, creating placeholder.");
+            createTeleporterPlaceholder();
         }
+    } catch (Exception e) {
+        System.err.println("[WorldManager] Error loading Teleporter: " + e.getMessage());
+        createTeleporterPlaceholder();
     }
-    
-    System.out.println("[WorldManager] Test Skeleton spawned at " + spawnPos);
 }
+
+    private void createTeleporterPlaceholder() {
+        Box box = new Box(0.8f, 0.8f, 0.8f);
+        Geometry teleporterGeom = new Geometry("Teleporter", box);
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setColor("Color", new ColorRGBA(1f, 0.4f, 0.8f, 1f)); // розовый
+        teleporterGeom.setMaterial(mat);
+        teleporterGeom.setName("Teleporter");
+        teleporterGeom.setLocalTranslation(0f, 0.8f, -8f);
+        cityNode.attachChild(teleporterGeom);
+        this.teleporter = teleporterGeom;
+        System.out.println("[WorldManager] Teleporter placeholder created at (0, 0.8, -8)");
+    }
+
+    // ============================================================
+    //   МОНСТРЫ
+    // ============================================================
+    public void spawnTestMonster() {
+        System.out.println("[WorldManager] spawnTestMonster() CALLED!");
+        if (testMonsterSpawned) {
+            System.out.println("[WorldManager] Already spawned, skipping");
+            return;
+        }
+        if (playerManager == null) {
+            System.err.println("[WorldManager] PlayerManager is NULL!");
+            return;
+        }
+        if (dropManager == null) {
+            System.err.println("[WorldManager] DropManager is NULL!");
+            return;
+        }
+
+        Monster skeleton = new SkeletonWarrior();
+    Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f); // XZ остаются, Y пока 0
+        skeleton.setSpawnPosition(spawnPos);
+        skeleton.setPlayerManager(playerManager);
+        skeleton.setDropManager(dropManager);
+        skeleton.setWorldManager(this); // передаём WorldManager для смены данжа
+
+        Spatial model = null;
+        try {
+            System.out.println("[WorldManager] Loading model: Models/Monsters/skeleton_warrior.gltf");
+            model = app.getAssetManager().loadModel("Models/Monsters/skeleton_warrior.gltf");
+        } catch (Exception e) {
+            System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        Node targetNode = cityNode;
+
+        if (model != null) {
+            model.setName("Monster");
+            System.out.println("[WorldManager] Model loaded successfully!");
+            model.scale(2.0f);
+            model.move(0, 0.5f, 0);
+            skeleton.setModelNode((Node) model);
+            targetNode.attachChild(model);
+            System.out.println("[WorldManager] Model attached to cityNode");
+        } else {
+            System.err.println("[WorldManager] Model is NULL! Creating placeholder...");
+            Geometry box = new Geometry("Stub", new Box(0.5f, 1f, 0.3f));
+            Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+            mat.setColor("Color", ColorRGBA.Red);
+            box.setMaterial(mat);
+            box.setLocalTranslation(spawnPos);
+            box.setName("Monster");
+            Node stubNode = new Node("StubNode");
+            stubNode.attachChild(box);
+            targetNode.attachChild(stubNode);
+            skeleton.setModelNode(stubNode);
+            System.out.println("[WorldManager] Red cube placeholder added");
+        }
+
+        activeMonsters.add(skeleton);
+        testMonsterSpawned = true;
+        System.out.println("[WorldManager] Test Skeleton spawned at " + spawnPos);
+    }
 
     public Monster getMonsterByModel(Spatial model) {
         for (Monster m : activeMonsters) {
@@ -477,7 +400,7 @@ private Spatial teleporter;
             for (Spatial child : cityNode.getChildren()) {
                 String name = child.getName();
                 if (name == null) continue;
-                if (name.equals("Portal") || name.equals("Teleport") || name.equals("Monster")) {
+                if (name.equals("Portal") || name.equals("Teleporter")) {
                     float dist = child.getWorldTranslation().distance(point);
                     if (dist < closestDist) {
                         closestDist = dist;
@@ -486,7 +409,7 @@ private Spatial teleporter;
                 }
             }
         }
-        
+
         if (npcNode != null) {
             for (Spatial child : npcNode.getChildren()) {
                 String name = child.getName();
@@ -504,24 +427,189 @@ private Spatial teleporter;
         return closest;
     }
 
-    public void switchToCity() {
+    // ============================================================
+    //   ПЕРЕКЛЮЧЕНИЕ СОСТОЯНИЙ (с удалением физики)
+    // ============================================================
+public void switchToCity() {
+    // Удаляем физику данжа
+    if (dungeonNode != null) {
+        removePhysicsFromNode(dungeonNode);
+        dungeonNode.setCullHint(Node.CullHint.Always);
+    }
+    if (cityNode != null) {
         cityNode.setCullHint(Node.CullHint.Dynamic);
-        dungeonNode.setCullHint(Node.CullHint.Always);
+    }
+    if (npcNode != null) {
         npcNode.setCullHint(Node.CullHint.Dynamic);
-        currentState = GameState.CITY;
-        // Не спавним здесь, чтобы не дублировать
-        System.out.println("[WorldManager] Switched to City");
     }
+    currentState = GameState.CITY;
+    System.out.println("[WorldManager] Switched to City");
+}
 
-    public void switchToDungeon() {
+public void switchToDungeon() {
+    // Удаляем физику города
+    if (cityNode != null) {
+        removePhysicsFromNode(cityNode);
         cityNode.setCullHint(Node.CullHint.Always);
-        dungeonNode.setCullHint(Node.CullHint.Always);
-        npcNode.setCullHint(Node.CullHint.Always);
+    }
+    if (dungeonNode != null) {
         dungeonNode.setCullHint(Node.CullHint.Dynamic);
-        currentState = GameState.DUNGEON;
-        System.out.println("[WorldManager] Switched to Dungeon");
+    }
+    if (npcNode != null) {
+        npcNode.setCullHint(Node.CullHint.Always);
+    }
+    currentState = GameState.DUNGEON;
+    System.out.println("[WorldManager] Switched to Dungeon");
+}
+
+    // ============================================================
+    //   ЗАГРУЗКА ДАНЖА С УДАЛЕНИЕМ СТАРОЙ ФИЗИКИ
+    // ============================================================
+    public void loadDungeon(String dungeonId, int difficulty) {
+    // Удаляем старый данж с физикой
+    if (dungeonNode != null) {
+        removePhysicsFromNode(dungeonNode);
+        worldNode.detachChild(dungeonNode);
+        dungeonNode = null;
     }
 
+    // Создаём новый узел
+    dungeonNode = new Node("DungeonNode_" + dungeonId);
+    worldNode.attachChild(dungeonNode);
+
+    dungeonManager.clearMonsters();
+    activeMonsters.clear();
+
+    dungeonLoader.setBulletAppState(bulletAppState);
+
+    Dungeon dungeon = dungeonLoader.loadDungeon("dungeons/" + dungeonId + ".json");
+    if (dungeon != null) {
+        dungeonLoader.setPlayerManager(playerManager);
+        dungeonLoader.setDropManager(dropManager);
+        List<Monster> newMonsters = dungeonLoader.spawnDungeon(dungeon, dungeonNode, difficulty);
+        activeMonsters.addAll(newMonsters);
+        for (Monster m : newMonsters) {
+            m.setWorldManager(this);
+            dungeonManager.addMonster(m);
+        }
+        dungeonManager.setCurrentDungeon(dungeon);
+    }
+
+    // Переключаемся на данж (удаляет физику города)
+    switchToDungeon();
+
+    // ===== УСТАНАВЛИВАЕМ СОСТОЯНИЕ ДЛЯ GameManager =====
+    if (Main.getInstance() != null) {
+        Main.getInstance().getGameManager().setState(GameState.DUNGEON);
+    }
+}
+
+public void returnToCity() {
+    if (playerManager == null) return;
+    
+    Vector3f currentPos = playerManager.getPosition();
+    playerManager.setLastDungeonPosition(currentPos);
+
+    // Удаляем физику данжа
+    if (dungeonNode != null) {
+        removePhysicsFromNode(dungeonNode);
+        worldNode.detachChild(dungeonNode);
+        dungeonNode = null;
+    }
+    dungeonManager.clearMonsters();
+    activeMonsters.clear();
+
+    // Перезагружаем город с физикой
+    loadCityWithPhysics();
+
+    // Телепортируем игрока в город
+    Vector3f citySpawn = new Vector3f(0f, 0.5f, -8f);
+    playerManager.setPosition(citySpawn);
+    if (playerManager.getCharacterControl() != null) {
+        playerManager.getCharacterControl().warp(citySpawn);
+    }
+
+    // Переключаем состояние на город
+    switchToCity();
+
+    // Уведомляем GameManager
+    if (Main.getInstance() != null) {
+        Main.getInstance().getGameManager().setState(GameState.CITY);
+    }
+    System.out.println("[WorldManager] Returned to city");
+}
+
+    // ============================================================
+    //   УДАЛЕНИЕ ФИЗИКИ (рекурсивно)
+    // ============================================================
+    private void removePhysicsFromNode(Node node) {
+        if (node == null || bulletAppState == null) return;
+        // Обходим всех детей
+        for (Spatial child : node.getChildren()) {
+            removePhysicsFromSpatial(child);
+        }
+        // Проверяем сам узел
+        removePhysicsFromSpatial(node);
+    }
+
+    private void removePhysicsFromSpatial(Spatial spatial) {
+        if (spatial == null) return;
+        RigidBodyControl rbc = spatial.getControl(RigidBodyControl.class);
+        if (rbc != null) {
+            bulletAppState.getPhysicsSpace().remove(rbc);
+            spatial.removeControl(rbc);
+        }
+        // Если это узел — рекурсивно обходим детей
+        if (spatial instanceof Node) {
+            for (Spatial child : ((Node) spatial).getChildren()) {
+                removePhysicsFromSpatial(child);
+            }
+        }
+    }
+
+    // ============================================================
+    //   СМЕНА ДАНЖА ПОСЛЕ БОССА
+    // ============================================================
+    public void changeDungeon(String newDungeonId, boolean increaseDifficulty) {
+        if (playerManager == null) return;
+        if (increaseDifficulty) {
+            int newDiff = playerManager.getCurrentDifficulty() + 1;
+            playerManager.setCurrentDifficulty(newDiff);
+            System.out.println("[WorldManager] Difficulty increased to " + newDiff);
+        }
+        playerManager.setCurrentDungeonId(newDungeonId);
+        // Перезагружаем данж с новой сложностью
+        loadDungeon(newDungeonId, playerManager.getCurrentDifficulty());
+    }
+
+    // ============================================================
+    //   ТЕЛЕПОРТ В ТЕКУЩИЙ ДАНЖ
+    // ============================================================
+public void teleportToDungeon() {
+    if (playerManager == null) return;
+    String dungeonId = playerManager.getCurrentDungeonId();
+    int difficulty = playerManager.getCurrentDifficulty();
+    if (dungeonId == null || dungeonId.isEmpty()) {
+        dungeonId = "dungeon_1";
+        playerManager.setCurrentDungeonId(dungeonId);
+    }
+
+    loadDungeon(dungeonId, difficulty);
+
+    Vector3f spawnPos = playerManager.getLastDungeonPosition();
+    if (spawnPos == null || spawnPos.length() < 0.01f) {
+        spawnPos = new Vector3f(0f, 2.5f, 0f);
+    }
+    playerManager.setPosition(spawnPos);
+    if (playerManager.getCharacterControl() != null) {
+        playerManager.getCharacterControl().warp(spawnPos);
+    }
+    switchToDungeon();
+}
+
+    // ============================================================
+    //   ОСТАЛЬНЫЕ МЕТОДЫ
+    // ============================================================
     public void onStateChanged(GameState newState) {
         System.out.println("[WorldManager] State change: " + newState);
         switch (newState) {
@@ -532,9 +620,9 @@ private Spatial teleporter;
                 switchToDungeon();
                 break;
             default:
-                cityNode.setCullHint(Node.CullHint.Always);
-                dungeonNode.setCullHint(Node.CullHint.Always);
-                npcNode.setCullHint(Node.CullHint.Always);
+                if (cityNode != null) cityNode.setCullHint(Node.CullHint.Always);
+                if (dungeonNode != null) dungeonNode.setCullHint(Node.CullHint.Always);
+                if (npcNode != null) npcNode.setCullHint(Node.CullHint.Always);
                 break;
         }
     }
@@ -548,15 +636,14 @@ private Spatial teleporter;
         }
     }
 
-    public void loadDungeon(String dungeonId) {
-        System.out.println("[WorldManager] Loading dungeon: " + dungeonId);
-    }
-
     public void cleanup() {
         app.getRootNode().detachChild(worldNode);
         System.out.println("[WorldManager] Cleanup");
     }
 
+    // ============================================================
+    //   ГЕТТЕРЫ
+    // ============================================================
     public Node getWorldNode() { return worldNode; }
     public Node getCityNode() { return cityNode; }
     public Node getDungeonNode() { return dungeonNode; }
