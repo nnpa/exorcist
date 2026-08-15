@@ -24,7 +24,9 @@ import com.mygame.dungeons.DungeonLoader;
 import com.mygame.dungeons.DungeonManager;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class WorldManager {
 
@@ -48,6 +50,11 @@ public class WorldManager {
 
     private BulletAppState bulletAppState;
 
+    // ============================================================
+    //   ИСПРАВЛЕНИЕ 1: Поле NetworkManager добавлено и инициализируется
+    // ============================================================
+    private NetworkManager networkManager;
+
     public WorldManager(SimpleApplication app) {
         this.app = app;
         this.worldNode = new Node("WorldNode");
@@ -59,6 +66,13 @@ public class WorldManager {
     public void setBulletAppState(BulletAppState bas) {
         this.bulletAppState = bas;
         System.out.println("[WorldManager] BulletAppState set: " + (bas != null));
+    }
+
+    // ============================================================
+    //   ИСПРАВЛЕНИЕ 2: Добавлен сеттер для NetworkManager
+    // ============================================================
+    public void setNetworkManager(NetworkManager networkManager) {
+        this.networkManager = networkManager;
     }
 
     public void initialize() {
@@ -266,29 +280,29 @@ public class WorldManager {
 
     private Spatial teleporter;
 
-private void createTeleporter() {
-    System.out.println("[WorldManager] Loading Teleporter model from: Models/City/NPC/Teleport/teleport.gltf");
-    try {
-        Spatial teleporterModel = app.getAssetManager().loadModel("Models/City/NPC/Teleport/teleport.gltf");
-        if (teleporterModel != null) {
-            teleporterModel.setName("Teleporter");
-            teleporterModel.scale(2.5f);
-            Vector3f pos = new Vector3f(-3.711333f, -1.9884592f, -11.55361f);
-            pos.y += 0.7f;
-            teleporterModel.setLocalTranslation(pos);
-            teleporterModel.rotate(0, -FastMath.HALF_PI / 2.0f, 0);
-            cityNode.attachChild(teleporterModel);
-            this.teleporter = teleporterModel;
-            System.out.println("[WorldManager] Teleporter model loaded and placed.");
-        } else {
-            System.err.println("[WorldManager] Teleporter model is NULL, creating placeholder.");
+    private void createTeleporter() {
+        System.out.println("[WorldManager] Loading Teleporter model from: Models/City/NPC/Teleport/teleport.gltf");
+        try {
+            Spatial teleporterModel = app.getAssetManager().loadModel("Models/City/NPC/Teleport/teleport.gltf");
+            if (teleporterModel != null) {
+                teleporterModel.setName("Teleporter");
+                teleporterModel.scale(2.5f);
+                Vector3f pos = new Vector3f(-3.711333f, -1.9884592f, -11.55361f);
+                pos.y += 0.7f;
+                teleporterModel.setLocalTranslation(pos);
+                teleporterModel.rotate(0, -FastMath.HALF_PI / 2.0f, 0);
+                cityNode.attachChild(teleporterModel);
+                this.teleporter = teleporterModel;
+                System.out.println("[WorldManager] Teleporter model loaded and placed.");
+            } else {
+                System.err.println("[WorldManager] Teleporter model is NULL, creating placeholder.");
+                createTeleporterPlaceholder();
+            }
+        } catch (Exception e) {
+            System.err.println("[WorldManager] Error loading Teleporter: " + e.getMessage());
             createTeleporterPlaceholder();
         }
-    } catch (Exception e) {
-        System.err.println("[WorldManager] Error loading Teleporter: " + e.getMessage());
-        createTeleporterPlaceholder();
     }
-}
 
     private void createTeleporterPlaceholder() {
         Box box = new Box(0.8f, 0.8f, 0.8f);
@@ -322,7 +336,7 @@ private void createTeleporter() {
         }
 
         Monster skeleton = new SkeletonWarrior();
-    Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f); // XZ остаются, Y пока 0
+        Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
         skeleton.setDropManager(dropManager);
@@ -428,127 +442,114 @@ private void createTeleporter() {
     }
 
     // ============================================================
-    //   ПЕРЕКЛЮЧЕНИЕ СОСТОЯНИЙ (с удалением физики)
+    //   ПЕРЕКЛЮЧЕНИЕ СОСТОЯНИЙ
     // ============================================================
-public void switchToCity() {
-    // Удаляем физику данжа
-    if (dungeonNode != null) {
-        removePhysicsFromNode(dungeonNode);
-        dungeonNode.setCullHint(Node.CullHint.Always);
+    public void switchToCity() {
+        if (dungeonNode != null) {
+            removePhysicsFromNode(dungeonNode);
+            dungeonNode.setCullHint(Node.CullHint.Always);
+        }
+        if (cityNode != null) {
+            cityNode.setCullHint(Node.CullHint.Dynamic);
+        }
+        if (npcNode != null) {
+            npcNode.setCullHint(Node.CullHint.Dynamic);
+        }
+        currentState = GameState.CITY;
+        System.out.println("[WorldManager] Switched to City");
     }
-    if (cityNode != null) {
-        cityNode.setCullHint(Node.CullHint.Dynamic);
-    }
-    if (npcNode != null) {
-        npcNode.setCullHint(Node.CullHint.Dynamic);
-    }
-    currentState = GameState.CITY;
-    System.out.println("[WorldManager] Switched to City");
-}
 
-public void switchToDungeon() {
-    // Удаляем физику города
-    if (cityNode != null) {
-        removePhysicsFromNode(cityNode);
-        cityNode.setCullHint(Node.CullHint.Always);
+    public void switchToDungeon() {
+        if (cityNode != null) {
+            removePhysicsFromNode(cityNode);
+            cityNode.setCullHint(Node.CullHint.Always);
+        }
+        if (dungeonNode != null) {
+            dungeonNode.setCullHint(Node.CullHint.Dynamic);
+        }
+        if (npcNode != null) {
+            npcNode.setCullHint(Node.CullHint.Always);
+        }
+        currentState = GameState.DUNGEON;
+        System.out.println("[WorldManager] Switched to Dungeon");
     }
-    if (dungeonNode != null) {
-        dungeonNode.setCullHint(Node.CullHint.Dynamic);
-    }
-    if (npcNode != null) {
-        npcNode.setCullHint(Node.CullHint.Always);
-    }
-    currentState = GameState.DUNGEON;
-    System.out.println("[WorldManager] Switched to Dungeon");
-}
 
     // ============================================================
-    //   ЗАГРУЗКА ДАНЖА С УДАЛЕНИЕМ СТАРОЙ ФИЗИКИ
+    //   ЗАГРУЗКА ДАНЖА
     // ============================================================
     public void loadDungeon(String dungeonId, int difficulty) {
-    // Удаляем старый данж с физикой
-    if (dungeonNode != null) {
-        removePhysicsFromNode(dungeonNode);
-        worldNode.detachChild(dungeonNode);
-        dungeonNode = null;
-    }
-
-    // Создаём новый узел
-    dungeonNode = new Node("DungeonNode_" + dungeonId);
-    worldNode.attachChild(dungeonNode);
-
-    dungeonManager.clearMonsters();
-    activeMonsters.clear();
-
-    dungeonLoader.setBulletAppState(bulletAppState);
-
-    Dungeon dungeon = dungeonLoader.loadDungeon("dungeons/" + dungeonId + ".json");
-    if (dungeon != null) {
-        dungeonLoader.setPlayerManager(playerManager);
-        dungeonLoader.setDropManager(dropManager);
-        List<Monster> newMonsters = dungeonLoader.spawnDungeon(dungeon, dungeonNode, difficulty);
-        activeMonsters.addAll(newMonsters);
-        for (Monster m : newMonsters) {
-            m.setWorldManager(this);
-            dungeonManager.addMonster(m);
+        if (dungeonNode != null) {
+            removePhysicsFromNode(dungeonNode);
+            worldNode.detachChild(dungeonNode);
+            dungeonNode = null;
         }
-        dungeonManager.setCurrentDungeon(dungeon);
+
+        dungeonNode = new Node("DungeonNode_" + dungeonId);
+        worldNode.attachChild(dungeonNode);
+
+        dungeonManager.clearMonsters();
+        activeMonsters.clear();
+
+        dungeonLoader.setBulletAppState(bulletAppState);
+
+        Dungeon dungeon = dungeonLoader.loadDungeon("dungeons/" + dungeonId + ".json");
+        if (dungeon != null) {
+            dungeonLoader.setPlayerManager(playerManager);
+            dungeonLoader.setDropManager(dropManager);
+            List<Monster> newMonsters = dungeonLoader.spawnDungeon(dungeon, dungeonNode, difficulty);
+            activeMonsters.addAll(newMonsters);
+            for (Monster m : newMonsters) {
+                m.setWorldManager(this);
+                dungeonManager.addMonster(m);
+            }
+            dungeonManager.setCurrentDungeon(dungeon);
+        }
+
+        switchToDungeon();
+
+        if (Main.getInstance() != null) {
+            Main.getInstance().getGameManager().setState(GameState.DUNGEON);
+        }
     }
 
-    // Переключаемся на данж (удаляет физику города)
-    switchToDungeon();
+    public void returnToCity() {
+        if (playerManager == null) return;
+        
+        Vector3f currentPos = playerManager.getPosition();
+        playerManager.setLastDungeonPosition(currentPos);
 
-    // ===== УСТАНАВЛИВАЕМ СОСТОЯНИЕ ДЛЯ GameManager =====
-    if (Main.getInstance() != null) {
-        Main.getInstance().getGameManager().setState(GameState.DUNGEON);
+        if (dungeonNode != null) {
+            removePhysicsFromNode(dungeonNode);
+            worldNode.detachChild(dungeonNode);
+            dungeonNode = null;
+        }
+        dungeonManager.clearMonsters();
+        activeMonsters.clear();
+
+        loadCityWithPhysics();
+
+        Vector3f citySpawn = new Vector3f(0f, 0.5f, -8f);
+        playerManager.setPosition(citySpawn);
+        if (playerManager.getCharacterControl() != null) {
+            playerManager.getCharacterControl().warp(citySpawn);
+        }
+
+        switchToCity();
+
+        if (Main.getInstance() != null) {
+            Main.getInstance().getGameManager().setState(GameState.CITY);
+        }
+        System.out.println("[WorldManager] Returned to city");
     }
-}
-
-public void returnToCity() {
-    if (playerManager == null) return;
-    
-    Vector3f currentPos = playerManager.getPosition();
-    playerManager.setLastDungeonPosition(currentPos);
-
-    // Удаляем физику данжа
-    if (dungeonNode != null) {
-        removePhysicsFromNode(dungeonNode);
-        worldNode.detachChild(dungeonNode);
-        dungeonNode = null;
-    }
-    dungeonManager.clearMonsters();
-    activeMonsters.clear();
-
-    // Перезагружаем город с физикой
-    loadCityWithPhysics();
-
-    // Телепортируем игрока в город
-    Vector3f citySpawn = new Vector3f(0f, 0.5f, -8f);
-    playerManager.setPosition(citySpawn);
-    if (playerManager.getCharacterControl() != null) {
-        playerManager.getCharacterControl().warp(citySpawn);
-    }
-
-    // Переключаем состояние на город
-    switchToCity();
-
-    // Уведомляем GameManager
-    if (Main.getInstance() != null) {
-        Main.getInstance().getGameManager().setState(GameState.CITY);
-    }
-    System.out.println("[WorldManager] Returned to city");
-}
 
     // ============================================================
-    //   УДАЛЕНИЕ ФИЗИКИ (рекурсивно)
+    //   УДАЛЕНИЕ ФИЗИКИ
     // ============================================================
     private void removePhysicsFromNode(Node node) {
         if (node == null || bulletAppState == null) return;
-        // Обходим всех детей
         for (Spatial child : node.getChildren()) {
             removePhysicsFromSpatial(child);
         }
-        // Проверяем сам узел
         removePhysicsFromSpatial(node);
     }
 
@@ -559,7 +560,6 @@ public void returnToCity() {
             bulletAppState.getPhysicsSpace().remove(rbc);
             spatial.removeControl(rbc);
         }
-        // Если это узел — рекурсивно обходим детей
         if (spatial instanceof Node) {
             for (Spatial child : ((Node) spatial).getChildren()) {
                 removePhysicsFromSpatial(child);
@@ -568,44 +568,72 @@ public void returnToCity() {
     }
 
     // ============================================================
-    //   СМЕНА ДАНЖА ПОСЛЕ БОССА
+    //   СМЕНА ДАНЖА ПОСЛЕ БОССА (С ИСПРАВЛЕННЫМ ВЫЗОВОМ)
     // ============================================================
     public void changeDungeon(String newDungeonId, boolean increaseDifficulty) {
-        if (playerManager == null) return;
-        if (increaseDifficulty) {
-            int newDiff = playerManager.getCurrentDifficulty() + 1;
-            playerManager.setCurrentDifficulty(newDiff);
-            System.out.println("[WorldManager] Difficulty increased to " + newDiff);
+        if (playerManager != null) {
+            if (increaseDifficulty) {
+                int newDiff = playerManager.getCurrentDifficulty() + 1;
+                playerManager.setCurrentDifficulty(newDiff);
+            }
+            playerManager.setCurrentDungeon(newDungeonId);
+            
+            saveDungeonAndDifficultyToServer();
         }
-        playerManager.setCurrentDungeonId(newDungeonId);
-        // Перезагружаем данж с новой сложностью
-        loadDungeon(newDungeonId, playerManager.getCurrentDifficulty());
+        
+        // ИСПРАВЛЕНИЕ: Передаем актуальную сложность в метод загрузки
+        int currentDifficulty = playerManager != null ? playerManager.getCurrentDifficulty() : 1;
+        loadDungeon(newDungeonId, currentDifficulty);
+    }
+
+    private void saveDungeonAndDifficultyToServer() {
+        if (networkManager == null || playerManager == null) {
+            System.err.println("[WorldManager] Cannot save: networkManager or playerManager is null!");
+            return;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("currentDungeon", playerManager.getCurrentDungeon());
+        data.put("difficulty", playerManager.getCurrentDifficulty());
+        data.put("lastX", playerManager.getPosition().x);
+        data.put("lastY", playerManager.getPosition().y);
+        data.put("lastZ", playerManager.getPosition().z);
+
+        networkManager.saveCharacter(data).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    System.out.println("[WorldManager] Dungeon state saved to server.");
+                } else {
+                    System.err.println("[WorldManager] Failed to save dungeon state!");
+                }
+            });
+        });
     }
 
     // ============================================================
     //   ТЕЛЕПОРТ В ТЕКУЩИЙ ДАНЖ
     // ============================================================
-public void teleportToDungeon() {
-    if (playerManager == null) return;
-    String dungeonId = playerManager.getCurrentDungeonId();
-    int difficulty = playerManager.getCurrentDifficulty();
-    if (dungeonId == null || dungeonId.isEmpty()) {
-        dungeonId = "dungeon_1";
-        playerManager.setCurrentDungeonId(dungeonId);
-    }
+    public void teleportToDungeon() {
+        if (playerManager == null) return;
+        String dungeonId = playerManager.getCurrentDungeon();
+        int difficulty = playerManager.getCurrentDifficulty();
+        if (dungeonId == null || dungeonId.isEmpty()) {
+            dungeonId = "dungeon_1";
+            playerManager.setCurrentDungeon(dungeonId);
+        }
 
-    loadDungeon(dungeonId, difficulty);
+        loadDungeon(dungeonId, difficulty);
 
-    Vector3f spawnPos = playerManager.getLastDungeonPosition();
-    if (spawnPos == null || spawnPos.length() < 0.01f) {
-        spawnPos = new Vector3f(0f, 2.5f, 0f);
+        Vector3f spawnPos = playerManager.getLastDungeonPosition();
+        if (spawnPos == null || spawnPos.length() < 0.01f) {
+            spawnPos = new Vector3f(0f, 2.5f, 0f);
+        }
+        playerManager.setPosition(spawnPos);
+        if (playerManager.getCharacterControl() != null) {
+            playerManager.getCharacterControl().warp(spawnPos);
+        }
+        switchToDungeon();
     }
-    playerManager.setPosition(spawnPos);
-    if (playerManager.getCharacterControl() != null) {
-        playerManager.getCharacterControl().warp(spawnPos);
-    }
-    switchToDungeon();
-}
 
     // ============================================================
     //   ОСТАЛЬНЫЕ МЕТОДЫ

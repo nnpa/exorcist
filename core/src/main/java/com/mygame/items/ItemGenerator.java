@@ -3,7 +3,6 @@ package com.mygame.items;
 import java.util.*;
 
 public class ItemGenerator {
-
     private static final Random random = new Random();
 
     private static final String[] PREFIXES = {"Old", "Rusty", "Sharp", "Heavy", "Light", "Sturdy", "Magic", "Enchanted", "Ancient", "Dark"};
@@ -23,12 +22,9 @@ public class ItemGenerator {
             ICONS_BY_TYPE.put(type, icons);
         }
     }
-public static Item generateItem(int playerLevel, String type) {
-    return generateItem(playerLevel, type, 1);
-}
+
     public static Item generateItem(int playerLevel, String type, int difficulty) {
         if (!VALID_TYPES.contains(type)) {
-            System.out.println("[ItemGenerator] Unknown type: " + type + ", generating random wearable item");
             type = VALID_TYPES.get(random.nextInt(VALID_TYPES.size()));
         }
 
@@ -70,8 +66,8 @@ public static Item generateItem(int playerLevel, String type) {
         float bonusPercent = -10 + random.nextFloat() * 30;
         int finalDamage = (int)(baseDamage * (1 + bonusPercent / 100f));
         int finalDefense = (int)(baseDefense * (1 + bonusPercent / 100f));
-        if (finalDamage < 0) finalDamage = 0;
-        if (finalDefense < 0) finalDefense = 0;
+        finalDamage = Math.max(0, finalDamage);
+        finalDefense = Math.max(0, finalDefense);
 
         ItemRarity rarity;
         if (bonusPercent >= 15) rarity = ItemRarity.EPIC;
@@ -94,9 +90,10 @@ public static Item generateItem(int playerLevel, String type) {
                 level, finalDamage, finalDefense, baseHealthBonus, baseManaBonus);
         String id = UUID.randomUUID().toString();
 
-        Item item = new Item(id, name, type, level, rarity, desc, finalDamage, finalDefense, baseHealthBonus, baseManaBonus, iconPath);
+        Item item = new Item(id, name, type, level, rarity, desc, finalDamage, finalDefense, iconPath);
         item.setSocketCount(random.nextInt(3));
-
+        item.setHealthBonus(baseHealthBonus);
+        item.setManaBonus(baseManaBonus);
         return item;
     }
 

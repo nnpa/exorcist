@@ -9,6 +9,8 @@ import com.jme3.math.Vector3f;
 import com.jme3.renderer.Camera;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
+import com.jme3.scene.control.BillboardControl;
 import com.jme3.scene.shape.Quad;
 import com.jme3.texture.Texture;
 import com.mygame.items.Item;
@@ -23,10 +25,10 @@ public class DropManager {
     private List<DropItem> drops = new ArrayList<>();
     private InventoryManager inventoryManager;
 
-    private static final float ICON_SIZE = 1.2f;
-    private static final float BORDER_SIZE = 0.08f;
-    // ===== ПОДНЯЛИ ТЕКСТ ВЫШЕ =====
-    private static final float TEXT_OFFSET = 1.6f; // было 0.9f
+    // ===== РАЗМЕРЫ (СДЕЛАЛИ ПОБОЛЬШЕ, ЧТОБЫ БЫЛО ХОРОШО ВИДНО) =====
+    private static final float ICON_SIZE = 0.8f; 
+    private static final float BORDER_SIZE = 0.06f;
+    private static final float TEXT_OFFSET = 1.4f; // Текст выше иконки
     private static final float PIXEL_THRESHOLD = 80f;
 
     public DropManager(SimpleApplication app, Node guiNode) {
@@ -96,7 +98,9 @@ public class DropManager {
         public DropItem(Vector3f position, Item item) {
             this.item = item;
             node = new Node("DropNode_" + item.getName());
-            node.setLocalTranslation(position.x, 0.1f, position.z);
+            
+            // ИСПРАВЛЕНИЕ: Поднимаем дроп над землей (берем Y из позиции)
+            node.setLocalTranslation(position.x, position.y + 0.8f, position.z);
 
             // Иконка
             Quad quad = new Quad(ICON_SIZE, ICON_SIZE);
@@ -126,14 +130,18 @@ public class DropManager {
             borderGeom.setLocalTranslation(-(ICON_SIZE + BORDER_SIZE)/2, -BORDER_SIZE/2, -(ICON_SIZE + BORDER_SIZE)/2);
             node.attachChild(borderGeom);
 
-            // ===== ТЕКСТ НАЗВАНИЯ (ПОДНЯТ ВЫШЕ) =====
+            // Текст названия
             labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/Default.fnt"));
             labelText.setText(item.getName());
-            labelText.setSize(0.55f);
+            labelText.setSize(0.4f); // Чуть уменьшили шрифт, чтобы не перекрывал
             labelText.setColor(item.getColor());
             float textWidth = labelText.getLineWidth();
             labelText.setLocalTranslation(-textWidth/2, ICON_SIZE/2 + TEXT_OFFSET, 0);
             node.attachChild(labelText);
+
+            // ===== САМОЕ ВАЖНОЕ: Биллборд (поворачивает всё лицом к камере) =====
+            BillboardControl billboard = new BillboardControl();
+            node.addControl(billboard);
         }
     }
 }

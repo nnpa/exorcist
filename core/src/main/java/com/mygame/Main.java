@@ -3,7 +3,6 @@ package com.mygame;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
-import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
@@ -44,7 +43,7 @@ public class Main extends SimpleApplication {
 
     private BulletAppState bulletAppState;
 
-    // ===== КАМЕРА (Diablo стиль с вращением) =====
+    // ===== КАМЕРА =====
     private float camDistance = 12f;
     private float camHeight = 8f;
     private float cameraAngle = 0f;
@@ -89,6 +88,7 @@ public class Main extends SimpleApplication {
         flyCam.setEnabled(false);
         inputManager.setCursorVisible(true);
 
+        // Инициализация менеджеров
         initializeManagers();
 
         if (playerManager != null) {
@@ -119,7 +119,7 @@ public class Main extends SimpleApplication {
         gameManager.setState(GameState.LOGIN);
 
         // ===== УПРАВЛЕНИЕ =====
-        // ЛКМ – взаимодействие
+        // ЛКМ
         inputManager.addMapping("MouseClick", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -134,7 +134,7 @@ public class Main extends SimpleApplication {
             }
         }, "MouseClick");
 
-        // ПКМ – движение (клик) и вращение (зажатие + движение)
+        // ПКМ – движение + вращение
         inputManager.addMapping("RightClick", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -148,20 +148,7 @@ public class Main extends SimpleApplication {
             }
         }, "RightClick");
 
-inputManager.addMapping("ReturnToCity", new KeyTrigger(KeyInput.KEY_N));
-inputManager.addListener(new ActionListener() {
-    @Override
-    public void onAction(String name, boolean isPressed, float tpf) {
-        if (isPressed && "ReturnToCity".equals(name) && worldLoaded) {
-            if (gameManager != null && gameManager.getCurrentState() == GameState.DUNGEON) {
-                worldManager.returnToCity();
-                gameManager.setState(GameState.CITY);
-            }
-        }
-    }
-}, "ReturnToCity");
-
-        // Слушатель движения мыши для вращения
+        // Вращение камеры
         inputManager.addRawInputListener(new RawInputListener() {
             @Override public void beginInput() {}
             @Override public void endInput() {}
@@ -179,6 +166,20 @@ inputManager.addListener(new ActionListener() {
             @Override public void onTouchEvent(TouchEvent evt) {}
         });
 
+        // Клавиша N – возврат в город
+        inputManager.addMapping("ReturnToCity", new KeyTrigger(com.jme3.input.KeyInput.KEY_N));
+        inputManager.addListener(new ActionListener() {
+            @Override
+            public void onAction(String name, boolean isPressed, float tpf) {
+                if (isPressed && "ReturnToCity".equals(name) && worldLoaded) {
+                    if (gameManager != null && gameManager.getCurrentState() == GameState.DUNGEON) {
+                        worldManager.returnToCity();
+                        gameManager.setState(GameState.CITY);
+                    }
+                }
+            }
+        }, "ReturnToCity");
+
         Monster.setApp(this);
     }
 
@@ -192,7 +193,7 @@ inputManager.addListener(new ActionListener() {
         space.setAccuracy(0.001f);
         space.setMaxSubSteps(10);
         bulletAppState.setSpeed(0.8f);
-        System.out.println("[Main] Физика включена с высокой точностью");
+        System.out.println("[Main] Физика включена");
 
         worldManager.loadCityWithPhysics();
 
@@ -222,6 +223,7 @@ inputManager.addListener(new ActionListener() {
     private void handleClick(float screenX, float screenY) {
         if (!worldLoaded || playerManager == null) return;
 
+        // 1. Проверяем дропы
         DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
         if (drop != null) {
             dropManager.pickupDrop(drop);
@@ -231,7 +233,7 @@ inputManager.addListener(new ActionListener() {
         Vector3f groundPoint = getGroundPoint(screenX, screenY);
         if (groundPoint == null) return;
 
-        // Проверяем телепортер
+        // 2. Телепортер
         Spatial teleporter = null;
         if (worldManager.getCityNode() != null) {
             for (Spatial child : worldManager.getCityNode().getChildren()) {
@@ -251,7 +253,7 @@ inputManager.addListener(new ActionListener() {
             return;
         }
 
-        // Проверяем торговца
+        // 3. Торговец
         Spatial npc = null;
         if (worldManager.getNpcNode() != null) {
             for (Spatial child : worldManager.getNpcNode().getChildren()) {
@@ -269,7 +271,7 @@ inputManager.addListener(new ActionListener() {
             return;
         }
 
-        // Проверяем монстров
+        // 4. Монстры
         Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f);
         if (clicked != null) {
             String objectName = clicked.getName();
@@ -279,7 +281,7 @@ inputManager.addListener(new ActionListener() {
             }
         }
 
-        // Движение
+        // 5. Движение
         playerManager.moveTo(groundPoint);
     }
 
@@ -294,24 +296,22 @@ inputManager.addListener(new ActionListener() {
         return hitPoint;
     }
 
-private void setupLighting() {
-    // Основной свет (солнце)
-    DirectionalLight sun = new DirectionalLight();
-    sun.setDirection(new Vector3f(-1, -2, -1).normalizeLocal());
-    sun.setColor(ColorRGBA.White.mult(1.2f));
-    rootNode.addLight(sun);
+    // ---------- ОСВЕЩЕНИЕ, GUI, МЕНЕДЖЕРЫ ----------
+    private void setupLighting() {
+        DirectionalLight sun = new DirectionalLight();
+        sun.setDirection(new Vector3f(-1, -2, -1).normalizeLocal());
+        sun.setColor(ColorRGBA.White.mult(1.2f));
+        rootNode.addLight(sun);
 
-    // Дополнительный заполняющий свет (с противоположной стороны)
-    DirectionalLight fillLight = new DirectionalLight();
-    fillLight.setDirection(new Vector3f(1, -1, 1).normalizeLocal());
-    fillLight.setColor(new ColorRGBA(0.6f, 0.6f, 0.7f, 1f).mult(0.8f));
-    rootNode.addLight(fillLight);
+        DirectionalLight fillLight = new DirectionalLight();
+        fillLight.setDirection(new Vector3f(1, -1, 1).normalizeLocal());
+        fillLight.setColor(new ColorRGBA(0.6f, 0.6f, 0.7f, 1f).mult(0.8f));
+        rootNode.addLight(fillLight);
 
-    // Фоновый свет (ambient) – увеличен до 0.6 для лучшей видимости в тенях
-    AmbientLight ambient = new AmbientLight();
-    ambient.setColor(new ColorRGBA(0.6f, 0.6f, 0.6f, 1.0f));
-    rootNode.addLight(ambient);
-}
+        AmbientLight ambient = new AmbientLight();
+        ambient.setColor(new ColorRGBA(0.6f, 0.6f, 0.6f, 1.0f));
+        rootNode.addLight(ambient);
+    }
 
     private void applyTextFieldStyle() {
         Styles styles = GuiGlobals.getInstance().getStyles();
@@ -338,6 +338,7 @@ private void setupLighting() {
         if (isInitialized) return;
         networkManager = new NetworkManager(this);
         networkManager.initialize();
+
         gameManager = new GameManager(this);
         gameManager.initialize();
         playerManager = new PlayerManager(this);
@@ -348,6 +349,9 @@ private void setupLighting() {
         uiManager.initialize();
         inventoryManager = new InventoryManager(this, guiNode);
         dropManager = new DropManager(this, guiNode);
+
+        // ===== ВАЖНО: передаём NetworkManager в WorldManager =====
+        worldManager.setNetworkManager(networkManager);
 
         worldManager.setPlayerManager(playerManager);
         worldManager.setDropManager(dropManager);
@@ -365,32 +369,31 @@ private void setupLighting() {
         isInitialized = true;
     }
 
-    // ===== simpleUpdate – ОБНОВЛЕНИЕ КАМЕРЫ =====
-   @Override
-public void simpleUpdate(float tpf) {
-    super.simpleUpdate(tpf);
+    // ===== simpleUpdate =====
+    @Override
+    public void simpleUpdate(float tpf) {
+        super.simpleUpdate(tpf);
 
-    if (gameManager != null) gameManager.update(tpf);
-    if (playerManager != null) playerManager.update(tpf);
-    if (worldManager != null) worldManager.update(tpf);
-    if (uiManager != null) uiManager.update(tpf);
+        if (gameManager != null) gameManager.update(tpf);
+        if (playerManager != null) playerManager.update(tpf);
+        if (worldManager != null) worldManager.update(tpf);
+        if (uiManager != null) uiManager.update(tpf);
 
-    // Обновляем камеру для города и данжа
-    if (worldLoaded && gameManager != null) {
-        GameState state = gameManager.getCurrentState();
-        if (state == GameState.CITY || state == GameState.DUNGEON) {
-            Node playerNode = playerManager.getPlayerNode();
-            if (playerNode != null) {
-                Vector3f playerPos = playerNode.getWorldTranslation();
-                float x = FastMath.sin(cameraAngle) * camDistance;
-                float z = FastMath.cos(cameraAngle) * camDistance;
-                Vector3f camPos = playerPos.add(new Vector3f(x, camHeight, z));
-                cam.setLocation(camPos);
-                cam.lookAt(playerPos, Vector3f.UNIT_Y);
+        if (worldLoaded && gameManager != null) {
+            GameState state = gameManager.getCurrentState();
+            if (state == GameState.CITY || state == GameState.DUNGEON) {
+                Node playerNode = playerManager.getPlayerNode();
+                if (playerNode != null) {
+                    Vector3f playerPos = playerNode.getWorldTranslation();
+                    float x = FastMath.sin(cameraAngle) * camDistance;
+                    float z = FastMath.cos(cameraAngle) * camDistance;
+                    Vector3f camPos = playerPos.add(new Vector3f(x, camHeight, z));
+                    cam.setLocation(camPos);
+                    cam.lookAt(playerPos, Vector3f.UNIT_Y);
+                }
             }
         }
     }
-}
 
     @Override
     public void destroy() {

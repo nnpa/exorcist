@@ -863,5 +863,11 @@ public void attackTarget(Spatial target) {
     }
     public void setSpeed(float speed) { /* не используется, оставлено для совместимости */ }
     private float coordsLogTimer = 0f;
+    public String getCurrentDungeon() {
+        return currentDungeonId;
+    }
 
+    public void setCurrentDungeon(String dungeonId) {
+        this.currentDungeonId = dungeonId;
+    }
 }

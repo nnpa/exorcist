@@ -27,11 +27,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public class UIManager {
 
     private SimpleApplication app;
     private Node guiNode;
+    private NetworkManager networkManager;
 
     private Container loginWindow;
     private Container registerWindow;
@@ -97,6 +99,10 @@ public class UIManager {
     public UIManager(SimpleApplication app) {
         this.app = app;
         this.guiNode = app.getGuiNode();
+        Main main = (Main) app;
+        if (main != null) {
+            this.networkManager = main.getNetworkManager();
+        }
         updateScale();
     }
 
@@ -134,12 +140,6 @@ public class UIManager {
     public void onTraderClosed(Node node) { detachNode(node); }
 
     // ===== ФОНОВАЯ ГЕОМЕТРИЯ (ДЛЯ ВСЕХ ОКОН) =====
-    /**
-     * Создаёт геометрию с текстурой для фона окна.
-     * @param width  ширина окна
-     * @param height высота окна
-     * @return Geometry с текстурой, готовая к добавлению в контейнер
-     */
     public Geometry createBackgroundGeometry(float width, float height) {
         Texture leatherTexture = null;
         try {
@@ -158,7 +158,7 @@ public class UIManager {
             mat.setColor("Color", new ColorRGBA(0.4f, 0.2f, 0.05f, 1f));
         }
         bgGeom.setMaterial(mat);
-        bgGeom.setLocalTranslation(0, 0, -0.1f); // позади всех элементов
+        bgGeom.setLocalTranslation(0, 0, -0.1f);
         return bgGeom;
     }
 
@@ -519,13 +519,13 @@ public class UIManager {
 
         if (hp != lastHealth || maxHp != lastMaxHealth) {
             hpBar.setProgressPercent(hp / maxHp);
-            hpTextLabel.setText((int)hp + "/" + (int)maxHp);
+            hpTextLabel.setText((int) hp + "/" + (int) maxHp);
             lastHealth = hp;
             lastMaxHealth = maxHp;
         }
         if (mana != lastMana || maxMana != lastMaxMana) {
             manaBar.setProgressPercent(mana / maxMana);
-            manaTextLabel.setText((int)mana + "/" + (int)maxMana);
+            manaTextLabel.setText((int) mana + "/" + (int) maxMana);
             lastMana = mana;
             lastMaxMana = maxMana;
         }
@@ -704,190 +704,189 @@ public class UIManager {
 
     // ===== ОКНО РЕГИСТРАЦИИ =====
     private void createRegisterScreen() {
-    updateScale();
-    float screenWidth = app.getCamera().getWidth();
-    float screenHeight = app.getCamera().getHeight();
+        updateScale();
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
 
-    float winW = 480 * scale;
-    float winH = 420 * scale; // увеличим высоту для трёх полей
+        float winW = 480 * scale;
+        float winH = 420 * scale;
 
-    registerWindow = new Container();
-    registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
-    registerWindow.setLayout(null);
-    registerWindow.setName("RegisterWindow");
+        registerWindow = new Container();
+        registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+        registerWindow.setLayout(null);
+        registerWindow.setName("RegisterWindow");
 
-    float x = (screenWidth - winW) / 2;
-    float y = (screenHeight - winH) / 2;
-    if (y < 0) y = 0;
-    registerWindow.setLocalTranslation(x, y, 0);
+        float x = (screenWidth - winW) / 2;
+        float y = (screenHeight - winH) / 2;
+        if (y < 0) y = 0;
+        registerWindow.setLocalTranslation(x, y, 0);
 
-    // === ФОН ===
-    Geometry bgGeom = createBackgroundGeometry(winW, winH);
-    registerWindow.attachChild(bgGeom);
+        // === ФОН ===
+        Geometry bgGeom = createBackgroundGeometry(winW, winH);
+        registerWindow.attachChild(bgGeom);
 
-    // === ЗАГОЛОВОК ===
-    Label title = new Label("Registration");
-    title.setFontSize(30 * scale);
-    title.setColor(ColorRGBA.White);
-    title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
-    registerWindow.attachChild(title);
+        // === ЗАГОЛОВОК ===
+        Label title = new Label("Registration");
+        title.setFontSize(30 * scale);
+        title.setColor(ColorRGBA.White);
+        title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+        registerWindow.attachChild(title);
 
-    // === ПОЛЕ EMAIL ===
-    float labelY1 = winH - 85 * scale;
-    Label emailLabel = new Label("Email:");
-    emailLabel.setFontSize(18 * scale);
-    emailLabel.setColor(ColorRGBA.White);
-    emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
-    registerWindow.attachChild(emailLabel);
+        // === ПОЛЕ EMAIL ===
+        float labelY1 = winH - 85 * scale;
+        Label emailLabel = new Label("Email:");
+        emailLabel.setFontSize(18 * scale);
+        emailLabel.setColor(ColorRGBA.White);
+        emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+        registerWindow.attachChild(emailLabel);
 
-    emailField = new TextField("");
-    emailField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-    emailField.setColor(ColorRGBA.Black);
-    emailField.setFontSize(18 * scale);
-    emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
-    emailField.setSize(emailField.getPreferredSize());
-    registerWindow.attachChild(emailField);
+        emailField = new TextField("");
+        emailField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+        emailField.setColor(ColorRGBA.Black);
+        emailField.setFontSize(18 * scale);
+        emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
+        emailField.setSize(emailField.getPreferredSize());
+        registerWindow.attachChild(emailField);
 
-    // === ПОЛЕ LOGIN ===
-    float labelY2 = winH - 140 * scale;
-    Label regLoginLabel = new Label("Login:");
-    regLoginLabel.setFontSize(18 * scale);
-    regLoginLabel.setColor(ColorRGBA.White);
-    regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
-    registerWindow.attachChild(regLoginLabel);
+        // === ПОЛЕ LOGIN ===
+        float labelY2 = winH - 140 * scale;
+        Label regLoginLabel = new Label("Login:");
+        regLoginLabel.setFontSize(18 * scale);
+        regLoginLabel.setColor(ColorRGBA.White);
+        regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+        registerWindow.attachChild(regLoginLabel);
 
-    regLoginField = new TextField("");
-    regLoginField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-    regLoginField.setColor(ColorRGBA.Black);
-    regLoginField.setFontSize(18 * scale);
-    regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
-    regLoginField.setSize(regLoginField.getPreferredSize());
-    registerWindow.attachChild(regLoginField);
+        regLoginField = new TextField("");
+        regLoginField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+        regLoginField.setColor(ColorRGBA.Black);
+        regLoginField.setFontSize(18 * scale);
+        regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
+        regLoginField.setSize(regLoginField.getPreferredSize());
+        registerWindow.attachChild(regLoginField);
 
-    // === ПОЛЕ PASSWORD ===
-    float labelY3 = winH - 195 * scale;
-    Label regPassLabel = new Label("Password:");
-    regPassLabel.setFontSize(18 * scale);
-    regPassLabel.setColor(ColorRGBA.White);
-    regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
-    registerWindow.attachChild(regPassLabel);
+        // === ПОЛЕ PASSWORD ===
+        float labelY3 = winH - 195 * scale;
+        Label regPassLabel = new Label("Password:");
+        regPassLabel.setFontSize(18 * scale);
+        regPassLabel.setColor(ColorRGBA.White);
+        regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
+        registerWindow.attachChild(regPassLabel);
 
-    regPasswordField = new TextField("");
-    regPasswordField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-    regPasswordField.setColor(ColorRGBA.Black);
-    regPasswordField.setFontSize(18 * scale);
-    regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
-    regPasswordField.setSize(regPasswordField.getPreferredSize());
-    registerWindow.attachChild(regPasswordField);
+        regPasswordField = new TextField("");
+        regPasswordField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
+        regPasswordField.setColor(ColorRGBA.Black);
+        regPasswordField.setFontSize(18 * scale);
+        regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
+        regPasswordField.setSize(regPasswordField.getPreferredSize());
+        registerWindow.attachChild(regPasswordField);
 
-    // === КНОПКИ ===
-    Button registerButton = new Button("Register");
-    registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
-    registerButton.setColor(ColorRGBA.White);
-    registerButton.setFontSize(18 * scale);
-    registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
-    registerButton.addClickCommands((source) -> {
-        if (registerVisible) {
-            String email = emailField.getText();
-            String login = regLoginField.getText();
-            String pass = regPasswordField.getText();
-            if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
-                handleRegister(email, login, pass);
+        // === КНОПКИ ===
+        Button registerButton = new Button("Register");
+        registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
+        registerButton.setColor(ColorRGBA.White);
+        registerButton.setFontSize(18 * scale);
+        registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
+        registerButton.addClickCommands((source) -> {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                }
             }
+        });
+        registerWindow.attachChild(registerButton);
+
+        Button backButton = new Button("Back");
+        backButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
+        backButton.setColor(ColorRGBA.White);
+        backButton.setFontSize(18 * scale);
+        backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
+        backButton.addClickCommands((source) -> {
+            showLoginScreen();
+        });
+        registerWindow.attachChild(backButton);
+    }
+
+    // ===== ДИАЛОГ ТЕЛЕПОРТА =====
+    private Container teleporterDialog;
+    private boolean teleporterDialogVisible = false;
+
+    public void showTeleporterDialog() {
+        if (teleporterDialog == null) {
+            createTeleporterDialog();
         }
-    });
-    registerWindow.attachChild(registerButton);
-
-    Button backButton = new Button("Back");
-    backButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-    backButton.setColor(ColorRGBA.White);
-    backButton.setFontSize(18 * scale);
-    backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
-    backButton.addClickCommands((source) -> {
-        showLoginScreen();
-    });
-    registerWindow.attachChild(backButton);
-}
-private Container teleporterDialog;
-private boolean teleporterDialogVisible = false;
-
-public void showTeleporterDialog() {
-    if (teleporterDialog == null) {
-        createTeleporterDialog();
+        if (teleporterDialogVisible) return;
+        teleporterDialogVisible = true;
+        attachNode(teleporterDialog);
     }
-    if (teleporterDialogVisible) return;
-    teleporterDialogVisible = true;
-    attachNode(teleporterDialog);
-}
 
-// Метод скрытия диалога
-public void hideTeleporterDialog() {
-    if (teleporterDialog != null && teleporterDialogVisible) {
-        detachNode(teleporterDialog);
-        teleporterDialogVisible = false;
+    public void hideTeleporterDialog() {
+        if (teleporterDialog != null && teleporterDialogVisible) {
+            detachNode(teleporterDialog);
+            teleporterDialogVisible = false;
+        }
     }
-}
 
-// Создание окна диалога
-private void createTeleporterDialog() {
-    updateScale();
-    float screenWidth = app.getCamera().getWidth();
-    float screenHeight = app.getCamera().getHeight();
+    private void createTeleporterDialog() {
+        updateScale();
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
 
-    float winW = 350 * scale;
-    float winH = 160 * scale;
+        float winW = 350 * scale;
+        float winH = 160 * scale;
 
-    teleporterDialog = new Container();
-    teleporterDialog.setPreferredSize(new Vector3f(winW, winH, 0));
-    teleporterDialog.setLayout(null);
-    teleporterDialog.setName("TeleporterDialog");
+        teleporterDialog = new Container();
+        teleporterDialog.setPreferredSize(new Vector3f(winW, winH, 0));
+        teleporterDialog.setLayout(null);
+        teleporterDialog.setName("TeleporterDialog");
 
-    float x = (screenWidth - winW) / 2;
-    float y = (screenHeight - winH) / 2;
-    if (y < 0) y = 0;
-    teleporterDialog.setLocalTranslation(x, y, 0);
+        float x = (screenWidth - winW) / 2;
+        float y = (screenHeight - winH) / 2;
+        if (y < 0) y = 0;
+        teleporterDialog.setLocalTranslation(x, y, 0);
 
-    // ===== ФОН (кожаный) =====
-    Geometry bgGeom = createBackgroundGeometry(winW, winH);
-    teleporterDialog.attachChild(bgGeom);
+        // === ФОН ===
+        Geometry bgGeom = createBackgroundGeometry(winW, winH);
+        teleporterDialog.attachChild(bgGeom);
 
-    // ===== Текст вопроса =====
-    Label question = new Label("Teleport to dungeon?");
-    question.setFontSize(22 * scale);
-    question.setColor(ColorRGBA.White);
-    question.setLocalTranslation(winW/2 - 120*scale, winH - 40*scale, 0.1f);
-    teleporterDialog.attachChild(question);
+        // === Текст ===
+        Label question = new Label("Teleport to dungeon?");
+        question.setFontSize(22 * scale);
+        question.setColor(ColorRGBA.White);
+        question.setLocalTranslation(winW / 2 - 120 * scale, winH - 40 * scale, 0.1f);
+        teleporterDialog.attachChild(question);
 
-    // ===== Кнопка "Да" =====
-    Button yesButton = new Button("Yes");
-    yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
-    yesButton.setFontSize(18 * scale);
-    yesButton.setColor(ColorRGBA.White);
-    yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
-    yesButton.addClickCommands((source) -> {
-        hideTeleporterDialog();
-        // Вызываем телепортацию
-        Main main = (Main) app;
-        if (main != null) {
-            WorldManager wm = main.getWorldManager();
-            if (wm != null) {
-                wm.teleportToDungeon();
+        // Кнопка Да
+        Button yesButton = new Button("Yes");
+        yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+        yesButton.setFontSize(18 * scale);
+        yesButton.setColor(ColorRGBA.White);
+        yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
+        yesButton.addClickCommands((source) -> {
+            hideTeleporterDialog();
+            Main main = (Main) app;
+            if (main != null) {
+                WorldManager wm = main.getWorldManager();
+                if (wm != null) {
+                    wm.teleportToDungeon();
+                }
             }
-        }
-    });
-    teleporterDialog.attachChild(yesButton);
+        });
+        teleporterDialog.attachChild(yesButton);
 
-    // ===== Кнопка "Нет" =====
-    Button noButton = new Button("No");
-    noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
-    noButton.setFontSize(18 * scale);
-    noButton.setColor(ColorRGBA.White);
-    noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
-    noButton.addClickCommands((source) -> {
-        hideTeleporterDialog();
-    });
-    teleporterDialog.attachChild(noButton);
-}
+        // Кнопка Нет
+        Button noButton = new Button("No");
+        noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+        noButton.setFontSize(18 * scale);
+        noButton.setColor(ColorRGBA.White);
+        noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
+        noButton.addClickCommands((source) -> {
+            hideTeleporterDialog();
+        });
+        teleporterDialog.attachChild(noButton);
+    }
 
     // ===== УПРАВЛЕНИЕ ОКНАМИ =====
     public void showLoginScreen() {
@@ -918,70 +917,217 @@ private void createTeleporterDialog() {
         registerVisible = false;
     }
 
-public void hideAllWindows() {
-    hideLoginScreen();
-    hideRegisterScreen();
-    hideTeleporterDialog(); // добавить
-    if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
-    if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
-    if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
-}
+    public void hideAllWindows() {
+        hideLoginScreen();
+        hideRegisterScreen();
+        hideTeleporterDialog();
+        if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
+        if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
+        if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
+    }
 
-public boolean isAnyWindowOpen() {
-    if (loginVisible || registerVisible || teleporterDialogVisible) return true;
-    if (inventoryManager != null && inventoryManager.isVisible()) return true;
-    if (talentWindow != null && talentWindow.isVisible()) return true;
-    if (traderWindow != null && traderWindow.isVisible()) return true;
-    return false;
-}
+    public boolean isAnyWindowOpen() {
+        if (loginVisible || registerVisible || teleporterDialogVisible) return true;
+        if (inventoryManager != null && inventoryManager.isVisible()) return true;
+        if (talentWindow != null && talentWindow.isVisible()) return true;
+        if (traderWindow != null && traderWindow.isVisible()) return true;
+        return false;
+    }
 
-    // ===== ОБРАБОТЧИКИ =====
+    // ================================================================
+    //   СЕТЕВЫЕ ОБРАБОТЧИКИ
+    // ================================================================
+
     private void handleLogin(String login, String password) {
-        System.out.println("[UI] Login: " + login);
-        loadTestCharacter();
-        Main main = (Main) app;
-        if (main != null) {
-            main.loadGameWorld();
+        System.out.println("[UI] Попытка входа: " + login);
+
+        if (networkManager == null) {
+            System.err.println("[UI] NetworkManager не инициализирован, используем локальный вход.");
+            loadTestCharacter();
+            Main main = (Main) app;
+            if (main != null) {
+                main.loadGameWorld();
+            }
+            return;
         }
+
+        networkManager.login(login, password).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    System.out.println("[UI] Вход выполнен успешно.");
+                    loadCharacterFromServer();
+                } else {
+                    System.out.println("[UI] Ошибка входа: неверный логин или пароль.");
+                    showLoginError("Invalid login or password.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> {
+                System.err.println("[UI] Ошибка сети: " + ex.getMessage());
+                showLoginError("Network error: " + ex.getMessage());
+            });
+            return null;
+        });
     }
 
     private void handleRegister(String email, String login, String password) {
-        System.out.println("[UI] Register: " + login);
-        loadTestCharacter();
-        Main main = (Main) app;
-        if (main != null) {
-            main.loadGameWorld();
+        System.out.println("[UI] Регистрация: " + login);
+
+        if (networkManager == null) {
+            System.err.println("[UI] NetworkManager не инициализирован.");
+            loadTestCharacter();
+            Main main = (Main) app;
+            if (main != null) {
+                main.loadGameWorld();
+            }
+            return;
+        }
+
+        networkManager.register(email, login, password).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    System.out.println("[UI] Регистрация успешна. Переход к логину.");
+                    showLoginScreen();
+                    showToast("Registration successful! Please login.");
+                } else {
+                    System.out.println("[UI] Ошибка регистрации.");
+                    showLoginError("Registration failed. Please try again.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> {
+                System.err.println("[UI] Ошибка сети: " + ex.getMessage());
+                showLoginError("Network error: " + ex.getMessage());
+            });
+            return null;
+        });
+    }
+
+    private void loadCharacterFromServer() {
+        if (networkManager == null) return;
+
+        networkManager.loadCharacterData().thenAccept(data -> {
+            app.enqueue(() -> {
+                if (data != null) {
+                    System.out.println("[UI] Данные персонажа загружены с сервера.");
+                    applyCharacterData(data);
+                    Main main = (Main) app;
+                    if (main != null) {
+                        main.loadGameWorld();
+                        main.getGameManager().setState(GameState.CITY);
+                    }
+                } else {
+                    System.err.println("[UI] Не удалось загрузить персонажа.");
+                    showLoginError("Failed to load character data.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> {
+                System.err.println("[UI] Ошибка загрузки персонажа: " + ex.getMessage());
+                showLoginError("Network error: " + ex.getMessage());
+            });
+            return null;
+        });
+    }
+
+    public void applyCharacterData(Map<String, Object> data) {
+    if (playerManager == null) return;
+
+    System.out.println("[UI] applyCharacterData: data keys = " + data.keySet());
+
+    // ... загрузка параметров ...
+    if (data.containsKey("inventory")) {
+        List<Map<String, Object>> invList = (List<Map<String, Object>>) data.get("inventory");
+        System.out.println("[UI] Inventory list size = " + (invList != null ? invList.size() : "null"));
+        if (inventoryManager != null) {
+            inventoryManager.loadFromServerData(invList);
+            // Непосредственно обновление UI (loadFromServerData уже вызывает updateUI)
+            // inventoryManager.updateUI(); // <--- Убрать дублирующий вызов
         }
     }
 
-    private void loadTestCharacter() {
-        Main main = (Main) app;
-        if (main == null) return;
-        PlayerManager pm = main.getPlayerManager();
-        if (pm == null) return;
+    updatePlayerStats();
+    updatePotionCounts();
+}
 
-        pm.setPlayerName("Test Player");
-        pm.setLevel(1);
-        pm.setMaxHealth(100);
-        pm.setHealth(100);
-        pm.setMaxMana(50);
-        pm.setMana(50);
-        pm.setExperience(0);
-        pm.setGold(100);
-        pm.setHealthPotions(3);
-        pm.setManaPotions(3);
-
-        InventoryManager im = main.getInventoryManager();
-
-
-        GameManager gm = main.getGameManager();
-        if (gm != null) {
-            gm.setState(GameState.CITY);
-        }
-
-        updatePlayerStats();
+    private void showLoginError(String message) {
+        Label errorLabel = new Label(message);
+        errorLabel.setFontSize(16 * scale);
+        errorLabel.setColor(ColorRGBA.Red);
+        errorLabel.setLocalTranslation(20 * scale, 250 * scale, 0.1f);
+        loginWindow.attachChild(errorLabel);
+        new Thread(() -> {
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            app.enqueue(() -> {
+                if (loginWindow.hasChild(errorLabel)) {
+                    loginWindow.detachChild(errorLabel);
+                }
+            });
+        }).start();
     }
 
+    private void showToast(String message) {
+        Label toast = new Label(message);
+        toast.setFontSize(18 * scale);
+        toast.setColor(ColorRGBA.Green);
+        toast.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.1f, 0.9f)));
+        toast.setPreferredSize(new Vector3f(400 * scale, 40 * scale, 0));
+        toast.setLocalTranslation((app.getCamera().getWidth() - 400 * scale) / 2, app.getCamera().getHeight() - 100 * scale, 0.1f);
+        guiNode.attachChild(toast);
+        new Thread(() -> {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            app.enqueue(() -> guiNode.detachChild(toast));
+        }).start();
+    }
+
+    // ===== ЛОКАЛЬНАЯ ЗАГРУЗКА (для офлайн-тестов) =====
+   private void loadTestCharacter() {
+    Main main = (Main) app;
+    if (main == null) return;
+    
+    PlayerManager pm = main.getPlayerManager();
+    if (pm == null) return;
+
+    // Устанавливаем параметры персонажа
+    pm.setPlayerName("Test Player");
+    pm.setLevel(1);
+    pm.setMaxHealth(100);
+    pm.setHealth(100);
+    pm.setMaxMana(50);
+    pm.setMana(50);
+    pm.setExperience(0);
+    pm.setGold(100);
+    pm.setHealthPotions(3);
+    pm.setManaPotions(3);
+
+    // Добавляем стартовые предметы
+    InventoryManager im = main.getInventoryManager();
+    if (im != null) {
+        im.addItem(ItemGenerator.generateItem(1, "Weapon", 1));
+        im.addItem(ItemGenerator.generateItem(1, "Helmet", 1));
+        im.addItem(ItemGenerator.generateItem(1, "Chest", 1));
+        im.addItem(ItemGenerator.generateItem(1, "Legs", 1));
+        im.addItem(ItemGenerator.generateItem(1, "Boots", 1));
+    }
+
+    GameManager gm = main.getGameManager();
+    if (gm != null) {
+        gm.setState(GameState.CITY);
+    }
+
+    updatePlayerStats();
+    updatePotionCounts();
+}
+
+    // ===== ОСТАЛЬНЫЕ МЕТОДЫ =====
     public void onStateChanged(GameState newState) {
         if (newState == GameState.LOGIN) {
             showLoginScreen();
@@ -1043,6 +1189,5 @@ public boolean isAnyWindowOpen() {
         if (traderWindow != null) traderWindow.hide();
     }
 
-    // ===== ДОСТУП К GUI =====
     public Node getGuiNode() { return guiNode; }
 }

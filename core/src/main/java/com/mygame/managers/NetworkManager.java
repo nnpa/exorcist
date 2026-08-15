@@ -1,70 +1,66 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.json.JSONObject;
 
-/**
- * Менеджер сетевого взаимодействия
- * Отвечает за HTTP-запросы к серверу (Yii2 API)
- */
 public class NetworkManager {
-    
     private SimpleApplication app;
-    private String serverUrl = "http://localhost:8080/api";
+    private String serverUrl = "http://eczo/";
     private String authToken = null;
     private boolean isConnected = false;
-    
+    private static final String TOKEN_FILE_NAME = ".exorcist_token.txt";
+
     public NetworkManager(SimpleApplication app) {
         this.app = app;
     }
-    
+
     public void initialize() {
         System.out.println("[NetworkManager] Инициализация...");
         loadAuthToken();
     }
-    
+
+    // ---- Auth ----
     public CompletableFuture<Boolean> register(String email, String login, String password) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                System.out.println("[NetworkManager] Регистрация: " + login + ", " + email);
-                
                 JSONObject json = new JSONObject();
                 json.put("email", email);
                 json.put("login", login);
                 json.put("password", password);
-                
-                String response = sendPostRequest("/auth/register", json.toString());
+                String response = sendPostRequest("/auth/register", json.toString(), null);
+                System.out.println("[NetworkManager] Register response: " + response);
                 JSONObject result = new JSONObject(response);
-                
                 return result.optBoolean("success", false);
             } catch (Exception e) {
-                System.out.println("[NetworkManager] Ошибка регистрации: " + e.getMessage());
+                e.printStackTrace();
                 return false;
             }
         });
     }
-    
+
     public CompletableFuture<Boolean> login(String login, String password) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                System.out.println("[NetworkManager] Вход: " + login);
-                
                 JSONObject json = new JSONObject();
                 json.put("login", login);
                 json.put("password", password);
-                
-                String response = sendPostRequest("/auth/login", json.toString());
+                String response = sendPostRequest("/auth/login", json.toString(), null);
+                System.out.println("[NetworkManager] Login response: " + response);
                 JSONObject result = new JSONObject(response);
-                
                 if (result.optBoolean("success", false)) {
                     authToken = result.optString("token");
                     saveAuthToken(authToken);
@@ -73,119 +69,362 @@ public class NetworkManager {
                 }
                 return false;
             } catch (Exception e) {
-                System.out.println("[NetworkManager] Ошибка входа: " + e.getMessage());
+                e.printStackTrace();
                 return false;
             }
         });
     }
-    
-    public CompletableFuture<Boolean> checkToken(String token) {
+
+    public CompletableFuture<Boolean> checkToken() {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                System.out.println("[NetworkManager] Проверка токена");
-                
-                JSONObject json = new JSONObject();
-                json.put("token", token);
-                
-                String response = sendPostRequest("/auth/check", json.toString());
+                if (authToken == null) return false;
+                String response = sendPostRequest("/auth/check", "{}", authToken);
                 JSONObject result = new JSONObject(response);
-                
-                return result.optBoolean("valid", false);
+                return result.optBoolean("success", false);
             } catch (Exception e) {
                 return false;
             }
         });
     }
-    
-    public CompletableFuture<Map<String, Object>> loadCharacterData() {
+
+    // ---- Character ----
+public CompletableFuture<Map<String, Object>> loadCharacterData() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendGetRequest("/character", authToken);
+            System.out.println("[NetworkManager] Character data response: " + response);
+            JSONObject result = new JSONObject(response);
+            return parseCharacterResponse(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+    public CompletableFuture<Boolean> saveCharacter(Map<String, Object> characterData) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                System.out.println("[NetworkManager] Загрузка данных персонажа...");
-                
-                if (authToken == null) {
-                    return null;
-                }
-                
+                if (authToken == null) return false;
                 JSONObject json = new JSONObject();
-                json.put("token", authToken);
-                
-                String response = sendPostRequest("/character/data", json.toString());
+                if (characterData.containsKey("health")) json.put("health", characterData.get("health"));
+                if (characterData.containsKey("mana")) json.put("mana", characterData.get("mana"));
+                if (characterData.containsKey("maxHealth")) json.put("max_health", characterData.get("maxHealth"));
+                if (characterData.containsKey("maxMana")) json.put("max_mana", characterData.get("maxMana"));
+                if (characterData.containsKey("gold")) json.put("gold", characterData.get("gold"));
+                if (characterData.containsKey("level")) json.put("level", characterData.get("level"));
+                if (characterData.containsKey("experience")) json.put("experience", characterData.get("experience"));
+                if (characterData.containsKey("currentDungeon")) json.put("current_dungeon", characterData.get("currentDungeon"));
+                if (characterData.containsKey("difficulty")) json.put("difficulty", characterData.get("difficulty"));
+                if (characterData.containsKey("lastX")) json.put("last_dungeon_position_x", characterData.get("lastX"));
+                if (characterData.containsKey("lastY")) json.put("last_dungeon_position_y", characterData.get("lastY"));
+                if (characterData.containsKey("lastZ")) json.put("last_dungeon_position_z", characterData.get("lastZ"));
+
+                String response = sendPostRequest("/character/save", json.toString(), authToken);
                 JSONObject result = new JSONObject(response);
-                
+                return result.optBoolean("success", false);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+        });
+    }
+
+    // ---- Inventory ----
+public CompletableFuture<Map<String, Object>> pickupItem(Map<String, Object> itemData) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            JSONObject json = new JSONObject();
+            json.put("itemData", new JSONObject(itemData));
+            String response = sendPostRequest("/inventory/pickup", json.toString(), authToken);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return parseCharacterResponse(result);
+            }
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+    public CompletableFuture<Map<String, Object>> equipItem(int slotIndex) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (authToken == null) return null;
+                JSONObject json = new JSONObject();
+                json.put("slot", slotIndex);
+                String response = sendPostRequest("/inventory/equip", json.toString(), authToken);
+                System.out.println("[NetworkManager] Equip response: " + response);
+                JSONObject result = new JSONObject(response);
                 if (result.optBoolean("success", false)) {
-                    Map<String, Object> data = new HashMap<>();
-                    JSONObject character = result.getJSONObject("character");
-                    
-                    data.put("name", character.optString("name", "Экзорцист"));
-                    data.put("level", character.optInt("level", 1));
-                    data.put("health", character.optInt("health", 100));
-                    data.put("maxHealth", character.optInt("maxHealth", 100));
-                    data.put("mana", character.optInt("mana", 50));
-                    data.put("maxMana", character.optInt("maxMana", 50));
-                    data.put("experience", character.optInt("experience", 0));
-                    data.put("gold", character.optInt("gold", 100));
-                    
-                    return data;
+                    return parseCharacterResponse(result);
                 }
                 return null;
             } catch (Exception e) {
-                System.out.println("[NetworkManager] Ошибка загрузки персонажа: " + e.getMessage());
+                e.printStackTrace();
                 return null;
             }
         });
     }
-    
-    private String sendPostRequest(String endpoint, String jsonBody) throws Exception {
+
+private String getSlotName(int slotIndex) {
+        switch (slotIndex) {
+            case 0: return "helmet";
+            case 1: return "chest";
+            case 2: return "weapon";
+            case 3: return "shield";
+            case 4: return "legs";
+            case 5: return "boots";
+            case 6: return "gloves";
+            default: return null;
+        }
+    }
+
+    // ================================================================
+    //   ИСПРАВЛЕННЫЙ МЕТОД UNEQUIP
+    // ================================================================
+ public CompletableFuture<Map<String, Object>> unequipItem(int slotIndex) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String slotName = getSlotName(slotIndex);
+            if (slotName == null) {
+                System.err.println("[NetworkManager] Invalid slot index for unequip: " + slotIndex);
+                return null;
+            }
+
+            JSONObject json = new JSONObject();
+            // ВАЖНО: сервер ожидает "equipped_slot", а не "slot"
+            json.put("equipped_slot", slotName); 
+
+            String response = sendPostRequest("/inventory/unequip", json.toString(), authToken);
+            System.out.println("[DEBUG] UNEQUIP RESPONSE: " + response);
+
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return parseCharacterResponse(result);
+            } else {
+                System.err.println("[NetworkManager] Server rejected unequip. Response: " + response);
+                return null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+    public CompletableFuture<Map<String, Object>> dropItem(int slotIndex) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (authToken == null) return null;
+                JSONObject json = new JSONObject();
+                json.put("slot", slotIndex);
+                String response = sendPostRequest("/inventory/drop", json.toString(), authToken);
+                JSONObject result = new JSONObject(response);
+                if (result.optBoolean("success", false)) {
+                    return parseCharacterResponse(result);
+                }
+                return null;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+    }
+
+    // ---- Auction ----
+    public CompletableFuture<List<Map<String, Object>>> getAuctionList(int page, String type, String rarity, int minLevel, int maxLevel) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (authToken == null) return null;
+                StringBuilder query = new StringBuilder("/auction/list?page=" + page);
+                if (type != null && !type.isEmpty()) query.append("&type=").append(type);
+                if (rarity != null && !rarity.isEmpty()) query.append("&rarity=").append(rarity);
+                if (minLevel > 0) query.append("&minLevel=").append(minLevel);
+                if (maxLevel > 0) query.append("&maxLevel=").append(maxLevel);
+                String response = sendGetRequest(query.toString(), authToken);
+                JSONObject result = new JSONObject(response);
+                JSONArray items = result.optJSONArray("items");
+                List<Map<String, Object>> list = new ArrayList<>();
+                if (items != null) {
+                    for (int i = 0; i < items.length(); i++) {
+                        JSONObject item = items.getJSONObject(i);
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("id", item.optInt("id"));
+                        map.put("price", item.optInt("price"));
+                        map.put("sellerName", item.optString("sellerName"));
+                        map.put("item", item.optJSONObject("item").toMap());
+                        list.add(map);
+                    }
+                }
+                return list;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+    }
+
+    public CompletableFuture<Map<String, Object>> sellItem(int slotIndex, int price) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (authToken == null) return null;
+                JSONObject json = new JSONObject();
+                json.put("slot", slotIndex);
+                json.put("price", price);
+                String response = sendPostRequest("/auction/sell", json.toString(), authToken);
+                JSONObject result = new JSONObject(response);
+                if (result.optBoolean("success", false)) {
+                    return parseCharacterResponse(result);
+                }
+                return null;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+    }
+
+    public CompletableFuture<Map<String, Object>> buyItem(int lotId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (authToken == null) return null;
+                JSONObject json = new JSONObject();
+                json.put("lotId", lotId);
+                String response = sendPostRequest("/auction/buy", json.toString(), authToken);
+                JSONObject result = new JSONObject(response);
+                if (result.optBoolean("success", false)) {
+                    return parseCharacterResponse(result);
+                }
+                return null;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+    }
+
+    // ---- Helpers ----
+    private String sendPostRequest(String endpoint, String jsonBody, String token) throws Exception {
         URL url = new URL(serverUrl + endpoint);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("Accept", "application/json");
+        if (token != null && !token.isEmpty()) {
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+        }
         conn.setDoOutput(true);
-        
+
         try (OutputStream os = conn.getOutputStream()) {
-            byte[] input = jsonBody.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
+            os.write(jsonBody.getBytes(StandardCharsets.UTF_8));
         }
-        
+
         int responseCode = conn.getResponseCode();
-        BufferedReader br = new BufferedReader(
-            new InputStreamReader(
-                responseCode >= 200 && responseCode < 300 ? 
-                conn.getInputStream() : conn.getErrorStream(),
+        BufferedReader br = new BufferedReader(new InputStreamReader(
+                responseCode >= 200 && responseCode < 300 ? conn.getInputStream() : conn.getErrorStream(),
                 StandardCharsets.UTF_8
-            )
-        );
-        
-        StringBuilder response = new StringBuilder();
+        ));
+        StringBuilder sb = new StringBuilder();
         String line;
-        while ((line = br.readLine()) != null) {
-            response.append(line);
-        }
+        while ((line = br.readLine()) != null) sb.append(line);
         br.close();
-        
-        return response.toString();
+        conn.disconnect();
+        return sb.toString();
     }
-    
+
+    private String sendGetRequest(String endpoint, String token) throws Exception {
+        URL url = new URL(serverUrl + endpoint);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/json");
+        if (token != null && !token.isEmpty()) {
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+        }
+
+        int responseCode = conn.getResponseCode();
+        BufferedReader br = new BufferedReader(new InputStreamReader(
+                responseCode >= 200 && responseCode < 300 ? conn.getInputStream() : conn.getErrorStream(),
+                StandardCharsets.UTF_8
+        ));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) sb.append(line);
+        br.close();
+        conn.disconnect();
+        return sb.toString();
+    }
+
+private Map<String, Object> parseCharacterResponse(JSONObject response) {
+    JSONObject character = response.optJSONObject("character");
+    if (character == null) character = response;
+    if (character == null) return null;
+
+    Map<String, Object> data = new HashMap<>();
+    // ... загрузка других полей (у вас уже есть) ...
+
+    JSONArray inv = character.optJSONArray("inventory");
+    System.out.println("[NetworkManager] Inventory array from server: " + inv);
+    if (inv != null) {
+        List<Map<String, Object>> invList = new ArrayList<>();
+        for (int i = 0; i < inv.length(); i++) {
+            JSONObject invItem = inv.getJSONObject(i);
+            Map<String, Object> map = new HashMap<>();
+            map.put("slot", invItem.optInt("slot"));
+            map.put("equipped", invItem.optBoolean("equipped"));
+            
+            // ★ ИСПРАВЛЕНИЕ: сначала ищем equipped_slot, потом equippedSlot
+            String eqSlot = invItem.optString("equipped_slot");
+            if (eqSlot.isEmpty()) {
+                eqSlot = invItem.optString("equippedSlot");
+            }
+            map.put("equippedSlot", eqSlot);
+
+            JSONObject itemObj = invItem.optJSONObject("item");
+            if (itemObj != null) {
+                map.put("item", itemObj.toMap());
+            }
+            invList.add(map);
+        }
+        data.put("inventory", invList);
+    }
+    return data;
+}
+
     private void saveAuthToken(String token) {
-        System.out.println("[NetworkManager] Токен сохранен");
+        try {
+            Path path = getTokenPath();
+            Files.write(path, token.getBytes(StandardCharsets.UTF_8));
+            System.out.println("[NetworkManager] Token saved.");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
-    
+
     private void loadAuthToken() {
-        authToken = null;
-        System.out.println("[NetworkManager] Токен загружен");
+        try {
+            Path path = getTokenPath();
+            if (Files.exists(path)) {
+                authToken = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+                isConnected = true;
+                System.out.println("[NetworkManager] Token loaded.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
-    
-    public String getAuthToken() {
-        return authToken;
+
+    private Path getTokenPath() {
+        return Paths.get(System.getProperty("user.home"), TOKEN_FILE_NAME);
     }
-    
-    public boolean isConnected() {
-        return isConnected;
-    }
-    
-    public void cleanup() {
-        isConnected = false;
-        System.out.println("[NetworkManager] Очистка выполнена");
-    }
+
+    public String getAuthToken() { return authToken; }
+    public boolean isConnected() { return isConnected; }
+    public void cleanup() { isConnected = false; }
 }
