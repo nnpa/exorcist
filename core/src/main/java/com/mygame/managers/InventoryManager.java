@@ -579,4 +579,36 @@ public void requestInventoryRefresh() {
             guiNode.detachChild(inventoryNode);
         }
     }
+    public int getItemIndex(Item item) {
+    if (item == null) return -1;
+    for (int i = 0; i < inventoryItems.length; i++) {
+        if (inventoryItems[i] == item) {
+            return i;
+        }
+    }
+    return -1;
+}
+    /**
+ * Возвращает реальный номер слота для данного предмета.
+ * @param item предмет
+ * @return номер слота (0-19) или -1, если не найден
+ */
+public int getSlotIndex(Item item) {
+    if (item == null) return -1;
+    for (int i = 0; i < inventoryItems.length; i++) {
+        if (inventoryItems[i] == item) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Возвращает предмет в указанном слоте.
+ */
+public Item getItemAtSlot(int slot) {
+    if (slot < 0 || slot >= inventoryItems.length) return null;
+    return inventoryItems[slot];
+}
+    
 }

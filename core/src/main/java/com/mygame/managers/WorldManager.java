@@ -49,10 +49,6 @@ public class WorldManager {
     private DungeonManager dungeonManager;
 
     private BulletAppState bulletAppState;
-
-    // ============================================================
-    //   ИСПРАВЛЕНИЕ 1: Поле NetworkManager добавлено и инициализируется
-    // ============================================================
     private NetworkManager networkManager;
 
     public WorldManager(SimpleApplication app) {
@@ -68,9 +64,6 @@ public class WorldManager {
         System.out.println("[WorldManager] BulletAppState set: " + (bas != null));
     }
 
-    // ============================================================
-    //   ИСПРАВЛЕНИЕ 2: Добавлен сеттер для NetworkManager
-    // ============================================================
     public void setNetworkManager(NetworkManager networkManager) {
         this.networkManager = networkManager;
     }
@@ -90,8 +83,6 @@ public class WorldManager {
 
         dungeonLoader = new DungeonLoader(app);
         dungeonManager = new DungeonManager();
-
-        // Передаём ссылку на этот WorldManager в DungeonLoader
         dungeonLoader.setWorldManager(this);
 
         System.out.println("[WorldManager] Initialization complete");
@@ -127,7 +118,6 @@ public class WorldManager {
     public void loadCityWithPhysics() {
         System.out.println("[WorldManager] ===== LOADING CITY WITH PHYSICS =====");
 
-        // Очищаем город и удаляем его физику
         if (cityNode != null) {
             removePhysicsFromNode(cityNode);
             cityNode.detachAllChildren();
@@ -214,6 +204,7 @@ public class WorldManager {
 
         loadBlacksmith();
         createTraderNPC();
+        loadAuctionHouse();
 
         System.out.println("[WorldManager] NPCs loaded");
     }
@@ -263,18 +254,10 @@ public class WorldManager {
     private void createInteractiveObjects() {
         System.out.println("[WorldManager] Creating interactive objects...");
 
-        // Портал
-        Sphere portalSphere = new Sphere(16, 16, 1.5f);
-        Geometry portal = new Geometry("Portal", portalSphere);
-        portal.setName("Portal");
-        Material portalMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        portalMat.setColor("Color", new ColorRGBA(0.2f, 0.6f, 1.0f, 0.7f));
-        portal.setMaterial(portalMat);
-        portal.move(5, 1.5f, 5);
-        cityNode.attachChild(portal);
-        System.out.println("[WorldManager] Portal at (5, 1.5, 5)");
+        // ===== УДАЛЁН ПОРТАЛ (синий шар) =====
+        // Вместо него аукционер стоит на позиции (5, 1.5, 5)
 
-        // Телепортер (розовый куб)
+        // Телепортер (розовый куб) остаётся
         createTeleporter();
     }
 
@@ -340,7 +323,7 @@ public class WorldManager {
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
         skeleton.setDropManager(dropManager);
-        skeleton.setWorldManager(this); // передаём WorldManager для смены данжа
+        skeleton.setWorldManager(this);
 
         Spatial model = null;
         try {
@@ -414,7 +397,7 @@ public class WorldManager {
             for (Spatial child : cityNode.getChildren()) {
                 String name = child.getName();
                 if (name == null) continue;
-                if (name.equals("Portal") || name.equals("Teleporter")) {
+                if (name.equals("Teleporter")) {
                     float dist = child.getWorldTranslation().distance(point);
                     if (dist < closestDist) {
                         closestDist = dist;
@@ -428,7 +411,7 @@ public class WorldManager {
             for (Spatial child : npcNode.getChildren()) {
                 String name = child.getName();
                 if (name == null) continue;
-                if (name.equals("NPC_Trader") || name.equals("NPC_Blacksmith")) {
+                if (name.equals("NPC_Trader") || name.equals("NPC_Blacksmith") || name.equals("NPC_Auctioneer")) {
                     float dist = child.getWorldTranslation().distance(point);
                     if (dist < closestDist) {
                         closestDist = dist;
@@ -568,7 +551,7 @@ public class WorldManager {
     }
 
     // ============================================================
-    //   СМЕНА ДАНЖА ПОСЛЕ БОССА (С ИСПРАВЛЕННЫМ ВЫЗОВОМ)
+    //   СМЕНА ДАНЖА ПОСЛЕ БОССА
     // ============================================================
     public void changeDungeon(String newDungeonId, boolean increaseDifficulty) {
         if (playerManager != null) {
@@ -577,11 +560,8 @@ public class WorldManager {
                 playerManager.setCurrentDifficulty(newDiff);
             }
             playerManager.setCurrentDungeon(newDungeonId);
-            
             saveDungeonAndDifficultyToServer();
         }
-        
-        // ИСПРАВЛЕНИЕ: Передаем актуальную сложность в метод загрузки
         int currentDifficulty = playerManager != null ? playerManager.getCurrentDifficulty() : 1;
         loadDungeon(newDungeonId, currentDifficulty);
     }
@@ -692,6 +672,29 @@ public class WorldManager {
             this.hp = hp;
             this.maxHp = hp;
             this.damage = damage;
+        }
+    }
+
+    // ============================================================
+    //   ЗАГРУЗКА АУКЦИОНИСТА (на месте бывшего портала)
+    // ============================================================
+    private void loadAuctionHouse() {
+        System.out.println("[WorldManager] Loading Auction House...");
+        try {
+            Spatial auctioneer = app.getAssetManager().loadModel("Models/City/NPC/Auc/auction.gltf");
+            if (auctioneer != null) {
+                auctioneer.scale(2.7f);
+                auctioneer.rotate(0, FastMath.PI, 0);
+                // Позиция портала (5, 1.5, 5) теперь занята аукционистом
+auctioneer.setLocalTranslation(5f, -0.8f, 5f);
+                auctioneer.setName("NPC_Auctioneer");
+                npcNode.attachChild(auctioneer);
+                System.out.println("[WorldManager] Auctioneer placed at (5, 1.5, 5)");
+            } else {
+                System.err.println("[WorldManager] Auctioneer model is NULL!");
+            }
+        } catch (Exception e) {
+            System.err.println("[WorldManager] Error loading auction house: " + e.getMessage());
         }
     }
 }

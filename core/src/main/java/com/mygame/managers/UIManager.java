@@ -30,7 +30,13 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class UIManager {
-
+    private AuctionWindow auctionWindow;
+  public void openAuction() {
+        if (auctionWindow == null) {
+            auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
+        }
+        auctionWindow.show();
+    }
     private SimpleApplication app;
     private Node guiNode;
     private NetworkManager networkManager;
@@ -1030,19 +1036,32 @@ public class UIManager {
         });
     }
 
-    public void applyCharacterData(Map<String, Object> data) {
+public void applyCharacterData(Map<String, Object> data) {
     if (playerManager == null) return;
 
     System.out.println("[UI] applyCharacterData: data keys = " + data.keySet());
 
-    // ... загрузка параметров ...
+    // ===== ЗОЛОТО (ДОБАВЛЕНО) =====
+    if (data.containsKey("gold")) {
+        int gold = ((Number) data.get("gold")).intValue();
+        playerManager.setGold(gold);
+        System.out.println("[UI] Gold loaded: " + gold);
+    }
+
+    // ===== ЗЕЛЬЯ =====
+    if (data.containsKey("healthPotions")) {
+        playerManager.setHealthPotions(((Number) data.get("healthPotions")).intValue());
+    }
+    if (data.containsKey("manaPotions")) {
+        playerManager.setManaPotions(((Number) data.get("manaPotions")).intValue());
+    }
+
+    // ===== ИНВЕНТАРЬ =====
     if (data.containsKey("inventory")) {
         List<Map<String, Object>> invList = (List<Map<String, Object>>) data.get("inventory");
         System.out.println("[UI] Inventory list size = " + (invList != null ? invList.size() : "null"));
         if (inventoryManager != null) {
             inventoryManager.loadFromServerData(invList);
-            // Непосредственно обновление UI (loadFromServerData уже вызывает updateUI)
-            // inventoryManager.updateUI(); // <--- Убрать дублирующий вызов
         }
     }
 

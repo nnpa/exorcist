@@ -13,10 +13,13 @@ import com.jme3.scene.Spatial;
 import com.jme3.scene.control.BillboardControl;
 import com.jme3.scene.shape.Quad;
 import com.jme3.texture.Texture;
+import com.mygame.Main;
 import com.mygame.items.Item;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DropManager {
 
@@ -24,17 +27,23 @@ public class DropManager {
     private Node dropNode;
     private List<DropItem> drops = new ArrayList<>();
     private InventoryManager inventoryManager;
+    private NetworkManager networkManager; // ← добавили
 
-    // ===== РАЗМЕРЫ (СДЕЛАЛИ ПОБОЛЬШЕ, ЧТОБЫ БЫЛО ХОРОШО ВИДНО) =====
+    // ===== РАЗМЕРЫ =====
     private static final float ICON_SIZE = 0.8f; 
     private static final float BORDER_SIZE = 0.06f;
-    private static final float TEXT_OFFSET = 1.4f; // Текст выше иконки
+    private static final float TEXT_OFFSET = 1.4f;
     private static final float PIXEL_THRESHOLD = 80f;
 
     public DropManager(SimpleApplication app, Node guiNode) {
         this.app = app;
         dropNode = new Node("DropNode");
         app.getRootNode().attachChild(dropNode);
+        // Получаем NetworkManager из Main
+        Main main = (Main) app;
+        if (main != null) {
+            this.networkManager = main.getNetworkManager();
+        }
     }
 
     public void setInventoryManager(InventoryManager im) {
@@ -80,15 +89,69 @@ public class DropManager {
         return null;
     }
 
+    // ============================================================
+    //   ПОДБОР ПРЕДМЕТА (СЕТЕВОЙ ВАРИАНТ)
+    // ============================================================
     public void pickupDrop(DropItem drop) {
-        if (inventoryManager != null) {
-            inventoryManager.addItem(drop.item);
-            dropNode.detachChild(drop.node);
-            drops.remove(drop);
-            System.out.println("[DropManager] Picked up: " + drop.item.getName());
+        if (drop == null) return;
+
+        // Если нет сети – локальное добавление (для тестов)
+        if (networkManager == null) {
+            if (inventoryManager != null) {
+                inventoryManager.addItem(drop.item);
+                dropNode.detachChild(drop.node);
+                drops.remove(drop);
+                System.out.println("[DropManager] (offline) Picked up: " + drop.item.getName());
+            }
+            return;
         }
+
+        // Формируем данные предмета для отправки на сервер
+        Map<String, Object> itemData = new HashMap<>();
+        itemData.put("id", drop.item.getId());
+        itemData.put("name", drop.item.getName());
+        itemData.put("type", drop.item.getType());
+        itemData.put("level", drop.item.getLevel());
+        itemData.put("rarity", drop.item.getRarity().name());
+        itemData.put("description", drop.item.getDescription());
+        itemData.put("damage", drop.item.getDamage());
+        itemData.put("defense", drop.item.getDefense());
+        itemData.put("healthBonus", drop.item.getHealthBonus());
+        itemData.put("manaBonus", drop.item.getManaBonus());
+        itemData.put("iconPath", drop.item.getIconPath());
+        itemData.put("socketCount", drop.item.getSocketCount());
+        // ===== ДОБАВЛЕНА СЛОЖНОСТЬ =====
+        itemData.put("difficulty", drop.item.getDifficulty());
+
+        // Отправляем запрос на сервер
+        networkManager.pickupItem(itemData).thenAccept(response -> {
+            app.enqueue(() -> {
+                if (response != null) {
+                    // Если сервер вернул обновлённые данные персонажа – применяем их
+                    Main main = (Main) app;
+                    if (main != null) {
+                        UIManager ui = main.getUIManager();
+                        if (ui != null) {
+                            ui.applyCharacterData(response);
+                        }
+                    }
+                    // Удаляем дроп только после успешного ответа
+                    dropNode.detachChild(drop.node);
+                    drops.remove(drop);
+                    System.out.println("[DropManager] Picked up (server): " + drop.item.getName());
+                } else {
+                    System.err.println("[DropManager] Server rejected pickup.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> System.err.println("[DropManager] Network error: " + ex.getMessage()));
+            return null;
+        });
     }
 
+    // ============================================================
+    //   КЛАСС DROPITEM
+    // ============================================================
     public class DropItem {
         public Node node;
         public Item item;
@@ -98,15 +161,12 @@ public class DropManager {
         public DropItem(Vector3f position, Item item) {
             this.item = item;
             node = new Node("DropNode_" + item.getName());
-            
-            // ИСПРАВЛЕНИЕ: Поднимаем дроп над землей (берем Y из позиции)
             node.setLocalTranslation(position.x, position.y + 0.8f, position.z);
 
             // Иконка
             Quad quad = new Quad(ICON_SIZE, ICON_SIZE);
             iconGeom = new Geometry("DropIcon", quad);
             Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-            
             Texture tex = null;
             try {
                 tex = app.getAssetManager().loadTexture(item.getIconPath());
@@ -130,16 +190,15 @@ public class DropManager {
             borderGeom.setLocalTranslation(-(ICON_SIZE + BORDER_SIZE)/2, -BORDER_SIZE/2, -(ICON_SIZE + BORDER_SIZE)/2);
             node.attachChild(borderGeom);
 
-            // Текст названия
+            // Текст
             labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/Default.fnt"));
             labelText.setText(item.getName());
-            labelText.setSize(0.4f); // Чуть уменьшили шрифт, чтобы не перекрывал
+            labelText.setSize(0.4f);
             labelText.setColor(item.getColor());
             float textWidth = labelText.getLineWidth();
             labelText.setLocalTranslation(-textWidth/2, ICON_SIZE/2 + TEXT_OFFSET, 0);
             node.attachChild(labelText);
 
-            // ===== САМОЕ ВАЖНОЕ: Биллборд (поворачивает всё лицом к камере) =====
             BillboardControl billboard = new BillboardControl();
             node.addControl(billboard);
         }

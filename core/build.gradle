@@ -4,11 +4,14 @@ plugins {
 
 dependencies {
     implementation 'org.jmonkeyengine:jme3-core:3.6.1-stable'
-    implementation 'com.github.jMonkeyEngine-Contributions:lemur:1.16.0'
-    implementation 'org.json:json:20230227'
-implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.github.stephengold:Minie:8.0.0'
+    
+    // ===== Убрали старую JitPack версию, оставили одну совместимую пару =====
+    implementation 'com.simsilica:lemur:1.15.0'
+    implementation 'com.simsilica:lemur-proto:1.13.0'
 
+    implementation 'org.json:json:20230227'
+    implementation 'com.google.code.gson:gson:2.13.2'
+    implementation 'com.github.stephengold:Minie:8.0.0'
 }
 
 sourceSets {

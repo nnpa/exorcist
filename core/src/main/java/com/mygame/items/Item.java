@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 public class Item {
+    private int difficulty;
+
     private String id;
     private String name;
     private String type;
@@ -20,7 +22,8 @@ public class Item {
     private int socketCount;
     private List<String> runes;
     private ColorRGBA fallbackColor;
-
+public int getDifficulty() { return difficulty; }
+public void setDifficulty(int difficulty) { this.difficulty = difficulty; }
     public Item() {
         runes = new ArrayList<>();
         fallbackColor = generateRandomColor();
@@ -169,6 +172,11 @@ public class Item {
             System.err.println("[Item.fromMap] manaBonus is not a Number: " + mpObj);
             return null;
         }
+
+        Object diffObj = map.get("difficulty");
+if (diffObj instanceof Number) {
+    item.setDifficulty(((Number) diffObj).intValue());
+}
 
         Object socketObj = map.get("socketCount");
         if (socketObj instanceof Number) {

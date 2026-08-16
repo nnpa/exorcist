@@ -6,12 +6,15 @@ import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
+import com.mygame.Main;
 import com.mygame.items.Item;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TraderWindow {
 
@@ -19,6 +22,7 @@ public class TraderWindow {
     private PlayerManager playerManager;
     private InventoryManager inventoryManager;
     private UIManager uiManager;
+    private NetworkManager networkManager;
     private Node windowNode;
     private boolean isVisible = false;
 
@@ -33,6 +37,7 @@ public class TraderWindow {
         this.playerManager = pm;
         this.inventoryManager = im;
         this.uiManager = ui;
+        this.networkManager = Main.getInstance().getNetworkManager();
         createWindow();
         positionWindow();
     }
@@ -67,12 +72,11 @@ public class TraderWindow {
         windowNode = new Node("TraderWindowNode");
         windowNode.setName("TraderWindowNode");
 
-        // ===== ФОН через UIManager =====
+        // Фон
         if (uiManager != null) {
             Geometry bgGeom = uiManager.createBackgroundGeometry(windowWidth, windowHeight);
             windowNode.attachChild(bgGeom);
         } else {
-            // Запасной вариант
             com.jme3.scene.shape.Quad bgQuad = new com.jme3.scene.shape.Quad(windowWidth, windowHeight);
             Geometry bgGeom = new Geometry("TraderBg", bgQuad);
             com.jme3.material.Material bgMat = new com.jme3.material.Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
@@ -145,6 +149,25 @@ public class TraderWindow {
         }
     }
 
+    // ========== СОХРАНЕНИЕ НА СЕРВЕР ==========
+    private void saveToServer() {
+        if (networkManager == null || playerManager == null) return;
+        Map<String, Object> data = new HashMap<>();
+        data.put("gold", playerManager.getGold());
+        data.put("healthPotions", playerManager.getHealthPotions());
+        data.put("manaPotions", playerManager.getManaPotions());
+        networkManager.saveCharacter(data).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    System.out.println("[TraderWindow] Data saved to server.");
+                } else {
+                    System.err.println("[TraderWindow] Failed to save data!");
+                }
+            });
+        });
+    }
+
+    // ========== ПОКУПКА ==========
     private void showBuyTab() {
         clearContent();
         Label header = new Label("Buy items:");
@@ -171,6 +194,7 @@ public class TraderWindow {
                 updateGold();
                 if (uiManager != null) uiManager.updatePotionCounts();
                 showBuyTab();
+                saveToServer();
             }
         });
         contentNode.attachChild(hpBuy);
@@ -193,11 +217,13 @@ public class TraderWindow {
                 updateGold();
                 if (uiManager != null) uiManager.updatePotionCounts();
                 showBuyTab();
+                saveToServer();
             }
         });
         contentNode.attachChild(mpBuy);
     }
 
+    // ========== ПРОДАЖА ==========
     private void showSellTab() {
         clearContent();
         Label header = new Label("Sell items (click to sell):");
@@ -228,11 +254,55 @@ public class TraderWindow {
                 sellBtn.setFontSize(10 * scale);
                 sellBtn.setLocalTranslation(250 * scale, yPos, 0.1f);
                 sellBtn.addClickCommands((source) -> {
-                    playerManager.setGold(playerManager.getGold() + price);
-                    inventoryManager.removeItem(item);
-                    updateGold();
-                    if (uiManager != null) uiManager.updatePotionCounts();
-                    showSellTab();
+                    // 1. Получаем индекс предмета
+                    int slotIndex = inventoryManager.getItemIndex(item);
+                    if (slotIndex == -1) {
+                        System.err.println("[TraderWindow] Item not found in inventory!");
+                        return;
+                    }
+
+                    // 2. Если есть сеть – сначала удаляем на сервере
+                    if (networkManager != null) {
+                        networkManager.dropItem(slotIndex).thenAccept(response -> {
+                            app.enqueue(() -> {
+                                if (response != null) {
+                                    // Сервер успешно удалил предмет и вернул обновлённые данные
+                                    // Применяем их (обновит инвентарь и золото)
+                                    if (uiManager != null) {
+                                        uiManager.applyCharacterData(response);
+                                    }
+                                    // Обновляем отображение
+                                    updateGold();
+                                    if (uiManager != null) uiManager.updatePotionCounts();
+                                    showSellTab();
+                                } else {
+                                    // Сервер отказал – возможно, предмет уже удалён или ошибка
+                                    System.err.println("[TraderWindow] Server rejected drop. Refreshing inventory...");
+                                    // Принудительно запрашиваем свежие данные
+                                    if (networkManager != null) {
+                                        networkManager.loadCharacterData().thenAccept(data -> {
+                                            app.enqueue(() -> {
+                                                if (data != null && uiManager != null) {
+                                                    uiManager.applyCharacterData(data);
+                                                    showSellTab();
+                                                }
+                                            });
+                                        });
+                                    }
+                                }
+                            });
+                        }).exceptionally(ex -> {
+                            app.enqueue(() -> System.err.println("[TraderWindow] Network error: " + ex.getMessage()));
+                            return null;
+                        });
+                    } else {
+                        // Оффлайн режим: просто удаляем локально
+                        playerManager.setGold(playerManager.getGold() + price);
+                        inventoryManager.removeItem(item);
+                        updateGold();
+                        if (uiManager != null) uiManager.updatePotionCounts();
+                        showSellTab();
+                    }
                 });
                 contentNode.attachChild(sellBtn);
                 yPos -= 30 * scale;

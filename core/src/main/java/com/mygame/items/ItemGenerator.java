@@ -94,6 +94,8 @@ public class ItemGenerator {
         item.setSocketCount(random.nextInt(3));
         item.setHealthBonus(baseHealthBonus);
         item.setManaBonus(baseManaBonus);
+        item.setDifficulty(difficulty);
+
         return item;
     }
 

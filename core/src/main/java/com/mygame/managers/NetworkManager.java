@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class NetworkManager {
+    
     private SimpleApplication app;
     private String serverUrl = "http://eczo/";
     private String authToken = null;
@@ -105,32 +106,40 @@ public CompletableFuture<Map<String, Object>> loadCharacterData() {
 }
 
     public CompletableFuture<Boolean> saveCharacter(Map<String, Object> characterData) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                if (authToken == null) return false;
-                JSONObject json = new JSONObject();
-                if (characterData.containsKey("health")) json.put("health", characterData.get("health"));
-                if (characterData.containsKey("mana")) json.put("mana", characterData.get("mana"));
-                if (characterData.containsKey("maxHealth")) json.put("max_health", characterData.get("maxHealth"));
-                if (characterData.containsKey("maxMana")) json.put("max_mana", characterData.get("maxMana"));
-                if (characterData.containsKey("gold")) json.put("gold", characterData.get("gold"));
-                if (characterData.containsKey("level")) json.put("level", characterData.get("level"));
-                if (characterData.containsKey("experience")) json.put("experience", characterData.get("experience"));
-                if (characterData.containsKey("currentDungeon")) json.put("current_dungeon", characterData.get("currentDungeon"));
-                if (characterData.containsKey("difficulty")) json.put("difficulty", characterData.get("difficulty"));
-                if (characterData.containsKey("lastX")) json.put("last_dungeon_position_x", characterData.get("lastX"));
-                if (characterData.containsKey("lastY")) json.put("last_dungeon_position_y", characterData.get("lastY"));
-                if (characterData.containsKey("lastZ")) json.put("last_dungeon_position_z", characterData.get("lastZ"));
-
-                String response = sendPostRequest("/character/save", json.toString(), authToken);
-                JSONObject result = new JSONObject(response);
-                return result.optBoolean("success", false);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return false;
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return false;
+            JSONObject json = new JSONObject();
+            if (characterData.containsKey("health")) json.put("health", characterData.get("health"));
+            if (characterData.containsKey("mana")) json.put("mana", characterData.get("mana"));
+            if (characterData.containsKey("maxHealth")) json.put("max_health", characterData.get("maxHealth"));
+            if (characterData.containsKey("maxMana")) json.put("max_mana", characterData.get("maxMana"));
+            if (characterData.containsKey("gold")) json.put("gold", characterData.get("gold"));
+            if (characterData.containsKey("level")) json.put("level", characterData.get("level"));
+            if (characterData.containsKey("experience")) json.put("experience", characterData.get("experience"));
+            if (characterData.containsKey("currentDungeon")) json.put("current_dungeon", characterData.get("currentDungeon"));
+            if (characterData.containsKey("difficulty")) json.put("difficulty", characterData.get("difficulty"));
+            if (characterData.containsKey("lastX")) json.put("last_dungeon_position_x", characterData.get("lastX"));
+            if (characterData.containsKey("lastY")) json.put("last_dungeon_position_y", characterData.get("lastY"));
+            if (characterData.containsKey("lastZ")) json.put("last_dungeon_position_z", characterData.get("lastZ"));
+            
+            // ===== ИСПРАВЛЕНИЕ: ключи с подчеркиванием =====
+            if (characterData.containsKey("healthPotions")) {
+                json.put("health_potions", characterData.get("healthPotions"));
             }
-        });
-    }
+            if (characterData.containsKey("manaPotions")) {
+                json.put("mana_potions", characterData.get("manaPotions"));
+            }
+
+            String response = sendPostRequest("/character/save", json.toString(), authToken);
+            JSONObject result = new JSONObject(response);
+            return result.optBoolean("success", false);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    });
+}
 
     // ---- Inventory ----
 public CompletableFuture<Map<String, Object>> pickupItem(Map<String, Object> itemData) {
@@ -238,71 +247,110 @@ private String getSlotName(int slotIndex) {
         });
     }
 
-    // ---- Auction ----
-    public CompletableFuture<List<Map<String, Object>>> getAuctionList(int page, String type, String rarity, int minLevel, int maxLevel) {
+     // ================================================================
+    //   МЕТОДЫ АУКЦИОНА
+    // ================================================================
+
+    // Получить список лотов с фильтрами и пагинацией
+public CompletableFuture<AuctionLotResponse> getAuctionList(int page, String type, String rarity, int minLevel, int maxLevel) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            StringBuilder query = new StringBuilder("/auction/list?page=" + page);
+            if (type != null && !type.isEmpty()) query.append("&type=").append(type);
+            if (rarity != null && !rarity.isEmpty()) query.append("&rarity=").append(rarity);
+            if (minLevel > 0) query.append("&minLevel=").append(minLevel);
+            if (maxLevel < 100) query.append("&maxLevel=").append(maxLevel);
+
+            String response = sendGetRequest(query.toString(), authToken);
+            System.out.println("[NetworkManager] getAuctionList response: " + response); // 👈
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return new AuctionLotResponse(result);
+            } else {
+                System.err.println("[NetworkManager] Server error: " + result.optString("message"));
+                return null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<Map<String, Object>> createAuctionLot(List<Integer> slotIndices, int price) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Not authenticated");
+                return error;
+            }
+            JSONObject json = new JSONObject();
+            json.put("slotIndices", slotIndices);
+            json.put("price", price);
+            System.out.println("[NetworkManager] Sending createAuctionLot: " + json);
+            String response = sendPostRequest("/auction/create", json.toString(), authToken);
+            System.out.println("[NetworkManager] createAuctionLot response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                // успех, возвращаем данные персонажа
+                return parseCharacterResponse(result);
+            } else {
+                // ошибка, возвращаем карту с сообщением
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", result.optString("message", "Unknown error"));
+                return error;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return error;
+        }
+    });
+}
+ public CompletableFuture<Map<String, Object>> buyAuctionLot(int lotId) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) {
+                System.err.println("[NetworkManager] buyAuctionLot: authToken is null");
+                return null;
+            }
+            JSONObject json = new JSONObject();
+            json.put("lotId", lotId);
+            System.out.println("[NetworkManager] Sending buy request: " + json);
+            String response = sendPostRequest("/auction/buy", json.toString(), authToken);
+            System.out.println("[NetworkManager] buyAuctionLot response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return parseCharacterResponse(result);
+            } else {
+                System.err.println("[NetworkManager] Server error: " + result.optString("message"));
+                return null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+    // Получить мои лоты (для вкладки продаж)
+    public CompletableFuture<List<AuctionLot>> getMyLots() {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 if (authToken == null) return null;
-                StringBuilder query = new StringBuilder("/auction/list?page=" + page);
-                if (type != null && !type.isEmpty()) query.append("&type=").append(type);
-                if (rarity != null && !rarity.isEmpty()) query.append("&rarity=").append(rarity);
-                if (minLevel > 0) query.append("&minLevel=").append(minLevel);
-                if (maxLevel > 0) query.append("&maxLevel=").append(maxLevel);
-                String response = sendGetRequest(query.toString(), authToken);
+                String response = sendGetRequest("/auction/my", authToken);
                 JSONObject result = new JSONObject(response);
                 JSONArray items = result.optJSONArray("items");
-                List<Map<String, Object>> list = new ArrayList<>();
+                List<AuctionLot> myLots = new ArrayList<>();
                 if (items != null) {
                     for (int i = 0; i < items.length(); i++) {
-                        JSONObject item = items.getJSONObject(i);
-                        Map<String, Object> map = new HashMap<>();
-                        map.put("id", item.optInt("id"));
-                        map.put("price", item.optInt("price"));
-                        map.put("sellerName", item.optString("sellerName"));
-                        map.put("item", item.optJSONObject("item").toMap());
-                        list.add(map);
+                        myLots.add(AuctionLot.fromMap(items.getJSONObject(i)));
                     }
                 }
-                return list;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        });
-    }
-
-    public CompletableFuture<Map<String, Object>> sellItem(int slotIndex, int price) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                if (authToken == null) return null;
-                JSONObject json = new JSONObject();
-                json.put("slot", slotIndex);
-                json.put("price", price);
-                String response = sendPostRequest("/auction/sell", json.toString(), authToken);
-                JSONObject result = new JSONObject(response);
-                if (result.optBoolean("success", false)) {
-                    return parseCharacterResponse(result);
-                }
-                return null;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        });
-    }
-
-    public CompletableFuture<Map<String, Object>> buyItem(int lotId) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                if (authToken == null) return null;
-                JSONObject json = new JSONObject();
-                json.put("lotId", lotId);
-                String response = sendPostRequest("/auction/buy", json.toString(), authToken);
-                JSONObject result = new JSONObject(response);
-                if (result.optBoolean("success", false)) {
-                    return parseCharacterResponse(result);
-                }
-                return null;
+                return myLots;
             } catch (Exception e) {
                 e.printStackTrace();
                 return null;
@@ -367,8 +415,35 @@ private Map<String, Object> parseCharacterResponse(JSONObject response) {
     if (character == null) return null;
 
     Map<String, Object> data = new HashMap<>();
-    // ... загрузка других полей (у вас уже есть) ...
 
+    // ===== Базовые параметры =====
+    data.put("id", character.optString("id"));
+    data.put("name", character.optString("name"));
+    data.put("level", character.optInt("level", 1));
+    data.put("experience", character.optInt("experience", 0));
+    data.put("health", character.optInt("health", 100));
+    data.put("maxHealth", character.optInt("maxHealth", 100));
+    data.put("mana", character.optInt("mana", 50));
+    data.put("maxMana", character.optInt("maxMana", 50));
+    data.put("gold", character.optInt("gold", 100));         // ← золото
+
+    // ===== Зелья =====
+    data.put("healthPotions", character.optInt("healthPotions", 0));
+    data.put("manaPotions", character.optInt("manaPotions", 0));
+
+    // ===== Данж и сложность =====
+    data.put("currentDungeon", character.optString("currentDungeon"));
+    data.put("difficulty", character.optInt("difficulty", 1));
+
+    // ===== Координаты =====
+    JSONObject pos = character.optJSONObject("lastDungeonPosition");
+    if (pos != null) {
+        data.put("lastX", pos.optDouble("x", 0));
+        data.put("lastY", pos.optDouble("y", 0));
+        data.put("lastZ", pos.optDouble("z", 0));
+    }
+
+    // ===== Инвентарь =====
     JSONArray inv = character.optJSONArray("inventory");
     System.out.println("[NetworkManager] Inventory array from server: " + inv);
     if (inv != null) {
@@ -379,7 +454,6 @@ private Map<String, Object> parseCharacterResponse(JSONObject response) {
             map.put("slot", invItem.optInt("slot"));
             map.put("equipped", invItem.optBoolean("equipped"));
             
-            // ★ ИСПРАВЛЕНИЕ: сначала ищем equipped_slot, потом equippedSlot
             String eqSlot = invItem.optString("equipped_slot");
             if (eqSlot.isEmpty()) {
                 eqSlot = invItem.optString("equippedSlot");
@@ -396,7 +470,6 @@ private Map<String, Object> parseCharacterResponse(JSONObject response) {
     }
     return data;
 }
-
     private void saveAuthToken(String token) {
         try {
             Path path = getTokenPath();
@@ -427,4 +500,6 @@ private Map<String, Object> parseCharacterResponse(JSONObject response) {
     public String getAuthToken() { return authToken; }
     public boolean isConnected() { return isConnected; }
     public void cleanup() { isConnected = false; }
+    
+    
 }

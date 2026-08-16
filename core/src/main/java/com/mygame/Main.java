@@ -253,6 +253,7 @@ public class Main extends SimpleApplication {
             return;
         }
 
+        
         // 3. Торговец
         Spatial npc = null;
         if (worldManager.getNpcNode() != null) {
@@ -268,6 +269,27 @@ public class Main extends SimpleApplication {
         }
         if (npc != null) {
             if (uiManager != null) uiManager.openTrader();
+            return;
+        }
+
+// 3.1. Аукционер (добавить после обработки Торговца)
+        Spatial auctioneer = null;
+        if (worldManager.getNpcNode() != null) {
+            for (Spatial child : worldManager.getNpcNode().getChildren()) {
+                if (child.getName() != null && child.getName().equals("NPC_Auctioneer")) {
+                    float dist = child.getWorldTranslation().distance(groundPoint);
+                    if (dist < 1.5f) {
+                        auctioneer = child;
+                        break;
+                    }
+                }
+            }
+        }
+        if (auctioneer != null) {
+            if (uiManager != null) {
+                // ВАЖНО: вызываем открытие аукциона
+                uiManager.openAuction(); 
+            }
             return;
         }
 
