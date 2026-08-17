@@ -30,6 +30,42 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class UIManager {
+    // Поля
+private Node backgroundNode;
+private Geometry backgroundGeom;
+private String backgroundTexturePath = "Interface/login_bg.png";
+    private TalentManager talentManager;
+
+    public TalentManager getTalentManager() {
+    return talentManager; // предполагается, что поле talentManager существует
+}
+
+public TalentWindow getTalentWindow() {
+        if (talentWindow == null && talentManager != null) {
+            createWindows(true);
+        }
+        return talentWindow;
+    }
+
+  public TraderWindow getTraderWindow() {
+        if (traderWindow == null && playerManager != null && inventoryManager != null) {
+            if (talentManager != null) {
+                // Создать окна, но без TalentManager не нужно? traderWindow не зависит от talentManager, так что можно создать
+                if (talentWindow == null) {
+                    // но для traderWindow не нужен talentManager
+                }
+                traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
+            }
+        }
+        return traderWindow;
+    }
+
+    public AuctionWindow getAuctionWindow() {
+        if (auctionWindow == null && playerManager != null && inventoryManager != null) {
+            auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
+        }
+        return auctionWindow;
+    }
     private AuctionWindow auctionWindow;
   public void openAuction() {
         if (auctionWindow == null) {
@@ -170,34 +206,87 @@ public class UIManager {
 
     // ===== ИНИЦИАЛИЗАЦИЯ =====
     public void initialize() {
-        createLoginScreen();
-        createRegisterScreen();
-        createHUD();
-        createPlayerStatsUI();
+    createLoginScreen();
+    createRegisterScreen();
+    createHUD();
+    createPlayerStatsUI();
 
-        hudNode = new Node("HUDNode");
-        hudNode.setName("HUDNode");
-        hudNode.attachChild(hudBackground);
-        for (Button btn : hudButtons) {
-            hudNode.attachChild(btn);
-        }
-        hudNode.attachChild(talentButton);
-        hudNode.attachChild(playerStatsContainer);
-
-        hideAllWindows();
-        hideHUD();
-
-        setupKeyboardShortcuts();
-
-        Main main = (Main) app;
-        if (main != null) {
-            PlayerManager pm = main.getPlayerManager();
-            if (pm != null) {
-                talentWindow = new TalentWindow(app, pm.getTalentManager(), this);
-            }
-        }
+    hudNode = new Node("HUDNode");
+    hudNode.setName("HUDNode");
+    hudNode.attachChild(hudBackground);
+    for (Button btn : hudButtons) {
+        hudNode.attachChild(btn);
     }
+    hudNode.attachChild(talentButton);
+    hudNode.attachChild(playerStatsContainer);
 
+    hideAllWindows();
+    hideHUD();
+
+    setupKeyboardShortcuts();
+ createBackground(); // создаст, но пока скрыт
+    hideBackground();   // убедимся, что скрыт
+    // Удаляем создание talentWindow здесь!
+    // talentWindow = new TalentWindow(app, pm.getTalentManager(), this); // УДАЛИТЬ
+    // talentManager = new TalentManager(playerManager, networkManager); // УДАЛИТЬ
+}
+private void createBackground() {
+    if (backgroundNode != null) return;
+    backgroundNode = new Node("LoginBackground");
+    try {
+        Texture tex = app.getAssetManager().loadTexture(backgroundTexturePath);
+        float w = app.getCamera().getWidth();
+        float h = app.getCamera().getHeight();
+        Quad quad = new Quad(w, h);
+        backgroundGeom = new Geometry("LoginBg", quad);
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setTexture("ColorMap", tex);
+        backgroundGeom.setMaterial(mat);
+        backgroundGeom.setLocalTranslation(0, 0, -10);
+        backgroundNode.attachChild(backgroundGeom);
+        guiNode.attachChild(backgroundNode);
+        backgroundNode.setCullHint(Node.CullHint.Always);
+    } catch (Exception e) {
+        System.err.println("[UIManager] Failed to load background, using fallback");
+        createFallbackBackground();
+    }
+}
+
+private void createFallbackBackground() {
+    float w = app.getCamera().getWidth();
+    float h = app.getCamera().getHeight();
+    Quad quad = new Quad(w, h);
+    backgroundGeom = new Geometry("LoginBg", quad);
+    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    mat.setColor("Color", new ColorRGBA(0.15f, 0.15f, 0.25f, 1f));
+    backgroundGeom.setMaterial(mat);
+    backgroundGeom.setLocalTranslation(0, 0, -10);
+    backgroundNode.attachChild(backgroundGeom);
+    guiNode.attachChild(backgroundNode);
+    backgroundNode.setCullHint(Node.CullHint.Always);
+}
+
+private void updateBackgroundScale() {
+    if (backgroundGeom == null) return;
+    float w = app.getCamera().getWidth();
+    float h = app.getCamera().getHeight();
+    Quad q = (Quad) backgroundGeom.getMesh();
+    q.updateGeometry(w, h);
+    backgroundGeom.setLocalTranslation(0, 0, -10);
+}
+
+private void showBackground() {
+    if (backgroundNode != null) {
+        backgroundNode.setCullHint(Node.CullHint.Never);
+        updateBackgroundScale();
+    }
+}
+
+private void hideBackground() {
+    if (backgroundNode != null) {
+        backgroundNode.setCullHint(Node.CullHint.Always);
+    }
+}
     public void forceShowLogin() {
         showLoginScreen();
     }
@@ -302,9 +391,7 @@ public class UIManager {
 
     public void setPlayerManager(PlayerManager pm) {
         this.playerManager = pm;
-        if (pm != null && inventoryManager != null) {
-            traderWindow = new TraderWindow(app, pm, inventoryManager, this);
-        }
+
         updatePlayerStats();
     }
 
@@ -313,9 +400,7 @@ public class UIManager {
         if (im != null) {
             im.setUIManager(this);
         }
-        if (im != null && playerManager != null) {
-            traderWindow = new TraderWindow(app, playerManager, im, this);
-        }
+
     }
 
     // ===== HUD =====
@@ -343,6 +428,30 @@ public class UIManager {
         btn.setCullHint(Node.CullHint.Always);
         return btn;
     }
+public void setTalentManager(TalentManager tm) {
+    this.talentManager = tm;
+    if (tm != null) {
+        // Пересоздаём окна, даже если были созданы ранее
+        createWindows(true); // можно передать флаг force
+    }
+}
+
+ private void createWindows(boolean force) {
+    if (talentManager == null) {
+        System.err.println("[UIManager] Cannot create windows: talentManager is null");
+        return;
+    }
+    // Пересоздаём всегда, если force == true
+    if (force || talentWindow == null) {
+        talentWindow = new TalentWindow(app, talentManager, this);
+    }
+    if (force || traderWindow == null) {
+        traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
+    }
+    if (force || auctionWindow == null) {
+        auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
+    }
+}
 
     private void createHUD() {
         float screenWidth = app.getCamera().getWidth();
@@ -898,10 +1007,14 @@ public class UIManager {
     public void showLoginScreen() {
         if (loginWindow == null) return;
         hideRegisterScreen();
+            updateLoginPosition(); // <-- добавляем
+
         detachNode(loginWindow);
         attachNode(loginWindow);
         loginVisible = true;
         registerVisible = false;
+            showBackground();
+
     }
 
     public void hideLoginScreen() {
@@ -912,6 +1025,8 @@ public class UIManager {
     public void showRegisterScreen() {
         if (registerWindow == null) return;
         hideLoginScreen();
+        updateRegisterPosition(); // <-- добавляем
+
         detachNode(registerWindow);
         attachNode(registerWindow);
         registerVisible = true;
@@ -1040,7 +1155,13 @@ public void applyCharacterData(Map<String, Object> data) {
     if (playerManager == null) return;
 
     System.out.println("[UI] applyCharacterData: data keys = " + data.keySet());
-
+    
+    if (data.containsKey("name")) {
+        String name = (String) data.get("name");
+        playerManager.setPlayerName(name);
+        System.out.println("[UI] Name loaded: " + name);
+    }
+    
     // ===== ЗОЛОТО (ДОБАВЛЕНО) =====
     if (data.containsKey("gold")) {
         int gold = ((Number) data.get("gold")).intValue();
@@ -1148,6 +1269,7 @@ public void applyCharacterData(Map<String, Object> data) {
 
     // ===== ОСТАЛЬНЫЕ МЕТОДЫ =====
     public void onStateChanged(GameState newState) {
+        
         if (newState == GameState.LOGIN) {
             showLoginScreen();
             hideHUD();
@@ -1157,6 +1279,8 @@ public void applyCharacterData(Map<String, Object> data) {
             showHUD();
             updatePlayerStats();
             updatePotionCounts();
+                    hideBackground(); // скрыть фон
+
         } else {
             hideHUD();
         }
@@ -1170,8 +1294,7 @@ public void applyCharacterData(Map<String, Object> data) {
         if (traderWindow != null) traderWindow.hide();
     }
 
-    public TalentWindow getTalentWindow() { return talentWindow; }
-    public TraderWindow getTraderWindow() { return traderWindow; }
+
 
     public void update(float tpf) {
         if (hudVisible) {
@@ -1197,6 +1320,9 @@ public void applyCharacterData(Map<String, Object> data) {
         if (inventoryManager != null) inventoryManager.updateLayout(width, height);
         if (talentWindow != null) talentWindow.updateLayout(width, height);
         if (traderWindow != null) traderWindow.updateLayout(width, height);
+        if (backgroundNode != null && backgroundNode.getCullHint() == Node.CullHint.Never) {
+            updateBackgroundScale();
+        }
     }
 
     public void cleanup() {
@@ -1209,4 +1335,29 @@ public void applyCharacterData(Map<String, Object> data) {
     }
 
     public Node getGuiNode() { return guiNode; }
+    
+    private void updateLoginPosition() {
+    if (loginWindow == null) return;
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
+    float winW = 450 * scale;
+    float winH = 300 * scale;
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    loginWindow.setLocalTranslation(x, y, 0);
+}
+
+// Обновление позиции окна регистрации
+private void updateRegisterPosition() {
+    if (registerWindow == null) return;
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
+    float winW = 480 * scale;
+    float winH = 420 * scale;
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    registerWindow.setLocalTranslation(x, y, 0);
+}
 }

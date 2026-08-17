@@ -132,12 +132,15 @@ public class AuctionWindow {
         showBrowseTab();
     }
 
-    private void positionWindow() {
-        float w = app.getCamera().getWidth();
-        float h = app.getCamera().getHeight();
-        float offsetY = 40 * scale;
-        windowNode.setLocalTranslation((w - winW) / 2, (h - winH) / 2 + offsetY, 0);
-    }
+private void positionWindow() {
+    float w = app.getCamera().getWidth();
+    float h = app.getCamera().getHeight();
+    float winW = 700 * scale;
+    float winH = 600 * scale;
+    // Увеличиваем смещение на 50 пикселей (в масштабе)
+    float offsetY = 40 * scale +90 * scale; // было 40*scale, теперь +50*scale
+    windowNode.setLocalTranslation((w - winW) / 2, (h - winH) / 2 + offsetY, 0);
+}
 
     private void clearDynamicParts() {
         for (Spatial s : dynamicParts) {

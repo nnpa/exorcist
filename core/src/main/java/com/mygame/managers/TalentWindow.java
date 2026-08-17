@@ -90,28 +90,29 @@ public class TalentWindow {
 
     private void createWindow() {
         float screenWidth = app.getCamera().getWidth();
-        float screenHeight = app.getCamera().getHeight();
-        if (screenWidth <= 0 || screenHeight <= 0) {
-            screenWidth = 1280;
-            screenHeight = 720;
-        }
+    float screenHeight = app.getCamera().getHeight();
+    if (screenWidth <= 0 || screenHeight <= 0) {
+        screenWidth = 1280;
+        screenHeight = 720;
+    }
 
-        float scaleX = screenWidth / 1280f;
-        float scaleY = screenHeight / 720f;
-        float scale = Math.min(scaleX, scaleY);
+    float scaleX = screenWidth / 1280f;
+    float scaleY = screenHeight / 720f;
+    float scale = Math.min(scaleX, scaleY);
 
-        currentWidth = 500 * scale;
-        currentHeight = 550 * scale;
-        buttonSize = 60 * scale;
-        buttonSpacingH = 20 * scale;
-        buttonSpacingV = 30 * scale;
+    currentWidth = 500 * scale;
+    currentHeight = 550 * scale;
+    buttonSize = 60 * scale;
+    buttonSpacingH = 20 * scale;
+    buttonSpacingV = 30 * scale;
 
-        float x = (screenWidth - currentWidth) / 2;
-        float y = (screenHeight - currentHeight) / 2 + 48 * scale;
+    float x = (screenWidth - currentWidth) / 2;
+    // ===== ПОДНЯТЬ ОКНО НА 50 ПИКСЕЛЕЙ (в масштабе) =====
+    float y = (screenHeight - currentHeight) / 2 + 48 * scale + 50 * scale; // было 48*scale, стало +50*scale
 
-        windowNode = new Node("TalentWindowNode");
-        windowNode.setName("TalentWindowNode");
-        windowNode.setLocalTranslation(x, y, 0);
+    windowNode = new Node("TalentWindowNode");
+    windowNode.setName("TalentWindowNode");
+    windowNode.setLocalTranslation(x, y, 0);
 
         // ===== ФОН через UIManager =====
         if (uiManager != null) {
@@ -170,12 +171,21 @@ public class TalentWindow {
         resetButton.setPreferredSize(new Vector3f(70 * scale, 25 * scale, 0));
         resetButton.setFontSize(12 * scale);
         resetButton.setLocalTranslation(currentWidth - 90 * scale, 25 * scale, 0.1f);
-        resetButton.addClickCommands((source) -> {
-            if (isVisible) {
-                talentManager.resetTalents();
-                updateUI();
-            }
+resetButton.addClickCommands((source) -> {
+    if (isVisible) {
+        talentManager.resetTalentsAsync().thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    updateUI();
+                    showTooltip("✓ Talents reset successfully!");
+                } else {
+                    showTooltip("✗ Failed to reset talents");
+                }
+                return null;
+            });
         });
+    }
+});
         windowNode.attachChild(resetButton);
 
         // Кнопка закрытия
@@ -195,7 +205,7 @@ public class TalentWindow {
         updateUI();
     }
 
-    private void updateUI() {
+    public void updateUI() {
         for (Button btn : talentButtons) {
             windowNode.detachChild(btn);
         }
@@ -276,25 +286,31 @@ public class TalentWindow {
                         btn.attachChild(levelLabel);
                     }
 
-                    btn.addClickCommands((source) -> {
-                        if (!isVisible) return;
-                        String id = talent.getId();
-                        long now = System.currentTimeMillis();
-                        Long last = lastClickTime.get(id);
-                        if (last != null && (now - last) < 500) {
-                            boolean success = talentManager.levelUpTalent(id);
-                            if (success) {
-                                updateUI();
-                                showTooltip("✓ " + talent.getName() + " upgraded!");
-                            } else {
-                                showTooltip("✗ Cannot upgrade " + talent.getName());
-                            }
-                            lastClickTime.remove(id);
-                        } else {
-                            showTooltip(talent.getDescription());
-                            lastClickTime.put(id, now);
-                        }
-                    });
+btn.addClickCommands((source) -> {
+    if (!isVisible) return;
+    String id = talent.getId();
+    long now = System.currentTimeMillis();
+    Long last = lastClickTime.get(id);
+    if (last != null && (now - last) < 500) {
+        // Двойной клик – повышаем
+        talentManager.levelUpTalentAsync(id).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    updateUI();
+                    showTooltip("✓ " + talent.getName() + " upgraded!");
+                } else {
+                    showTooltip("✗ Cannot upgrade " + talent.getName());
+                }
+                return null;
+            });
+        });
+        lastClickTime.remove(id);
+    } else {
+        // Одиночный клик – показываем описание
+        showTooltip(talent.getDescription());
+        lastClickTime.put(id, now);
+    }
+});
 
                     windowNode.attachChild(btn);
                     talentButtons.add(btn);

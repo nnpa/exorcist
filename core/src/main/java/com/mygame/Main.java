@@ -28,6 +28,9 @@ import com.mygame.managers.*;
 import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
 import com.simsilica.lemur.Label;
+import java.util.Map;
+import java.util.prefs.BackingStoreException;
+import java.awt.*;
 
 public class Main extends SimpleApplication {
     private static Main instance;
@@ -51,24 +54,93 @@ public class Main extends SimpleApplication {
     private float lastMouseX = 0;
     private float mouseSensitivity = 0.005f;
 
-    public static void main(String[] args) {
-        AppSettings settings = new AppSettings(true);
-        settings.setTitle("Exorcist");
-        settings.setWidth(1280);
-        settings.setHeight(720);
-        settings.setVSync(true);
-        settings.setSamples(4);
-        settings.setUseInput(true);
-        Main app = new Main();
-        app.setSettings(settings);
-        app.setShowSettings(false);
-        app.start();
+public static void main(String[] args) {
+    // 1. Базовые настройки
+    AppSettings settings = new AppSettings(true);
+    settings.setTitle("Exorcist");
+    settings.setWindowSize(800, 600);   // новый метод (если есть)
+    settings.setWidth(800);             // fallback
+    settings.setHeight(600);
+    settings.setResizable(true);
+    settings.setFullscreen(false);
+    settings.setVSync(false);             // отключаем для теста
+    settings.setSamples(4);
+    settings.setUseInput(true);
+    settings.setRenderer("LWJGL3");
+
+    // 2. Создаём приложение
+    Main app = new Main();
+    app.setSettings(settings);
+    app.setShowSettings(false);
+
+    // 3. Запускаем в отдельном потоке, чтобы можно было изменить размер
+    Thread gameThread = new Thread(() -> app.start());
+    gameThread.start();
+
+    // 4. Ждём, пока окно появится, и меняем его размер через AWT
+    try {
+        // Даём время на инициализацию
+        Thread.sleep(500);
+        java.awt.EventQueue.invokeAndWait(() -> {
+            java.awt.Frame[] frames = java.awt.Frame.getFrames();
+            for (java.awt.Frame f : frames) {
+                if (f.getTitle().equals("Exorcist")) {
+                    f.setSize(800, 600);
+                    f.setLocationRelativeTo(null); // центрируем
+                    f.setResizable(true);
+                    System.out.println("[Main] Window resized to 1920x1080 via AWT");
+                    break;
+                }
+            }
+        });
+    } catch (Exception e) {
+        e.printStackTrace();
     }
 
+    // 5. Ждём завершения потока (блокируем main)
+    try {
+        gameThread.join();
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+    
+}
+
+public void setResolution(int width, int height, boolean fullscreen) {
+    // Получаем текущие настройки
+    AppSettings settings = getContext().getSettings();
+    
+    // Устанавливаем новое разрешение
+    settings.setResolution(width, height);
+    settings.setWidth(width);
+    settings.setHeight(height);
+    
+    // Управление полноэкранным режимом
+    settings.setFullscreen(fullscreen);
+    if (fullscreen) {
+        // В полноэкранном режиме обычно отключаем изменение размера
+        settings.setResizable(false);
+        // Для старых версий JME можно также установить:
+        // settings.setUseFullscreen(true);
+    } else {
+        settings.setResizable(true);
+        // settings.setUseFullscreen(false);
+    }
+    
+    // Применяем настройки
+    setSettings(settings);
+    
+    // Перезапускаем приложение (необходимо для применения)
+    restart();
+}
     @Override
     public void simpleInitApp() {
         setDisplayFps(false);
         setDisplayStatView(false);
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+int width = screenSize.width;
+int height = screenSize.height;
+        setResolution(width, height,false);
         instance = this;
 
         viewPort.setBackgroundColor(new ColorRGBA(0.2f, 0.2f, 0.2f, 1f));
@@ -181,7 +253,37 @@ public class Main extends SimpleApplication {
         }, "ReturnToCity");
 
         Monster.setApp(this);
+        
+        
     }
+
+    /**
+     * Загружает таланты с сервера после успешного входа.
+     * Вызывается из UIManager после получения данных персонажа.
+     */
+public void loadTalentsFromServer() {
+    if (networkManager == null || uiManager == null) return;
+    networkManager.loadTalents().thenAccept(data -> {
+        if (data != null) {
+            Map<String, Integer> talents = (Map<String, Integer>) data.get("talents");
+            int points = (int) data.get("availablePoints");
+            this.enqueue(() -> {
+                TalentManager tm = uiManager.getTalentManager();
+                TalentWindow tw = uiManager.getTalentWindow();
+                if (tm != null) {
+                    tm.loadFromServer(talents, points);
+                    if (tw != null && tw.isVisible()) {
+                        tw.updateUI();
+                    }
+                }
+                return null;
+            });
+        }
+    }).exceptionally(ex -> {
+        System.err.println("[Main] Failed to load talents: " + ex.getMessage());
+        return null;
+    });
+}
 
     public void loadGameWorld() {
         if (worldLoaded) return;
@@ -218,6 +320,9 @@ public class Main extends SimpleApplication {
 
         worldLoaded = true;
         System.out.println("[Main] ===== МИР ЗАГРУЖЕН =====");
+
+        // После загрузки мира загружаем таланты
+        loadTalentsFromServer();
     }
 
     private void handleClick(float screenX, float screenY) {
@@ -253,7 +358,6 @@ public class Main extends SimpleApplication {
             return;
         }
 
-        
         // 3. Торговец
         Spatial npc = null;
         if (worldManager.getNpcNode() != null) {
@@ -272,7 +376,7 @@ public class Main extends SimpleApplication {
             return;
         }
 
-// 3.1. Аукционер (добавить после обработки Торговца)
+        // 3.1. Аукционер
         Spatial auctioneer = null;
         if (worldManager.getNpcNode() != null) {
             for (Spatial child : worldManager.getNpcNode().getChildren()) {
@@ -287,8 +391,7 @@ public class Main extends SimpleApplication {
         }
         if (auctioneer != null) {
             if (uiManager != null) {
-                // ВАЖНО: вызываем открытие аукциона
-                uiManager.openAuction(); 
+                uiManager.openAuction();
             }
             return;
         }
@@ -356,66 +459,83 @@ public class Main extends SimpleApplication {
         textFieldAttrs.set("fontSize", 18f);
     }
 
-    private void initializeManagers() {
-        if (isInitialized) return;
-        networkManager = new NetworkManager(this);
-        networkManager.initialize();
+  private void initializeManagers() {
+    if (isInitialized) return;
+    networkManager = new NetworkManager(this);
+    networkManager.initialize();
 
-        gameManager = new GameManager(this);
-        gameManager.initialize();
-        playerManager = new PlayerManager(this);
-        playerManager.initialize();
-        worldManager = new WorldManager(this);
-        worldManager.initialize();
-        uiManager = new UIManager(this);
-        uiManager.initialize();
-        inventoryManager = new InventoryManager(this, guiNode);
-        dropManager = new DropManager(this, guiNode);
+    gameManager = new GameManager(this);
+    gameManager.initialize();
+    playerManager = new PlayerManager(this);
+    playerManager.initialize();
+    worldManager = new WorldManager(this);
+    worldManager.initialize();
+    uiManager = new UIManager(this);
+    uiManager.initialize(); // не создаёт окна
+    inventoryManager = new InventoryManager(this, guiNode);
+    dropManager = new DropManager(this, guiNode);
 
-        // ===== ВАЖНО: передаём NetworkManager в WorldManager =====
-        worldManager.setNetworkManager(networkManager);
+    // Передаём playerManager и inventoryManager в uiManager до создания окон
+    uiManager.setPlayerManager(playerManager);
+    uiManager.setInventoryManager(inventoryManager);
 
-        worldManager.setPlayerManager(playerManager);
-        worldManager.setDropManager(dropManager);
-        playerManager.setWorldManager(worldManager);
-        playerManager.setDropManager(dropManager);
-        dropManager.setInventoryManager(inventoryManager);
-        uiManager.setPlayerManager(playerManager);
-        uiManager.setInventoryManager(inventoryManager);
+    // Создаём TalentManager
+    TalentManager talentManager = new TalentManager(playerManager, networkManager);
+    // Теперь uiManager имеет все зависимости, создаём окна
+    uiManager.setTalentManager(talentManager);
+    playerManager.setTalentManager(talentManager);
 
-        gameManager.setNetworkManager(networkManager);
-        gameManager.setPlayerManager(playerManager);
-        gameManager.setWorldManager(worldManager);
-        gameManager.setUIManager(uiManager);
+    // Остальные связи
+    worldManager.setNetworkManager(networkManager);
+    worldManager.setPlayerManager(playerManager);
+    worldManager.setDropManager(dropManager);
+    playerManager.setWorldManager(worldManager);
+    playerManager.setDropManager(dropManager);
+    dropManager.setInventoryManager(inventoryManager);
 
-        isInitialized = true;
-    }
+    gameManager.setNetworkManager(networkManager);
+    gameManager.setPlayerManager(playerManager);
+    gameManager.setWorldManager(worldManager);
+    gameManager.setUIManager(uiManager);
+
+    isInitialized = true;
+}
 
     // ===== simpleUpdate =====
-    @Override
-    public void simpleUpdate(float tpf) {
-        super.simpleUpdate(tpf);
+@Override
+public void simpleUpdate(float tpf) {
+    super.simpleUpdate(tpf);
 
-        if (gameManager != null) gameManager.update(tpf);
-        if (playerManager != null) playerManager.update(tpf);
-        if (worldManager != null) worldManager.update(tpf);
-        if (uiManager != null) uiManager.update(tpf);
+    if (gameManager != null) gameManager.update(tpf);
+    if (playerManager != null) playerManager.update(tpf);
+    if (worldManager != null) worldManager.update(tpf);
+    if (uiManager != null) uiManager.update(tpf);
 
-        if (worldLoaded && gameManager != null) {
-            GameState state = gameManager.getCurrentState();
-            if (state == GameState.CITY || state == GameState.DUNGEON) {
-                Node playerNode = playerManager.getPlayerNode();
-                if (playerNode != null) {
-                    Vector3f playerPos = playerNode.getWorldTranslation();
-                    float x = FastMath.sin(cameraAngle) * camDistance;
-                    float z = FastMath.cos(cameraAngle) * camDistance;
-                    Vector3f camPos = playerPos.add(new Vector3f(x, camHeight, z));
-                    cam.setLocation(camPos);
-                    cam.lookAt(playerPos, Vector3f.UNIT_Y);
-                }
+    if (worldLoaded && gameManager != null) {
+        GameState state = gameManager.getCurrentState();
+        if (state == GameState.CITY || state == GameState.DUNGEON) {
+            Node playerNode = playerManager.getPlayerNode();
+            if (playerNode != null) {
+                Vector3f playerPos = playerNode.getWorldTranslation();
+                
+                // --- НАСТРОЙКИ КАМЕРЫ (вынесите их в поля класса для удобства) ---
+                float distance = 18f;   // дальше
+                float height   = 22f;   // выше
+                // -----------------------------------------------------------------
+
+                float x = FastMath.sin(cameraAngle) * distance;
+                float z = FastMath.cos(cameraAngle) * distance;
+                Vector3f camPos = playerPos.add(new Vector3f(x, height, z));
+                cam.setLocation(camPos);
+
+                // Смотрим в точку на земле перед персонажем (чуть впереди)
+                // Чтобы камера была наклонена вниз, цель должна быть ниже уровня камеры
+                Vector3f lookTarget = playerPos.add(new Vector3f(0, -0.5f, 0)); 
+                cam.lookAt(lookTarget, Vector3f.UNIT_Y);
             }
         }
     }
+}
 
     @Override
     public void destroy() {
@@ -429,8 +549,12 @@ public class Main extends SimpleApplication {
         if (uiManager != null) uiManager.onResize(w, h);
         if (inventoryManager != null) inventoryManager.updateLayout(w, h);
         if (uiManager != null) {
-            if (uiManager.getTalentWindow() != null) uiManager.getTalentWindow().updateLayout(w, h);
-            if (uiManager.getTraderWindow() != null) uiManager.getTraderWindow().updateLayout(w, h);
+            TalentWindow tw = uiManager.getTalentWindow();
+            if (tw != null) tw.updateLayout(w, h);
+            TraderWindow trw = uiManager.getTraderWindow();
+            if (trw != null) trw.updateLayout(w, h);
+            AuctionWindow aw = uiManager.getAuctionWindow();
+            if (aw != null) aw.updateLayout(w, h);
         }
     }
 

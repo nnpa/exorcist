@@ -1,6 +1,7 @@
 package com.mygame.managers;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public class TalentManager {
     private PlayerManager playerManager;
@@ -251,4 +252,67 @@ public class TalentManager {
     public int getAvailablePoints() { return availablePoints; }
     public Map<String, Integer> getLearned() { return learned; }
     public Map<Talent.Branch, TalentTree> getTrees() { return trees; }
+    
+    // В TalentManager добавьте поля и методы
+
+private NetworkManager networkManager; // надо передать в конструкторе
+
+public TalentManager(PlayerManager playerManager, NetworkManager networkManager) {
+    this.playerManager = playerManager;
+    this.networkManager = networkManager;
+    initializeTalents();
+    System.out.println("[TalentManager] Initialized");
+}
+
+// Загрузка с сервера
+public void loadFromServer(Map<String, Integer> serverTalents, int serverPoints) {
+    this.learned.clear();
+    this.availablePoints = serverPoints;
+    for (Map.Entry<String, Integer> entry : serverTalents.entrySet()) {
+        learned.put(entry.getKey(), entry.getValue());
+    }
+    recalcAllBonuses();
+    System.out.println("[TalentManager] Loaded " + learned.size() + " talents, points: " + availablePoints);
+}
+
+// Метод для повышения таланта – теперь вызывает сервер
+public CompletableFuture<Boolean> levelUpTalentAsync(String talentId) {
+    if (networkManager == null) {
+        // fallback: локальное повышение без сохранения
+        return CompletableFuture.completedFuture(levelUpTalent(talentId));
+    }
+    return networkManager.learnTalent(talentId).thenApply(response -> {
+        if (response == null) return false;
+        if (response.containsKey("error")) {
+            System.err.println("[TalentManager] Server error: " + response.get("error"));
+            return false;
+        }
+        // Обновляем состояние из ответа сервера
+        Map<String, Integer> talents = (Map<String, Integer>) response.get("talents");
+        int points = (int) response.get("availablePoints");
+        this.learned.clear();
+        this.learned.putAll(talents);
+        this.availablePoints = points;
+        recalcAllBonuses();
+        return true;
+    });
+}
+
+// Сброс через сервер
+public CompletableFuture<Boolean> resetTalentsAsync() {
+    if (networkManager == null) {
+        resetTalents();
+        return CompletableFuture.completedFuture(true);
+    }
+    return networkManager.resetTalents().thenApply(response -> {
+        if (response == null || response.containsKey("error")) return false;
+        Map<String, Integer> talents = (Map<String, Integer>) response.get("talents");
+        int points = (int) response.get("availablePoints");
+        this.learned.clear();
+        this.learned.putAll(talents);
+        this.availablePoints = points;
+        recalcAllBonuses();
+        return true;
+    });
+}
 }

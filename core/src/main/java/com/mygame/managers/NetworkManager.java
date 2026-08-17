@@ -501,5 +501,100 @@ private Map<String, Object> parseCharacterResponse(JSONObject response) {
     public boolean isConnected() { return isConnected; }
     public void cleanup() { isConnected = false; }
     
-    
+  public CompletableFuture<Map<String, Object>> loadTalents() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendGetRequest("/talents", authToken);
+            System.out.println("[NetworkManager] loadTalents raw response: " + response);
+            if (response == null || response.isEmpty() || !response.trim().startsWith("{")) {
+                System.err.println("[NetworkManager] Invalid JSON response from /talents: " + response);
+                return null;
+            }
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                Map<String, Object> data = new HashMap<>();
+                JSONObject talents = result.optJSONObject("talents");
+                Map<String, Integer> talentMap = new HashMap<>();
+                if (talents != null) {
+                    for (String key : talents.keySet()) {
+                        talentMap.put(key, talents.optInt(key, 0));
+                    }
+                }
+                data.put("talents", talentMap);
+                data.put("availablePoints", result.optInt("availablePoints", 0));
+                return data;
+            } else {
+                System.err.println("[NetworkManager] loadTalents failed: " + result.optString("message"));
+                return null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<Map<String, Object>> learnTalent(String talentId) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            JSONObject json = new JSONObject();
+            json.put("talentId", talentId);
+            String response = sendPostRequest("/talents/learn", json.toString(), authToken);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                JSONObject talents = result.optJSONObject("talents");
+                Map<String, Integer> talentMap = new HashMap<>();
+                if (talents != null) {
+                    for (String key : talents.keySet()) {
+                        talentMap.put(key, talents.optInt(key, 0));
+                    }
+                }
+                Map<String, Object> data = new HashMap<>();
+                data.put("talents", talentMap);
+                data.put("availablePoints", result.optInt("availablePoints", 0));
+                return data;
+            } else {
+                String error = result.optString("message", "Unknown error");
+                Map<String, Object> data = new HashMap<>();
+                data.put("error", error);
+                return data;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<Map<String, Object>> resetTalents() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendPostRequest("/talents/reset", "{}", authToken);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                JSONObject talents = result.optJSONObject("talents");
+                Map<String, Integer> talentMap = new HashMap<>();
+                if (talents != null) {
+                    for (String key : talents.keySet()) {
+                        talentMap.put(key, talents.optInt(key, 0));
+                    }
+                }
+                Map<String, Object> data = new HashMap<>();
+                data.put("talents", talentMap);
+                data.put("availablePoints", result.optInt("availablePoints", 0));
+                return data;
+            } else {
+                Map<String, Object> data = new HashMap<>();
+                data.put("error", result.optString("message", "Unknown error"));
+                return data;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
 }

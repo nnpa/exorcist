@@ -129,8 +129,6 @@ private String currentDungeonId = "dungeon_1";
 
         createPhysicsBody();
 
-        talentManager = new TalentManager(this);
-        talentManager.addPointsForLevel(baseLevel);
         recalculateStats();
 
         healthPotions = 3;
@@ -138,7 +136,17 @@ private String currentDungeonId = "dungeon_1";
         this.currentDifficulty = 1;
     this.currentDungeonId = "dungeon_1";
     }
-
+public void setTalentManager(TalentManager tm) {
+    this.talentManager = tm;
+    if (tm != null) {
+        // Если уже есть уровень, даём очки
+        tm.addPointsForLevel(baseLevel);
+        recalculateStats();
+    }
+}
+public TalentManager getTalentManager() {
+    return talentManager;
+}
     // ===== СОЗДАНИЕ BETTERCHARACTERCONTROL С НАСТРОЙКАМИ =====
     private void createPhysicsBody() {
         float radius = 0.4f;
@@ -843,7 +851,6 @@ public void attackTarget(Spatial target) {
     public AnimComposer getAnimComposer() { return animComposer; }
     public SkinningControl getSkinningControl() { return skinningControl; }
     public Spatial getCurrentTarget() { return currentTarget; }
-    public TalentManager getTalentManager() { return talentManager; }
     public BetterCharacterControl getCharacterControl() { return characterControl; }
 
     public void setPlayerName(String name) { this.playerName = name; }
@@ -870,4 +877,5 @@ public void attackTarget(Spatial target) {
     public void setCurrentDungeon(String dungeonId) {
         this.currentDungeonId = dungeonId;
     }
+    
 }

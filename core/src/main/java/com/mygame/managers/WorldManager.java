@@ -684,9 +684,9 @@ public class WorldManager {
             Spatial auctioneer = app.getAssetManager().loadModel("Models/City/NPC/Auc/auction.gltf");
             if (auctioneer != null) {
                 auctioneer.scale(2.7f);
-                auctioneer.rotate(0, FastMath.PI, 0);
+                auctioneer.rotate(0, FastMath.PI +FastMath.HALF_PI , 0);
                 // Позиция портала (5, 1.5, 5) теперь занята аукционистом
-auctioneer.setLocalTranslation(5f, -0.8f, 5f);
+auctioneer.setLocalTranslation(5f, -1.3f, 5f);
                 auctioneer.setName("NPC_Auctioneer");
                 npcNode.attachChild(auctioneer);
                 System.out.println("[WorldManager] Auctioneer placed at (5, 1.5, 5)");
