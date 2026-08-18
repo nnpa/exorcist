@@ -645,6 +645,11 @@ public class WorldManager {
     }
 
     public void cleanup() {
+        System.out.println("[WorldManager] cleanup() called from:");
+    StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+    for (int i = 2; i < Math.min(5, stack.length); i++) {
+        System.out.println("  " + stack[i].getClassName() + "." + stack[i].getMethodName() + ":" + stack[i].getLineNumber());
+    }
         app.getRootNode().detachChild(worldNode);
         System.out.println("[WorldManager] Cleanup");
     }

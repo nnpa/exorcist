@@ -32,6 +32,9 @@ public class GameManager {
     }
 
     public void setState(GameState newState) {
+        if (this.currentState == newState) {
+            return;
+        }
         this.currentState = newState;
         if (uiManager != null) {
             uiManager.onStateChanged(newState);

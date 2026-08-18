@@ -6,7 +6,8 @@ dependencies {
     implementation 'org.jmonkeyengine:jme3-core:3.6.1-stable'
     
     // ===== Убрали старую JitPack версию, оставили одну совместимую пару =====
-    implementation 'com.simsilica:lemur:1.15.0'
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
     implementation 'com.simsilica:lemur-proto:1.13.0'
 
     implementation 'org.json:json:20230227'

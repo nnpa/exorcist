@@ -370,6 +370,8 @@ public void attackTarget(Spatial target) {
     if (monster != null && monster.isAlive()) {
         monster.takeDamage(damage);
         if (!monster.isAlive()) {
+            onMonsterKilled(); // <-- ДОБАВЛЯЕМ СЮДА
+
             // Убираем генерацию предметов здесь – она теперь в onDeath монстра
             // Очистка состояния
             currentTarget = null;
@@ -594,7 +596,7 @@ public void attackTarget(Spatial target) {
             if (dir.length() > 0.01f) {
                 dir.normalizeLocal();
                 // НЕ УМНОЖАЕМ НА tpf!
-                characterControl.setWalkDirection(dir.mult(6f));
+                characterControl.setWalkDirection(dir.mult(4f));
                 setMoving(true);
                 if (!currentAnimation.equals(ANIM_WALK)) {
                     playAnimation(ANIM_WALK);
@@ -877,5 +879,53 @@ public void attackTarget(Spatial target) {
     public void setCurrentDungeon(String dungeonId) {
         this.currentDungeonId = dungeonId;
     }
+   private int killsCounter = 5;
+private static final int KILLS_PER_LEVEL = 6;
+
+public void onMonsterKilled() {
+    killsCounter++;
+    System.out.println("[PlayerManager] Kills: " + killsCounter + "/" + KILLS_PER_LEVEL);
+    if (killsCounter >= KILLS_PER_LEVEL) {
+        killsCounter = 0;
+        if (networkManager != null) {
+            networkManager.levelUp().thenAccept(response -> {
+                app.enqueue(() -> {
+                    if (response != null && uiManager != null) {
+                        uiManager.applyCharacterData(response);
+                        // Обновляем таланты
+                        if (uiManager.getTalentManager() != null) {
+                            networkManager.loadTalents().thenAccept(talentData -> {
+                                app.enqueue(() -> {
+                                    if (talentData != null && uiManager.getTalentManager() != null) {
+                                        Map<String, Integer> talents = (Map<String, Integer>) talentData.get("talents");
+                                        int points = (int) talentData.get("availablePoints");
+                                        uiManager.getTalentManager().loadFromServer(talents, points);
+                                        if (uiManager.getTalentWindow() != null) {
+                                            uiManager.getTalentWindow().updateUI();
+                                        }
+                                    }
+                                });
+                            });
+                        }
+                    }
+                });
+            });
+        }
+    }
+}
+
+    public void resetKillsCounter() {
+        killsCounter = 0;
+    }
     
+    private UIManager uiManager;
+private NetworkManager networkManager;
+
+public void setUIManager(UIManager ui) {
+    this.uiManager = ui;
+}
+
+public void setNetworkManager(NetworkManager nm) {
+    this.networkManager = nm;
+}
 }

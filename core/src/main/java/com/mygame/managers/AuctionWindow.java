@@ -749,4 +749,8 @@ tooltipContainer.addChild(tooltipLabel);
             uiManager.getGuiNode().attachChild(windowNode);
         }
     }
+    
+        public boolean isVisible() {
+        return isVisible;
+    }
 }

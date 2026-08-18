@@ -1,8 +1,11 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
-import com.jme3.input.controls.KeyTrigger;
+import com.jme3.input.KeyInput;
+import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
+import com.jme3.input.controls.KeyTrigger;
+import com.jme3.input.event.*;
 import com.jme3.material.Material;
 import com.jme3.material.MatParam;
 import com.jme3.math.ColorRGBA;
@@ -15,13 +18,12 @@ import com.jme3.texture.Texture;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.component.SpringGridLayout;
+import com.simsilica.lemur.GuiGlobals;
+import com.simsilica.lemur.style.Attributes;
 import com.simsilica.lemur.style.Styles;
 import com.mygame.Main;
 import com.mygame.items.ItemGenerator;
 import com.mygame.managers.GameManager.GameState;
-import com.simsilica.lemur.style.Attributes;
-import com.simsilica.lemur.Panel;
-import com.simsilica.lemur.ProgressBar;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,31 +33,23 @@ import java.util.concurrent.CompletableFuture;
 
 public class UIManager {
     // Поля
-private Node backgroundNode;
-private Geometry backgroundGeom;
-private String backgroundTexturePath = "Interface/login_bg.png";
+    private Node backgroundNode;
+    private Geometry backgroundGeom;
+    private String backgroundTexturePath = "Interface/login_bg.png";
     private TalentManager talentManager;
 
-    public TalentManager getTalentManager() {
-    return talentManager; // предполагается, что поле talentManager существует
-}
+    public TalentManager getTalentManager() { return talentManager; }
 
-public TalentWindow getTalentWindow() {
+    public TalentWindow getTalentWindow() {
         if (talentWindow == null && talentManager != null) {
             createWindows(true);
         }
         return talentWindow;
     }
 
-  public TraderWindow getTraderWindow() {
+    public TraderWindow getTraderWindow() {
         if (traderWindow == null && playerManager != null && inventoryManager != null) {
-            if (talentManager != null) {
-                // Создать окна, но без TalentManager не нужно? traderWindow не зависит от talentManager, так что можно создать
-                if (talentWindow == null) {
-                    // но для traderWindow не нужен talentManager
-                }
-                traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
-            }
+            traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
         }
         return traderWindow;
     }
@@ -66,13 +60,104 @@ public TalentWindow getTalentWindow() {
         }
         return auctionWindow;
     }
+
     private AuctionWindow auctionWindow;
-  public void openAuction() {
-        if (auctionWindow == null) {
-            auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
-        }
-        auctionWindow.show();
+    private TraderWindow traderWindow;
+
+    // Методы открытия окон с проверкой
+    public void openAuction() {
+        toggleAuction();
     }
+
+    public void openTrader() {
+        toggleTrader();
+    }
+
+   public void toggleInventory() {
+    if (inventoryManager == null) return;
+    // Если инвентарь открыт → закрываем
+    if (inventoryManager.isVisible()) {
+        inventoryManager.hide();
+        return;
+    }
+    // Иначе закрываем все остальные окна и открываем инвентарь
+    closeAllWindowsExcept("inventory");
+    inventoryManager.show();
+}
+
+public void toggleTalents() {
+    if (talentWindow == null) return;
+    if (talentWindow.isVisible()) {
+        talentWindow.hide();
+        return;
+    }
+    closeAllWindowsExcept("talents");
+    talentWindow.show();
+}
+
+public void toggleAuction() {
+    if (auctionWindow == null) {
+        auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
+    }
+    if (auctionWindow.isVisible()) {
+        auctionWindow.hide();
+        return;
+    }
+    closeAllWindowsExcept("auction");
+    auctionWindow.show();
+}
+
+public void toggleTrader() {
+    if (traderWindow == null) {
+        traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
+    }
+    if (traderWindow.isVisible()) {
+        traderWindow.hide();
+        return;
+    }
+    closeAllWindowsExcept("trader");
+    traderWindow.show();
+}
+
+private void closeAllWindowsExcept(String keepOpen) {
+    // Закрываем инвентарь
+    if (!"inventory".equals(keepOpen) && inventoryManager != null && inventoryManager.isVisible()) {
+        inventoryManager.hide();
+    }
+    // Закрываем таланты
+    if (!"talents".equals(keepOpen) && talentWindow != null && talentWindow.isVisible()) {
+        talentWindow.hide();
+    }
+    // Закрываем аукцион
+    if (!"auction".equals(keepOpen) && auctionWindow != null && auctionWindow.isVisible()) {
+        auctionWindow.hide();
+    }
+    // Закрываем торговца
+    if (!"trader".equals(keepOpen) && traderWindow != null && traderWindow.isVisible()) {
+        traderWindow.hide();
+    }
+}
+
+    private boolean isAuctionOrTraderOpen() {
+        return (auctionWindow != null && auctionWindow.isVisible()) ||
+               (traderWindow != null && traderWindow.isVisible());
+    }
+
+    private boolean isInventoryOrTalentsOpen() {
+        return (inventoryManager != null && inventoryManager.isVisible()) ||
+               (talentWindow != null && talentWindow.isVisible());
+    }
+
+    private void closeAuctionAndTrader() {
+        if (auctionWindow != null && auctionWindow.isVisible()) auctionWindow.hide();
+        if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
+    }
+
+    private void closeInventoryAndTalents() {
+        if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
+        if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
+    }
+
     private SimpleApplication app;
     private Node guiNode;
     private NetworkManager networkManager;
@@ -85,7 +170,7 @@ public TalentWindow getTalentWindow() {
     private boolean registerVisible = false;
     private boolean hudVisible = false;
 
-    // HUD элементы (нижняя панель)
+    // HUD элементы
     private Geometry hudBackground;
     private List<Button> hudButtons = new ArrayList<>();
     private Button inventoryButton;
@@ -97,7 +182,7 @@ public TalentWindow getTalentWindow() {
     private Button skill1Btn, skill2Btn, skill3Btn, skill4Btn;
     private Map<Button, Geometry> iconGeoms = new HashMap<>();
 
-    // Элементы статистики игрока (левый верхний угол)
+    // Элементы статистики
     private Container playerStatsContainer;
     private Label playerNameLabel;
     private ProgressBar hpBar;
@@ -116,16 +201,15 @@ public TalentWindow getTalentWindow() {
     private float buttonSpacing = 8;
     private float bottomOffset = 20;
 
-    private TextField loginField;
-    private TextField passwordField;
-    private TextField emailField;
-    private TextField regLoginField;
-    private TextField regPasswordField;
+    // Поля ввода
+    private TextField loginField, passwordField;
+    private TextField emailField, regLoginField, regPasswordField;
+    private TextField[] loginFields;
+    private TextField[] registerFields;
 
     private PlayerManager playerManager;
     private InventoryManager inventoryManager;
     private TalentWindow talentWindow;
-    private TraderWindow traderWindow;
 
     private float scale = 1f;
 
@@ -137,6 +221,9 @@ public TalentWindow getTalentWindow() {
     private static final String KEY_MANA_POTION = "manaPotion";
     private static final String KEY_INVENTORY = "inventory";
     private static final String KEY_TALENTS = "talents";
+
+    // RawInputListener для перехвата Tab и Enter
+    private RawInputListener authRawListener;
 
     public UIManager(SimpleApplication app) {
         this.app = app;
@@ -181,7 +268,7 @@ public TalentWindow getTalentWindow() {
     public void onTraderOpened(Node node) { attachNode(node); }
     public void onTraderClosed(Node node) { detachNode(node); }
 
-    // ===== ФОНОВАЯ ГЕОМЕТРИЯ (ДЛЯ ВСЕХ ОКОН) =====
+    // ===== ФОНОВАЯ ГЕОМЕТРИЯ =====
     public Geometry createBackgroundGeometry(float width, float height) {
         Texture leatherTexture = null;
         try {
@@ -200,139 +287,138 @@ public TalentWindow getTalentWindow() {
             mat.setColor("Color", new ColorRGBA(0.4f, 0.2f, 0.05f, 1f));
         }
         bgGeom.setMaterial(mat);
-        bgGeom.setLocalTranslation(0, 0, -0.1f);
+        bgGeom.setLocalTranslation(0, 0, 0f);
         return bgGeom;
     }
 
     // ===== ИНИЦИАЛИЗАЦИЯ =====
     public void initialize() {
-    createLoginScreen();
-    createRegisterScreen();
-    createHUD();
-    createPlayerStatsUI();
+        createLoginScreen();
+        createRegisterScreen();
+        createHUD();
+        createPlayerStatsUI();
 
-    hudNode = new Node("HUDNode");
-    hudNode.setName("HUDNode");
-    hudNode.attachChild(hudBackground);
-    for (Button btn : hudButtons) {
-        hudNode.attachChild(btn);
+        hudNode = new Node("HUDNode");
+        hudNode.setName("HUDNode");
+        hudNode.attachChild(hudBackground);
+        for (Button btn : hudButtons) {
+            hudNode.attachChild(btn);
+        }
+        hudNode.attachChild(talentButton);
+        hudNode.attachChild(playerStatsContainer);
+
+        // Изначально все окна скрыты
+        loginWindow.setCullHint(Node.CullHint.Always);
+        registerWindow.setCullHint(Node.CullHint.Always);
+        hideHUD();
+        GuiGlobals.getInstance().getFocusNavigationState().setEnabled(false);
+
+        // Регистрируем обработчики
+        setupKeyboardShortcuts();
+        setupAuthRawInputListener();
+
+        createBackground();
+        hideBackground();
+
+        if (backgroundNode != null && !guiNode.hasChild(backgroundNode)) {
+            guiNode.attachChild(backgroundNode);
+        }
     }
-    hudNode.attachChild(talentButton);
-    hudNode.attachChild(playerStatsContainer);
 
-    hideAllWindows();
-    hideHUD();
+    // ===== ФОНОВОЕ ИЗОБРАЖЕНИЕ =====
+    private void createBackground() {
+        if (backgroundNode != null) return;
+        backgroundNode = new Node("LoginBackground");
+        try {
+            Texture tex = app.getAssetManager().loadTexture(backgroundTexturePath);
+            float w = app.getCamera().getWidth();
+            float h = app.getCamera().getHeight();
+            Quad quad = new Quad(w, h);
+            backgroundGeom = new Geometry("LoginBg", quad);
+            Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+            mat.setTexture("ColorMap", tex);
+            backgroundGeom.setMaterial(mat);
+            backgroundGeom.setLocalTranslation(0, 0, -10);
+            backgroundNode.attachChild(backgroundGeom);
+            backgroundNode.setCullHint(Node.CullHint.Always);
+        } catch (Exception e) {
+            System.err.println("[UIManager] Failed to load background, using fallback");
+            createFallbackBackground();
+        }
+    }
 
-    setupKeyboardShortcuts();
- createBackground(); // создаст, но пока скрыт
-    hideBackground();   // убедимся, что скрыт
-    // Удаляем создание talentWindow здесь!
-    // talentWindow = new TalentWindow(app, pm.getTalentManager(), this); // УДАЛИТЬ
-    // talentManager = new TalentManager(playerManager, networkManager); // УДАЛИТЬ
-}
-private void createBackground() {
-    if (backgroundNode != null) return;
-    backgroundNode = new Node("LoginBackground");
-    try {
-        Texture tex = app.getAssetManager().loadTexture(backgroundTexturePath);
+    private void createFallbackBackground() {
         float w = app.getCamera().getWidth();
         float h = app.getCamera().getHeight();
         Quad quad = new Quad(w, h);
         backgroundGeom = new Geometry("LoginBg", quad);
         Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setTexture("ColorMap", tex);
+        mat.setColor("Color", new ColorRGBA(0.15f, 0.15f, 0.25f, 1f));
         backgroundGeom.setMaterial(mat);
         backgroundGeom.setLocalTranslation(0, 0, -10);
         backgroundNode.attachChild(backgroundGeom);
-        guiNode.attachChild(backgroundNode);
-        backgroundNode.setCullHint(Node.CullHint.Always);
-    } catch (Exception e) {
-        System.err.println("[UIManager] Failed to load background, using fallback");
-        createFallbackBackground();
-    }
-}
-
-private void createFallbackBackground() {
-    float w = app.getCamera().getWidth();
-    float h = app.getCamera().getHeight();
-    Quad quad = new Quad(w, h);
-    backgroundGeom = new Geometry("LoginBg", quad);
-    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-    mat.setColor("Color", new ColorRGBA(0.15f, 0.15f, 0.25f, 1f));
-    backgroundGeom.setMaterial(mat);
-    backgroundGeom.setLocalTranslation(0, 0, -10);
-    backgroundNode.attachChild(backgroundGeom);
-    guiNode.attachChild(backgroundNode);
-    backgroundNode.setCullHint(Node.CullHint.Always);
-}
-
-private void updateBackgroundScale() {
-    if (backgroundGeom == null) return;
-    float w = app.getCamera().getWidth();
-    float h = app.getCamera().getHeight();
-    Quad q = (Quad) backgroundGeom.getMesh();
-    q.updateGeometry(w, h);
-    backgroundGeom.setLocalTranslation(0, 0, -10);
-}
-
-private void showBackground() {
-    if (backgroundNode != null) {
-        backgroundNode.setCullHint(Node.CullHint.Never);
-        updateBackgroundScale();
-    }
-}
-
-private void hideBackground() {
-    if (backgroundNode != null) {
         backgroundNode.setCullHint(Node.CullHint.Always);
     }
-}
+
+    private void updateBackgroundScale() {
+        if (backgroundGeom == null) return;
+        float w = app.getCamera().getWidth();
+        float h = app.getCamera().getHeight();
+        Quad q = (Quad) backgroundGeom.getMesh();
+        q.updateGeometry(w, h);
+        backgroundGeom.setLocalTranslation(0, 0, -10);
+    }
+
+    private void showBackground() {
+        if (backgroundNode != null) {
+            backgroundNode.setCullHint(Node.CullHint.Never);
+            updateBackgroundScale();
+        }
+    }
+
+    private void hideBackground() {
+        if (backgroundNode != null) {
+            backgroundNode.setCullHint(Node.CullHint.Always);
+        }
+    }
+
     public void forceShowLogin() {
         showLoginScreen();
     }
 
-    // ===== КЛАВИАТУРНЫЕ ЯРЛЫКИ =====
+    // ===== HUD КЛАВИШИ =====
     private void setupKeyboardShortcuts() {
-        app.getInputManager().addMapping(KEY_SKILL1, new KeyTrigger(com.jme3.input.KeyInput.KEY_1));
-        app.getInputManager().addMapping(KEY_SKILL2, new KeyTrigger(com.jme3.input.KeyInput.KEY_2));
-        app.getInputManager().addMapping(KEY_SKILL3, new KeyTrigger(com.jme3.input.KeyInput.KEY_3));
-        app.getInputManager().addMapping(KEY_SKILL4, new KeyTrigger(com.jme3.input.KeyInput.KEY_4));
-        app.getInputManager().addMapping(KEY_HEALTH_POTION, new KeyTrigger(com.jme3.input.KeyInput.KEY_Q));
-        app.getInputManager().addMapping(KEY_MANA_POTION, new KeyTrigger(com.jme3.input.KeyInput.KEY_W));
-        app.getInputManager().addMapping(KEY_INVENTORY, new KeyTrigger(com.jme3.input.KeyInput.KEY_I));
-        app.getInputManager().addMapping(KEY_TALENTS, new KeyTrigger(com.jme3.input.KeyInput.KEY_T));
+        app.getInputManager().addMapping(KEY_SKILL1, new KeyTrigger(KeyInput.KEY_1));
+        app.getInputManager().addMapping(KEY_SKILL2, new KeyTrigger(KeyInput.KEY_2));
+        app.getInputManager().addMapping(KEY_SKILL3, new KeyTrigger(KeyInput.KEY_3));
+        app.getInputManager().addMapping(KEY_SKILL4, new KeyTrigger(KeyInput.KEY_4));
+        app.getInputManager().addMapping(KEY_HEALTH_POTION, new KeyTrigger(KeyInput.KEY_Q));
+        app.getInputManager().addMapping(KEY_MANA_POTION, new KeyTrigger(KeyInput.KEY_W));
+        app.getInputManager().addMapping(KEY_INVENTORY, new KeyTrigger(KeyInput.KEY_I));
+        app.getInputManager().addMapping(KEY_TALENTS, new KeyTrigger(KeyInput.KEY_T));
 
         ActionListener listener = new ActionListener() {
             @Override
             public void onAction(String name, boolean isPressed, float tpf) {
                 if (!isPressed) return;
                 if (!hudVisible) return;
-                if (isAnyWindowOpen()) return;
 
                 switch (name) {
                     case KEY_SKILL1:
-                        if (playerManager != null) {
-                            playerManager.castSkill("Heal");
-                            flashButton(skill1Btn);
-                        }
+                        if (playerManager != null) playerManager.castSkill("Heal");
+                        flashButton(skill1Btn);
                         break;
                     case KEY_SKILL2:
-                        if (playerManager != null) {
-                            playerManager.castSkill("ShieldBash");
-                            flashButton(skill2Btn);
-                        }
+                        if (playerManager != null) playerManager.castSkill("ShieldBash");
+                        flashButton(skill2Btn);
                         break;
                     case KEY_SKILL3:
-                        if (playerManager != null) {
-                            playerManager.castSkill("Whirlwind");
-                            flashButton(skill3Btn);
-                        }
+                        if (playerManager != null) playerManager.castSkill("Whirlwind");
+                        flashButton(skill3Btn);
                         break;
                     case KEY_SKILL4:
-                        if (playerManager != null) {
-                            playerManager.castSkill("Kick");
-                            flashButton(skill4Btn);
-                        }
+                        if (playerManager != null) playerManager.castSkill("Kick");
+                        flashButton(skill4Btn);
                         break;
                     case KEY_HEALTH_POTION:
                         if (playerManager != null) {
@@ -351,16 +437,12 @@ private void hideBackground() {
                         }
                         break;
                     case KEY_INVENTORY:
-                        if (inventoryManager != null) {
-                            inventoryManager.toggleVisibility();
-                            flashButton(inventoryButton);
-                        }
+                        toggleInventory(); // <- изменено
+                        flashButton(inventoryButton);
                         break;
                     case KEY_TALENTS:
-                        if (talentWindow != null) {
-                            talentWindow.toggle();
-                            flashButton(talentButton);
-                        }
+                        toggleTalents(); // <- изменено
+                        flashButton(talentButton);
                         break;
                 }
             }
@@ -389,18 +471,73 @@ private void hideBackground() {
         }).start();
     }
 
-    public void setPlayerManager(PlayerManager pm) {
-        this.playerManager = pm;
-
-        updatePlayerStats();
-    }
-
-    public void setInventoryManager(InventoryManager im) {
-        this.inventoryManager = im;
-        if (im != null) {
-            im.setUIManager(this);
+    private void setupAuthRawInputListener() {
+        if (authRawListener != null) {
+            app.getInputManager().removeRawInputListener(authRawListener);
         }
 
+        authRawListener = new RawInputListener() {
+            @Override public void beginInput() {}
+            @Override public void endInput() {}
+            @Override public void onJoyAxisEvent(JoyAxisEvent evt) {}
+            @Override public void onJoyButtonEvent(JoyButtonEvent evt) {}
+            @Override public void onMouseMotionEvent(MouseMotionEvent evt) {}
+            @Override public void onMouseButtonEvent(MouseButtonEvent evt) {}
+
+            @Override
+            public void onKeyEvent(KeyInputEvent evt) {
+                if (evt.isPressed()) {
+                    int key = evt.getKeyCode();
+                    if (key == KeyInput.KEY_TAB || key == KeyInput.KEY_RETURN) {
+                        processAuthKey(key);
+                        evt.setConsumed();
+                    }
+                }
+            }
+
+            private void processAuthKey(int key) {
+                if (key == KeyInput.KEY_TAB) {
+                    if (loginVisible && loginFields != null && loginFields.length > 0) {
+                        moveFocus(loginFields);
+                    } else if (registerVisible && registerFields != null && registerFields.length > 0) {
+                        moveFocus(registerFields);
+                    }
+                } else if (key == KeyInput.KEY_RETURN) {
+                    if (loginVisible) {
+                        String login = loginField.getText();
+                        String pass = passwordField.getText();
+                        if (!login.isEmpty() && !pass.isEmpty()) {
+                            handleLogin(login, pass);
+                        }
+                    } else if (registerVisible) {
+                        String email = emailField.getText();
+                        String login = regLoginField.getText();
+                        String pass = regPasswordField.getText();
+                        if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                            handleRegister(email, login, pass);
+                        }
+                    }
+                }
+            }
+
+            @Override public void onTouchEvent(TouchEvent evt) {}
+        };
+        app.getInputManager().addRawInputListener(authRawListener);
+        System.out.println("[UI] Auth RawInputListener for Tab/Enter setup complete.");
+    }
+
+    // ===== ПЕРЕКЛЮЧЕНИЕ ФОКУСА =====
+    private void moveFocus(TextField[] fields) {
+        if (fields == null || fields.length == 0) return;
+        Spatial currentFocus = GuiGlobals.getInstance().getFocusManagerState().getFocus();
+        for (int i = 0; i < fields.length; i++) {
+            if (fields[i] == currentFocus) {
+                int nextIndex = (i + 1) % fields.length;
+                GuiGlobals.getInstance().requestFocus(fields[nextIndex]);
+                return;
+            }
+        }
+        GuiGlobals.getInstance().requestFocus(fields[0]);
     }
 
     // ===== HUD =====
@@ -410,7 +547,7 @@ private void hideBackground() {
         btn.setBackground(null);
         btn.setColor(ColorRGBA.White);
         try {
-            com.jme3.texture.Texture tex = app.getAssetManager().loadTexture(iconPath);
+            Texture tex = app.getAssetManager().loadTexture(iconPath);
             if (tex != null) {
                 Geometry iconGeom = new Geometry("Icon", new Quad(size, size));
                 Material iconMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
@@ -428,30 +565,6 @@ private void hideBackground() {
         btn.setCullHint(Node.CullHint.Always);
         return btn;
     }
-public void setTalentManager(TalentManager tm) {
-    this.talentManager = tm;
-    if (tm != null) {
-        // Пересоздаём окна, даже если были созданы ранее
-        createWindows(true); // можно передать флаг force
-    }
-}
-
- private void createWindows(boolean force) {
-    if (talentManager == null) {
-        System.err.println("[UIManager] Cannot create windows: talentManager is null");
-        return;
-    }
-    // Пересоздаём всегда, если force == true
-    if (force || talentWindow == null) {
-        talentWindow = new TalentWindow(app, talentManager, this);
-    }
-    if (force || traderWindow == null) {
-        traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
-    }
-    if (force || auctionWindow == null) {
-        auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
-    }
-}
 
     private void createHUD() {
         float screenWidth = app.getCamera().getWidth();
@@ -463,18 +576,15 @@ public void setTalentManager(TalentManager tm) {
         hudBackground = new Geometry("HUDBackground", quad);
         hudBackground.setName("HUDBackground");
         Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", new ColorRGBA(0.0f, 0.0f, 0.0f, 0.5f));
+        mat.setColor("Color", new ColorRGBA(0f, 0f, 0f, 0.5f));
         hudBackground.setMaterial(mat);
 
-        // Зелья (2 кнопки)
         healthPotionBtn = createIconOnlyButton("Interface/Icons/hp.png", buttonSizeScaled);
         healthPotionBtn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.useHealthPotion();
-                updatePotionCounts();
-                updatePlayerStats();
-                flashButton(healthPotionBtn);
-            }
+            if (playerManager != null) playerManager.useHealthPotion();
+            updatePotionCounts();
+            updatePlayerStats();
+            flashButton(healthPotionBtn);
         });
         hudButtons.add(healthPotionBtn);
         hpCountLabel = new Label("0");
@@ -485,12 +595,10 @@ public void setTalentManager(TalentManager tm) {
 
         manaPotionBtn = createIconOnlyButton("Interface/Icons/mp.png", buttonSizeScaled);
         manaPotionBtn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.useManaPotion();
-                updatePotionCounts();
-                updatePlayerStats();
-                flashButton(manaPotionBtn);
-            }
+            if (playerManager != null) playerManager.useManaPotion();
+            updatePotionCounts();
+            updatePlayerStats();
+            flashButton(manaPotionBtn);
         });
         hudButtons.add(manaPotionBtn);
         mpCountLabel = new Label("0");
@@ -499,68 +607,41 @@ public void setTalentManager(TalentManager tm) {
         mpCountLabel.setLocalTranslation(buttonSizeScaled - 25 * scale, 10 * scale, 0.1f);
         manaPotionBtn.attachChild(mpCountLabel);
 
-        // Скиллы (4 кнопки)
+        // Скиллы
         skill1Btn = createIconOnlyButton("Interface/Icons/light.png", buttonSizeScaled);
-        skill1Btn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.castSkill("Heal");
-                flashButton(skill1Btn);
-            }
-        });
+        skill1Btn.addClickCommands((source) -> { if (playerManager != null) playerManager.castSkill("Heal"); });
         hudButtons.add(skill1Btn);
 
         skill2Btn = createIconOnlyButton("Interface/Icons/shield.png", buttonSizeScaled);
-        skill2Btn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.castSkill("ShieldBash");
-                flashButton(skill2Btn);
-            }
-        });
+        skill2Btn.addClickCommands((source) -> { if (playerManager != null) playerManager.castSkill("ShieldBash"); });
         hudButtons.add(skill2Btn);
 
         skill3Btn = createIconOnlyButton("Interface/Icons/whirlwind.png", buttonSizeScaled);
-        skill3Btn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.castSkill("Whirlwind");
-                flashButton(skill3Btn);
-            }
-        });
+        skill3Btn.addClickCommands((source) -> { if (playerManager != null) playerManager.castSkill("Whirlwind"); });
         hudButtons.add(skill3Btn);
 
         skill4Btn = createIconOnlyButton("Interface/Icons/kick.png", buttonSizeScaled);
-        skill4Btn.addClickCommands((source) -> {
-            if (playerManager != null) {
-                playerManager.castSkill("Kick");
-                flashButton(skill4Btn);
-            }
-        });
+        skill4Btn.addClickCommands((source) -> { if (playerManager != null) playerManager.castSkill("Kick"); });
         hudButtons.add(skill4Btn);
 
-        // Инвентарь
+        // Инвентарь (изменён обработчик)
         inventoryButton = createIconOnlyButton("Interface/Icons/backpack.png", buttonSizeScaled);
         inventoryButton.addClickCommands((source) -> {
-            if (inventoryManager != null) {
-                inventoryManager.toggleVisibility();
-                flashButton(inventoryButton);
-            }
+            toggleInventory();
         });
         hudButtons.add(inventoryButton);
 
-        // Таланты (отдельная кнопка)
+        // Таланты (изменён обработчик)
         talentButton = new Button("T");
         talentButton.setPreferredSize(new Vector3f(buttonSizeScaled, buttonSizeScaled, 0));
         talentButton.setBackground(null);
         talentButton.setColor(ColorRGBA.White);
         talentButton.setFontSize(24 * scale);
         talentButton.addClickCommands((source) -> {
-            if (talentWindow != null) {
-                talentWindow.toggle();
-                flashButton(talentButton);
-            }
+            toggleTalents();
         });
     }
 
-    // ===== СОЗДАНИЕ КОНТЕЙНЕРА С ИМЕНЕМ И БАРАМИ =====
     private void createPlayerStatsUI() {
         float screenWidth = app.getCamera().getWidth();
         float screenHeight = app.getCamera().getHeight();
@@ -573,45 +654,35 @@ public void setTalentManager(TalentManager tm) {
         playerStatsContainer.setLocalTranslation(10 * scale, screenHeight - 110 * scale, 0);
         playerStatsContainer.setCullHint(Node.CullHint.Always);
 
-        // Имя игрока
         playerNameLabel = new Label("Player");
         playerNameLabel.setFontSize(18 * scale);
         playerNameLabel.setColor(ColorRGBA.White);
-        playerNameLabel.setLocalTranslation(5 * scale, 0, 0);
         playerStatsContainer.addChild(playerNameLabel);
 
-        // HP бар (зелёный)
         hpBar = new ProgressBar();
         hpBar.setPreferredSize(new Vector3f(180 * scale, 18 * scale, 0));
         hpBar.setProgressPercent(1.0f);
-        hpBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.0f, 0.0f, 0.8f)));
+        hpBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0f, 0f, 0.8f)));
         Panel hpIndicator = hpBar.getValueIndicator();
-        if (hpIndicator != null) {
-            hpIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Green));
-        }
+        if (hpIndicator != null) hpIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Green));
         playerStatsContainer.addChild(hpBar);
 
         hpTextLabel = new Label("100/100");
         hpTextLabel.setFontSize(12 * scale);
         hpTextLabel.setColor(ColorRGBA.White);
-        hpTextLabel.setLocalTranslation(5 * scale, 0, 0);
         playerStatsContainer.addChild(hpTextLabel);
 
-        // ===== MANA БАР (СИНИЙ) =====
         manaBar = new ProgressBar();
         manaBar.setPreferredSize(new Vector3f(180 * scale, 18 * scale, 0));
         manaBar.setProgressPercent(1.0f);
-        manaBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.0f, 0.0f, 0.2f, 0.8f)));
+        manaBar.setBackground(new QuadBackgroundComponent(new ColorRGBA(0f, 0f, 0.2f, 0.8f)));
         Panel manaIndicator = manaBar.getValueIndicator();
-        if (manaIndicator != null) {
-            manaIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Blue));
-        }
+        if (manaIndicator != null) manaIndicator.setBackground(new QuadBackgroundComponent(ColorRGBA.Blue));
         playerStatsContainer.addChild(manaBar);
 
         manaTextLabel = new Label("50/50");
         manaTextLabel.setFontSize(12 * scale);
         manaTextLabel.setColor(ColorRGBA.White);
-        manaTextLabel.setLocalTranslation(5 * scale, 0, 0);
         playerStatsContainer.addChild(manaTextLabel);
 
         lastHealth = -1;
@@ -621,11 +692,8 @@ public void setTalentManager(TalentManager tm) {
         lastName = "";
     }
 
-    // ===== ОБНОВЛЕНИЕ СТАТИСТИКИ ИГРОКА =====
     public void updatePlayerStats() {
-        if (playerManager == null) return;
-        if (playerStatsContainer == null) return;
-
+        if (playerManager == null || playerStatsContainer == null) return;
         float hp = playerManager.getHealth();
         float maxHp = playerManager.getMaxHealth();
         float mana = playerManager.getMana();
@@ -671,34 +739,27 @@ public void setTalentManager(TalentManager tm) {
         float buttonSizeScaled = buttonSize * scale;
         float spacingScaled = buttonSpacing * scale;
 
-        // Зелья (2 кнопки)
         for (int i = 0; i < 2 && i < hudButtons.size(); i++) {
             Button btn = hudButtons.get(i);
             btn.setLocalTranslation(xPos, yPos, 0);
             xPos += buttonSizeScaled + spacingScaled;
         }
         xPos += buttonSizeScaled * 0.5f;
-
-        // Скиллы (4 кнопки, индексы 2-5)
         for (int i = 2; i < 6 && i < hudButtons.size(); i++) {
             Button btn = hudButtons.get(i);
             btn.setLocalTranslation(xPos, yPos, 0);
             xPos += buttonSizeScaled + spacingScaled;
         }
         xPos += buttonSizeScaled * 0.5f;
-
-        // Инвентарь (индекс 6)
         if (hudButtons.size() > 6) {
             Button btn = hudButtons.get(6);
             btn.setLocalTranslation(xPos, yPos, 0);
         }
 
-        // Таланты (правый верхний угол)
         if (talentButton != null) {
             talentButton.setLocalTranslation(screenWidth - buttonSizeScaled - 10 * scale, screenHeight - buttonSizeScaled - 10 * scale, 0);
         }
 
-        // Позиция контейнера со статистикой
         if (playerStatsContainer != null) {
             playerStatsContainer.setLocalTranslation(10 * scale, screenHeight - 110 * scale, 0);
         }
@@ -708,9 +769,7 @@ public void setTalentManager(TalentManager tm) {
         if (hudNode == null) return;
         attachNode(hudNode);
         hudVisible = true;
-        for (Button btn : hudButtons) {
-            btn.setCullHint(Node.CullHint.Dynamic);
-        }
+        for (Button btn : hudButtons) btn.setCullHint(Node.CullHint.Dynamic);
         if (hudBackground != null) hudBackground.setCullHint(Node.CullHint.Dynamic);
         if (talentButton != null) talentButton.setCullHint(Node.CullHint.Dynamic);
         if (playerStatsContainer != null) playerStatsContainer.setCullHint(Node.CullHint.Dynamic);
@@ -722,9 +781,7 @@ public void setTalentManager(TalentManager tm) {
     public void hideHUD() {
         detachNode(hudNode);
         hudVisible = false;
-        for (Button btn : hudButtons) {
-            btn.setCullHint(Node.CullHint.Always);
-        }
+        for (Button btn : hudButtons) btn.setCullHint(Node.CullHint.Always);
         if (hudBackground != null) hudBackground.setCullHint(Node.CullHint.Always);
         if (talentButton != null) talentButton.setCullHint(Node.CullHint.Always);
         if (playerStatsContainer != null) playerStatsContainer.setCullHint(Node.CullHint.Always);
@@ -749,11 +806,9 @@ public void setTalentManager(TalentManager tm) {
         if (y < 0) y = 0;
         loginWindow.setLocalTranslation(x, y, 0);
 
-        // === ФОН ===
         Geometry bgGeom = createBackgroundGeometry(winW, winH);
         loginWindow.attachChild(bgGeom);
 
-        // === ЭЛЕМЕНТЫ ===
         Label title = new Label("Login");
         title.setFontSize(30 * scale);
         title.setColor(ColorRGBA.White);
@@ -799,9 +854,7 @@ public void setTalentManager(TalentManager tm) {
             if (loginVisible) {
                 String login = loginField.getText();
                 String pass = passwordField.getText();
-                if (!login.isEmpty() && !pass.isEmpty()) {
-                    handleLogin(login, pass);
-                }
+                if (!login.isEmpty() && !pass.isEmpty()) handleLogin(login, pass);
             }
         });
         loginWindow.attachChild(loginButton);
@@ -815,6 +868,11 @@ public void setTalentManager(TalentManager tm) {
             if (loginVisible) showRegisterScreen();
         });
         loginWindow.attachChild(registerButton);
+
+        loginFields = new TextField[]{loginField, passwordField};
+
+        guiNode.attachChild(loginWindow);
+        loginWindow.setCullHint(Node.CullHint.Always);
     }
 
     // ===== ОКНО РЕГИСТРАЦИИ =====
@@ -836,18 +894,15 @@ public void setTalentManager(TalentManager tm) {
         if (y < 0) y = 0;
         registerWindow.setLocalTranslation(x, y, 0);
 
-        // === ФОН ===
         Geometry bgGeom = createBackgroundGeometry(winW, winH);
         registerWindow.attachChild(bgGeom);
 
-        // === ЗАГОЛОВОК ===
         Label title = new Label("Registration");
         title.setFontSize(30 * scale);
         title.setColor(ColorRGBA.White);
         title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
         registerWindow.attachChild(title);
 
-        // === ПОЛЕ EMAIL ===
         float labelY1 = winH - 85 * scale;
         Label emailLabel = new Label("Email:");
         emailLabel.setFontSize(18 * scale);
@@ -863,7 +918,6 @@ public void setTalentManager(TalentManager tm) {
         emailField.setSize(emailField.getPreferredSize());
         registerWindow.attachChild(emailField);
 
-        // === ПОЛЕ LOGIN ===
         float labelY2 = winH - 140 * scale;
         Label regLoginLabel = new Label("Login:");
         regLoginLabel.setFontSize(18 * scale);
@@ -879,7 +933,6 @@ public void setTalentManager(TalentManager tm) {
         regLoginField.setSize(regLoginField.getPreferredSize());
         registerWindow.attachChild(regLoginField);
 
-        // === ПОЛЕ PASSWORD ===
         float labelY3 = winH - 195 * scale;
         Label regPassLabel = new Label("Password:");
         regPassLabel.setFontSize(18 * scale);
@@ -895,7 +948,6 @@ public void setTalentManager(TalentManager tm) {
         regPasswordField.setSize(regPasswordField.getPreferredSize());
         registerWindow.attachChild(regPasswordField);
 
-        // === КНОПКИ ===
         Button registerButton = new Button("Register");
         registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
         registerButton.setColor(ColorRGBA.White);
@@ -906,9 +958,7 @@ public void setTalentManager(TalentManager tm) {
                 String email = emailField.getText();
                 String login = regLoginField.getText();
                 String pass = regPasswordField.getText();
-                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
-                    handleRegister(email, login, pass);
-                }
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) handleRegister(email, login, pass);
             }
         });
         registerWindow.attachChild(registerButton);
@@ -918,10 +968,65 @@ public void setTalentManager(TalentManager tm) {
         backButton.setColor(ColorRGBA.White);
         backButton.setFontSize(18 * scale);
         backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
-        backButton.addClickCommands((source) -> {
-            showLoginScreen();
-        });
+        backButton.addClickCommands((source) -> showLoginScreen());
         registerWindow.attachChild(backButton);
+
+        registerFields = new TextField[]{emailField, regLoginField, regPasswordField};
+
+        guiNode.attachChild(registerWindow);
+        registerWindow.setCullHint(Node.CullHint.Always);
+    }
+
+    // ===== ПОКАЗ И СКРЫТИЕ ОКОН =====
+    public void showLoginScreen() {
+        if (loginWindow == null) return;
+        hideRegisterScreen();
+        updateLoginPosition();
+
+        loginWindow.setCullHint(Node.CullHint.Dynamic);
+        loginVisible = true;
+        registerVisible = false;
+        showBackground();
+
+        app.enqueue(() -> {
+            if (loginFields != null && loginFields.length > 0) {
+                GuiGlobals.getInstance().requestFocus(loginFields[0]);
+                System.out.println("[UI] Focus set to login field");
+            }
+        });
+    }
+
+    public void hideLoginScreen() {
+        if (loginVisible) {
+            loginWindow.setCullHint(Node.CullHint.Always);
+            loginVisible = false;
+            GuiGlobals.getInstance().getFocusManagerState().setFocus(null);
+        }
+    }
+
+    public void showRegisterScreen() {
+        if (registerWindow == null) return;
+        hideLoginScreen();
+        updateRegisterPosition();
+
+        registerWindow.setCullHint(Node.CullHint.Dynamic);
+        registerVisible = true;
+        loginVisible = false;
+
+        app.enqueue(() -> {
+            if (registerFields != null && registerFields.length > 0) {
+                GuiGlobals.getInstance().requestFocus(registerFields[0]);
+                System.out.println("[UI] Focus set to register field");
+            }
+        });
+    }
+
+    public void hideRegisterScreen() {
+        if (registerVisible) {
+            registerWindow.setCullHint(Node.CullHint.Always);
+            registerVisible = false;
+            GuiGlobals.getInstance().getFocusManagerState().setFocus(null);
+        }
     }
 
     // ===== ДИАЛОГ ТЕЛЕПОРТА =====
@@ -929,9 +1034,7 @@ public void setTalentManager(TalentManager tm) {
     private boolean teleporterDialogVisible = false;
 
     public void showTeleporterDialog() {
-        if (teleporterDialog == null) {
-            createTeleporterDialog();
-        }
+        if (teleporterDialog == null) createTeleporterDialog();
         if (teleporterDialogVisible) return;
         teleporterDialogVisible = true;
         attachNode(teleporterDialog);
@@ -948,7 +1051,6 @@ public void setTalentManager(TalentManager tm) {
         updateScale();
         float screenWidth = app.getCamera().getWidth();
         float screenHeight = app.getCamera().getHeight();
-
         float winW = 350 * scale;
         float winH = 160 * scale;
 
@@ -962,314 +1064,91 @@ public void setTalentManager(TalentManager tm) {
         if (y < 0) y = 0;
         teleporterDialog.setLocalTranslation(x, y, 0);
 
-        // === ФОН ===
         Geometry bgGeom = createBackgroundGeometry(winW, winH);
         teleporterDialog.attachChild(bgGeom);
 
-        // === Текст ===
         Label question = new Label("Teleport to dungeon?");
         question.setFontSize(22 * scale);
         question.setColor(ColorRGBA.White);
-        question.setLocalTranslation(winW / 2 - 120 * scale, winH - 40 * scale, 0.1f);
+        question.setLocalTranslation(winW/2 - 120*scale, winH - 40*scale, 0.1f);
         teleporterDialog.attachChild(question);
 
-        // Кнопка Да
         Button yesButton = new Button("Yes");
-        yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
-        yesButton.setFontSize(18 * scale);
+        yesButton.setPreferredSize(new Vector3f(80*scale, 30*scale, 0));
+        yesButton.setFontSize(18*scale);
         yesButton.setColor(ColorRGBA.White);
-        yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
+        yesButton.setLocalTranslation(60*scale, 30*scale, 0.1f);
         yesButton.addClickCommands((source) -> {
             hideTeleporterDialog();
             Main main = (Main) app;
             if (main != null) {
                 WorldManager wm = main.getWorldManager();
-                if (wm != null) {
-                    wm.teleportToDungeon();
-                }
+                if (wm != null) wm.teleportToDungeon();
             }
         });
         teleporterDialog.attachChild(yesButton);
 
-        // Кнопка Нет
         Button noButton = new Button("No");
-        noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
-        noButton.setFontSize(18 * scale);
+        noButton.setPreferredSize(new Vector3f(80*scale, 30*scale, 0));
+        noButton.setFontSize(18*scale);
         noButton.setColor(ColorRGBA.White);
-        noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
-        noButton.addClickCommands((source) -> {
-            hideTeleporterDialog();
-        });
+        noButton.setLocalTranslation(180*scale, 30*scale, 0.1f);
+        noButton.addClickCommands((source) -> hideTeleporterDialog());
         teleporterDialog.attachChild(noButton);
     }
 
-    // ===== УПРАВЛЕНИЕ ОКНАМИ =====
-    public void showLoginScreen() {
+    // ===== ОБНОВЛЕНИЕ ПОЗИЦИИ ОКОН =====
+    private void updateLoginPosition() {
         if (loginWindow == null) return;
-        hideRegisterScreen();
-            updateLoginPosition(); // <-- добавляем
-
-        detachNode(loginWindow);
-        attachNode(loginWindow);
-        loginVisible = true;
-        registerVisible = false;
-            showBackground();
-
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
+        float winW = 450 * scale;
+        float winH = 300 * scale;
+        float x = (screenWidth - winW) / 2;
+        float y = (screenHeight - winH) / 2;
+        if (y < 0) y = 0;
+        loginWindow.setLocalTranslation(x, y, 0);
     }
 
-    public void hideLoginScreen() {
-        detachNode(loginWindow);
-        loginVisible = false;
-    }
-
-    public void showRegisterScreen() {
+    private void updateRegisterPosition() {
         if (registerWindow == null) return;
-        hideLoginScreen();
-        updateRegisterPosition(); // <-- добавляем
-
-        detachNode(registerWindow);
-        attachNode(registerWindow);
-        registerVisible = true;
-        loginVisible = false;
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
+        float winW = 480 * scale;
+        float winH = 420 * scale;
+        float x = (screenWidth - winW) / 2;
+        float y = (screenHeight - winH) / 2;
+        if (y < 0) y = 0;
+        registerWindow.setLocalTranslation(x, y, 0);
     }
-
-    public void hideRegisterScreen() {
-        detachNode(registerWindow);
-        registerVisible = false;
-    }
-
-    public void hideAllWindows() {
-        hideLoginScreen();
-        hideRegisterScreen();
-        hideTeleporterDialog();
-        if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
-        if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
-        if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
-    }
-
-    public boolean isAnyWindowOpen() {
-        if (loginVisible || registerVisible || teleporterDialogVisible) return true;
-        if (inventoryManager != null && inventoryManager.isVisible()) return true;
-        if (talentWindow != null && talentWindow.isVisible()) return true;
-        if (traderWindow != null && traderWindow.isVisible()) return true;
-        return false;
-    }
-
-    // ================================================================
-    //   СЕТЕВЫЕ ОБРАБОТЧИКИ
-    // ================================================================
-
-    private void handleLogin(String login, String password) {
-        System.out.println("[UI] Попытка входа: " + login);
-
-        if (networkManager == null) {
-            System.err.println("[UI] NetworkManager не инициализирован, используем локальный вход.");
-            loadTestCharacter();
-            Main main = (Main) app;
-            if (main != null) {
-                main.loadGameWorld();
-            }
-            return;
-        }
-
-        networkManager.login(login, password).thenAccept(success -> {
-            app.enqueue(() -> {
-                if (success) {
-                    System.out.println("[UI] Вход выполнен успешно.");
-                    loadCharacterFromServer();
-                } else {
-                    System.out.println("[UI] Ошибка входа: неверный логин или пароль.");
-                    showLoginError("Invalid login or password.");
-                }
-            });
-        }).exceptionally(ex -> {
-            app.enqueue(() -> {
-                System.err.println("[UI] Ошибка сети: " + ex.getMessage());
-                showLoginError("Network error: " + ex.getMessage());
-            });
-            return null;
-        });
-    }
-
-    private void handleRegister(String email, String login, String password) {
-        System.out.println("[UI] Регистрация: " + login);
-
-        if (networkManager == null) {
-            System.err.println("[UI] NetworkManager не инициализирован.");
-            loadTestCharacter();
-            Main main = (Main) app;
-            if (main != null) {
-                main.loadGameWorld();
-            }
-            return;
-        }
-
-        networkManager.register(email, login, password).thenAccept(success -> {
-            app.enqueue(() -> {
-                if (success) {
-                    System.out.println("[UI] Регистрация успешна. Переход к логину.");
-                    showLoginScreen();
-                    showToast("Registration successful! Please login.");
-                } else {
-                    System.out.println("[UI] Ошибка регистрации.");
-                    showLoginError("Registration failed. Please try again.");
-                }
-            });
-        }).exceptionally(ex -> {
-            app.enqueue(() -> {
-                System.err.println("[UI] Ошибка сети: " + ex.getMessage());
-                showLoginError("Network error: " + ex.getMessage());
-            });
-            return null;
-        });
-    }
-
-    private void loadCharacterFromServer() {
-        if (networkManager == null) return;
-
-        networkManager.loadCharacterData().thenAccept(data -> {
-            app.enqueue(() -> {
-                if (data != null) {
-                    System.out.println("[UI] Данные персонажа загружены с сервера.");
-                    applyCharacterData(data);
-                    Main main = (Main) app;
-                    if (main != null) {
-                        main.loadGameWorld();
-                        main.getGameManager().setState(GameState.CITY);
-                    }
-                } else {
-                    System.err.println("[UI] Не удалось загрузить персонажа.");
-                    showLoginError("Failed to load character data.");
-                }
-            });
-        }).exceptionally(ex -> {
-            app.enqueue(() -> {
-                System.err.println("[UI] Ошибка загрузки персонажа: " + ex.getMessage());
-                showLoginError("Network error: " + ex.getMessage());
-            });
-            return null;
-        });
-    }
-
-public void applyCharacterData(Map<String, Object> data) {
-    if (playerManager == null) return;
-
-    System.out.println("[UI] applyCharacterData: data keys = " + data.keySet());
-    
-    if (data.containsKey("name")) {
-        String name = (String) data.get("name");
-        playerManager.setPlayerName(name);
-        System.out.println("[UI] Name loaded: " + name);
-    }
-    
-    // ===== ЗОЛОТО (ДОБАВЛЕНО) =====
-    if (data.containsKey("gold")) {
-        int gold = ((Number) data.get("gold")).intValue();
-        playerManager.setGold(gold);
-        System.out.println("[UI] Gold loaded: " + gold);
-    }
-
-    // ===== ЗЕЛЬЯ =====
-    if (data.containsKey("healthPotions")) {
-        playerManager.setHealthPotions(((Number) data.get("healthPotions")).intValue());
-    }
-    if (data.containsKey("manaPotions")) {
-        playerManager.setManaPotions(((Number) data.get("manaPotions")).intValue());
-    }
-
-    // ===== ИНВЕНТАРЬ =====
-    if (data.containsKey("inventory")) {
-        List<Map<String, Object>> invList = (List<Map<String, Object>>) data.get("inventory");
-        System.out.println("[UI] Inventory list size = " + (invList != null ? invList.size() : "null"));
-        if (inventoryManager != null) {
-            inventoryManager.loadFromServerData(invList);
-        }
-    }
-
-    updatePlayerStats();
-    updatePotionCounts();
-}
-
-    private void showLoginError(String message) {
-        Label errorLabel = new Label(message);
-        errorLabel.setFontSize(16 * scale);
-        errorLabel.setColor(ColorRGBA.Red);
-        errorLabel.setLocalTranslation(20 * scale, 250 * scale, 0.1f);
-        loginWindow.attachChild(errorLabel);
-        new Thread(() -> {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            app.enqueue(() -> {
-                if (loginWindow.hasChild(errorLabel)) {
-                    loginWindow.detachChild(errorLabel);
-                }
-            });
-        }).start();
-    }
-
-    private void showToast(String message) {
-        Label toast = new Label(message);
-        toast.setFontSize(18 * scale);
-        toast.setColor(ColorRGBA.Green);
-        toast.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.1f, 0.9f)));
-        toast.setPreferredSize(new Vector3f(400 * scale, 40 * scale, 0));
-        toast.setLocalTranslation((app.getCamera().getWidth() - 400 * scale) / 2, app.getCamera().getHeight() - 100 * scale, 0.1f);
-        guiNode.attachChild(toast);
-        new Thread(() -> {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            app.enqueue(() -> guiNode.detachChild(toast));
-        }).start();
-    }
-
-    // ===== ЛОКАЛЬНАЯ ЗАГРУЗКА (для офлайн-тестов) =====
-   private void loadTestCharacter() {
-    Main main = (Main) app;
-    if (main == null) return;
-    
-    PlayerManager pm = main.getPlayerManager();
-    if (pm == null) return;
-
-    // Устанавливаем параметры персонажа
-    pm.setPlayerName("Test Player");
-    pm.setLevel(1);
-    pm.setMaxHealth(100);
-    pm.setHealth(100);
-    pm.setMaxMana(50);
-    pm.setMana(50);
-    pm.setExperience(0);
-    pm.setGold(100);
-    pm.setHealthPotions(3);
-    pm.setManaPotions(3);
-
-    // Добавляем стартовые предметы
-    InventoryManager im = main.getInventoryManager();
-    if (im != null) {
-        im.addItem(ItemGenerator.generateItem(1, "Weapon", 1));
-        im.addItem(ItemGenerator.generateItem(1, "Helmet", 1));
-        im.addItem(ItemGenerator.generateItem(1, "Chest", 1));
-        im.addItem(ItemGenerator.generateItem(1, "Legs", 1));
-        im.addItem(ItemGenerator.generateItem(1, "Boots", 1));
-    }
-
-    GameManager gm = main.getGameManager();
-    if (gm != null) {
-        gm.setState(GameState.CITY);
-    }
-
-    updatePlayerStats();
-    updatePotionCounts();
-}
 
     // ===== ОСТАЛЬНЫЕ МЕТОДЫ =====
+    public void setPlayerManager(PlayerManager pm) {
+        this.playerManager = pm;
+        updatePlayerStats();
+    }
+
+    public void setInventoryManager(InventoryManager im) {
+        this.inventoryManager = im;
+        if (im != null) im.setUIManager(this);
+    }
+
+    public void setTalentManager(TalentManager tm) {
+        this.talentManager = tm;
+        if (tm != null) createWindows(true);
+    }
+
+    private void createWindows(boolean force) {
+        if (talentManager == null) {
+            System.err.println("[UIManager] Cannot create windows: talentManager is null");
+            return;
+        }
+        if (force || talentWindow == null) talentWindow = new TalentWindow(app, talentManager, this);
+        if (force || traderWindow == null) traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
+        if (force || auctionWindow == null) auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
+    }
+
     public void onStateChanged(GameState newState) {
-        
         if (newState == GameState.LOGIN) {
             showLoginScreen();
             hideHUD();
@@ -1279,31 +1158,26 @@ public void applyCharacterData(Map<String, Object> data) {
             showHUD();
             updatePlayerStats();
             updatePotionCounts();
-                    hideBackground(); // скрыть фон
-
+            hideBackground();
         } else {
             hideHUD();
         }
     }
 
-    public void openTrader() {
-        if (traderWindow != null) traderWindow.show();
+    public boolean isAnyWindowOpen() {
+        return loginVisible || registerVisible || teleporterDialogVisible ||
+                (inventoryManager != null && inventoryManager.isVisible()) ||
+                (talentWindow != null && talentWindow.isVisible()) ||
+                (traderWindow != null && traderWindow.isVisible()) ||
+                (auctionWindow != null && auctionWindow.isVisible());
     }
-
-    public void closeTrader() {
-        if (traderWindow != null) traderWindow.hide();
-    }
-
-
 
     public void update(float tpf) {
         if (hudVisible) {
             updateHUDPosition(false);
             updatePlayerStats();
         }
-        if (talentWindow != null) {
-            talentWindow.update(tpf);
-        }
+        if (talentWindow != null) talentWindow.update(tpf);
     }
 
     public void onResize(int width, int height) {
@@ -1320,44 +1194,199 @@ public void applyCharacterData(Map<String, Object> data) {
         if (inventoryManager != null) inventoryManager.updateLayout(width, height);
         if (talentWindow != null) talentWindow.updateLayout(width, height);
         if (traderWindow != null) traderWindow.updateLayout(width, height);
+        if (auctionWindow != null) auctionWindow.updateLayout(width, height);
         if (backgroundNode != null && backgroundNode.getCullHint() == Node.CullHint.Never) {
             updateBackgroundScale();
         }
     }
 
     public void cleanup() {
+        if (authRawListener != null) {
+            app.getInputManager().removeRawInputListener(authRawListener);
+        }
         detachNode(hudNode);
-        detachNode(loginWindow);
-        detachNode(registerWindow);
         if (inventoryManager != null) inventoryManager.cleanup();
         if (talentWindow != null) talentWindow.hide();
         if (traderWindow != null) traderWindow.hide();
+        if (auctionWindow != null) auctionWindow.hide();
     }
 
     public Node getGuiNode() { return guiNode; }
-    
-    private void updateLoginPosition() {
-    if (loginWindow == null) return;
-    float screenWidth = app.getCamera().getWidth();
-    float screenHeight = app.getCamera().getHeight();
-    float winW = 450 * scale;
-    float winH = 300 * scale;
-    float x = (screenWidth - winW) / 2;
-    float y = (screenHeight - winH) / 2;
-    if (y < 0) y = 0;
-    loginWindow.setLocalTranslation(x, y, 0);
-}
 
-// Обновление позиции окна регистрации
-private void updateRegisterPosition() {
-    if (registerWindow == null) return;
-    float screenWidth = app.getCamera().getWidth();
-    float screenHeight = app.getCamera().getHeight();
-    float winW = 480 * scale;
-    float winH = 420 * scale;
-    float x = (screenWidth - winW) / 2;
-    float y = (screenHeight - winH) / 2;
-    if (y < 0) y = 0;
-    registerWindow.setLocalTranslation(x, y, 0);
-}
+    // ===== NETWORK HANDLERS =====
+    private void handleLogin(String login, String password) {
+        System.out.println("[UI] Попытка входа: " + login);
+        if (networkManager == null) {
+            System.err.println("[UI] NetworkManager не инициализирован, используем локальный вход.");
+            loadTestCharacter();
+            Main main = (Main) app;
+            if (main != null) main.loadGameWorld();
+            return;
+        }
+
+        networkManager.login(login, password).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    System.out.println("[UI] Вход выполнен успешно.");
+                    loadCharacterFromServer();
+                } else {
+                    showLoginError("Invalid login or password.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> showLoginError("Network error: " + ex.getMessage()));
+            return null;
+        });
+    }
+
+    private void handleRegister(String email, String login, String password) {
+        System.out.println("[UI] Регистрация: " + login);
+        if (networkManager == null) {
+            System.err.println("[UI] NetworkManager не инициализирован.");
+            loadTestCharacter();
+            Main main = (Main) app;
+            if (main != null) main.loadGameWorld();
+            return;
+        }
+
+        networkManager.register(email, login, password).thenAccept(success -> {
+            app.enqueue(() -> {
+                if (success) {
+                    System.out.println("[UI] Регистрация успешна. Переход к логину.");
+                    showLoginScreen();
+                    showToast("Registration successful! Please login.");
+                } else {
+                    showLoginError("Registration failed. Please try again.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> showLoginError("Network error: " + ex.getMessage()));
+            return null;
+        });
+    }
+
+    private void loadCharacterFromServer() {
+        if (networkManager == null) return;
+        networkManager.loadCharacterData().thenAccept(data -> {
+            app.enqueue(() -> {
+                if (data != null) {
+                    System.out.println("[UI] Данные персонажа загружены с сервера.");
+                    applyCharacterData(data);
+                    Main main = (Main) app;
+                    if (main != null) {
+                        main.loadGameWorld();
+                        main.getGameManager().setState(GameState.CITY);
+                    }
+                } else {
+                    showLoginError("Failed to load character data.");
+                }
+            });
+        }).exceptionally(ex -> {
+            app.enqueue(() -> showLoginError("Network error: " + ex.getMessage()));
+            return null;
+        });
+    }
+
+    public void applyCharacterData(Map<String, Object> data) {
+        if (playerManager == null) return;
+        System.out.println("[UI] applyCharacterData: data keys = " + data.keySet());
+
+        if (data.containsKey("name")) {
+            playerManager.setPlayerName((String) data.get("name"));
+        }
+        if (data.containsKey("gold")) {
+            playerManager.setGold(((Number) data.get("gold")).intValue());
+        }
+        if (data.containsKey("healthPotions")) {
+            playerManager.setHealthPotions(((Number) data.get("healthPotions")).intValue());
+        }
+        if (data.containsKey("manaPotions")) {
+            playerManager.setManaPotions(((Number) data.get("manaPotions")).intValue());
+        }
+        if (data.containsKey("health")) {
+            playerManager.setHealth(((Number) data.get("health")).intValue());
+        }
+        if (data.containsKey("maxHealth")) {
+            playerManager.setMaxHealth(((Number) data.get("maxHealth")).intValue());
+        }
+        if (data.containsKey("mana")) {
+            playerManager.setMana(((Number) data.get("mana")).intValue());
+        }
+        if (data.containsKey("maxMana")) {
+            playerManager.setMaxMana(((Number) data.get("maxMana")).intValue());
+        }
+        if (data.containsKey("level")) {
+            playerManager.setLevel(((Number) data.get("level")).intValue());
+        }
+        if (data.containsKey("experience")) {
+            playerManager.setExperience(((Number) data.get("experience")).intValue());
+        }
+
+        if (data.containsKey("inventory")) {
+            List<Map<String, Object>> invList = (List<Map<String, Object>>) data.get("inventory");
+            if (inventoryManager != null) inventoryManager.loadFromServerData(invList);
+        }
+
+        updatePlayerStats();
+        updatePotionCounts();
+    }
+    
+
+
+    private void showLoginError(String message) {
+        Label errorLabel = new Label(message);
+        errorLabel.setFontSize(16 * scale);
+        errorLabel.setColor(ColorRGBA.Red);
+        errorLabel.setLocalTranslation(20 * scale, 250 * scale, 0.1f);
+        loginWindow.attachChild(errorLabel);
+        new Thread(() -> {
+            try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            app.enqueue(() -> {
+                if (loginWindow.hasChild(errorLabel)) loginWindow.detachChild(errorLabel);
+            });
+        }).start();
+    }
+
+    private void showToast(String message) {
+        Label toast = new Label(message);
+        toast.setFontSize(18 * scale);
+        toast.setColor(ColorRGBA.Green);
+        toast.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.1f, 0.9f)));
+        toast.setPreferredSize(new Vector3f(400 * scale, 40 * scale, 0));
+        toast.setLocalTranslation((app.getCamera().getWidth() - 400 * scale) / 2, app.getCamera().getHeight() - 100 * scale, 0.1f);
+        guiNode.attachChild(toast);
+        new Thread(() -> {
+            try { Thread.sleep(2000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            app.enqueue(() -> guiNode.detachChild(toast));
+        }).start();
+    }
+
+    private void loadTestCharacter() {
+        Main main = (Main) app;
+        if (main == null) return;
+        PlayerManager pm = main.getPlayerManager();
+        if (pm == null) return;
+        pm.setPlayerName("Test Player");
+        pm.setLevel(1);
+        pm.setMaxHealth(100);
+        pm.setHealth(100);
+        pm.setMaxMana(50);
+        pm.setMana(50);
+        pm.setExperience(0);
+        pm.setGold(100);
+        pm.setHealthPotions(3);
+        pm.setManaPotions(3);
+        InventoryManager im = main.getInventoryManager();
+        if (im != null) {
+            im.addItem(ItemGenerator.generateItem(1, "Weapon", 1));
+            im.addItem(ItemGenerator.generateItem(1, "Helmet", 1));
+            im.addItem(ItemGenerator.generateItem(1, "Chest", 1));
+            im.addItem(ItemGenerator.generateItem(1, "Legs", 1));
+            im.addItem(ItemGenerator.generateItem(1, "Boots", 1));
+        }
+        GameManager gm = main.getGameManager();
+        if (gm != null) gm.setState(GameState.CITY);
+        updatePlayerStats();
+        updatePotionCounts();
+    }
 }

@@ -426,6 +426,7 @@ private Map<String, Object> parseCharacterResponse(JSONObject response) {
     data.put("mana", character.optInt("mana", 50));
     data.put("maxMana", character.optInt("maxMana", 50));
     data.put("gold", character.optInt("gold", 100));         // ← золото
+data.put("killCounter", character.optInt("killCounter", 0));
 
     // ===== Зелья =====
     data.put("healthPotions", character.optInt("healthPotions", 0));
@@ -591,6 +592,23 @@ public CompletableFuture<Map<String, Object>> resetTalents() {
                 data.put("error", result.optString("message", "Unknown error"));
                 return data;
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<Map<String, Object>> levelUp() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendPostRequest("/character/levelup", "{}", authToken);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return parseCharacterResponse(result);
+            }
+            return null;
         } catch (Exception e) {
             e.printStackTrace();
             return null;
