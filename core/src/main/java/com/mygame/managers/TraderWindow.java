@@ -31,6 +31,7 @@ public class TraderWindow {
     private float scale = 1f;
     private float windowWidth = 420;
     private float windowHeight = 380;
+    private float leftShift = 0f;
 
     public TraderWindow(SimpleApplication app, PlayerManager pm, InventoryManager im, UIManager ui) {
         this.app = app;
@@ -66,15 +67,19 @@ public class TraderWindow {
             screenHeight = 720;
         }
 
-        windowWidth = 420 * scale;
+        leftShift = 30 * scale; // ← сдвиг вправо
+
+        // Увеличиваем ширину на leftShift, чтобы кнопка закрытия не выходила за рамки
+        windowWidth = (420 + 30) * scale; // ← было 420, теперь +30 пикселей
         windowHeight = 380 * scale;
 
         windowNode = new Node("TraderWindowNode");
         windowNode.setName("TraderWindowNode");
 
-        // Фон
+        // Фон (увеличиваем ширину)
         if (uiManager != null) {
             Geometry bgGeom = uiManager.createBackgroundGeometry(windowWidth, windowHeight);
+            bgGeom.setLocalTranslation(0, 0, -0.1f);
             windowNode.attachChild(bgGeom);
         } else {
             com.jme3.scene.shape.Quad bgQuad = new com.jme3.scene.shape.Quad(windowWidth, windowHeight);
@@ -86,45 +91,45 @@ public class TraderWindow {
             windowNode.attachChild(bgGeom);
         }
 
-        // Заголовок
+        // Заголовок (сдвинут)
         Label title = new Label("Trader");
         title.setFontSize(20 * scale);
         title.setColor(ColorRGBA.White);
-        title.setLocalTranslation(windowWidth / 2 - 40 * scale, windowHeight - 30 * scale, 0.1f);
+        title.setLocalTranslation(windowWidth / 2 - 40 * scale + leftShift, windowHeight - 30 * scale, 0.1f);
         windowNode.attachChild(title);
 
-        // Золото
+        // Золото (сдвинуто)
         goldLabel = new Label("Gold: 0");
         goldLabel.setFontSize(14 * scale);
         goldLabel.setColor(ColorRGBA.Yellow);
-        goldLabel.setLocalTranslation(15 * scale, windowHeight - 60 * scale, 0.1f);
+        goldLabel.setLocalTranslation(15 * scale + leftShift, windowHeight - 60 * scale, 0.1f);
         windowNode.attachChild(goldLabel);
 
-        // Вкладки
+        // Вкладки (сдвинуты)
         Button buyTab = new Button("Buy");
         buyTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
         buyTab.setFontSize(12 * scale);
-        buyTab.setLocalTranslation(15 * scale, windowHeight - 95 * scale, 0.1f);
+        buyTab.setLocalTranslation(15 * scale + leftShift, windowHeight - 95 * scale, 0.1f);
         buyTab.addClickCommands((source) -> showBuyTab());
         windowNode.attachChild(buyTab);
 
         Button sellTab = new Button("Sell");
         sellTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
         sellTab.setFontSize(12 * scale);
-        sellTab.setLocalTranslation(95 * scale, windowHeight - 95 * scale, 0.1f);
+        sellTab.setLocalTranslation(95 * scale + leftShift, windowHeight - 95 * scale, 0.1f);
         sellTab.addClickCommands((source) -> showSellTab());
         windowNode.attachChild(sellTab);
 
-        // Контейнер контента
+        // Контейнер контента (сдвинут)
         contentNode = new Node("ContentNode");
-        contentNode.setLocalTranslation(15 * scale, 20 * scale, 0.1f);
+        contentNode.setLocalTranslation(15 * scale + leftShift, 20 * scale, 0.1f);
         windowNode.attachChild(contentNode);
 
-        // Кнопка закрытия
+        // Кнопка закрытия (НЕ сдвигаем вправо, чтобы она оставалась у правого края)
         Button closeButton = new Button("X");
         closeButton.setPreferredSize(new Vector3f(25 * scale, 25 * scale, 0));
         closeButton.setFontSize(14 * scale);
-        closeButton.setLocalTranslation(windowWidth - 35 * scale, windowHeight - 30 * scale, 0.1f);
+        closeButton.setLocalTranslation(windowWidth - 35 * scale, windowHeight - 30 * scale, 0.1f); // ← без leftShift
         closeButton.addClickCommands((source) -> hide());
         windowNode.attachChild(closeButton);
 
@@ -254,31 +259,24 @@ public class TraderWindow {
                 sellBtn.setFontSize(10 * scale);
                 sellBtn.setLocalTranslation(250 * scale, yPos, 0.1f);
                 sellBtn.addClickCommands((source) -> {
-                    // 1. Получаем индекс предмета
                     int slotIndex = inventoryManager.getItemIndex(item);
                     if (slotIndex == -1) {
                         System.err.println("[TraderWindow] Item not found in inventory!");
                         return;
                     }
 
-                    // 2. Если есть сеть – сначала удаляем на сервере
                     if (networkManager != null) {
                         networkManager.dropItem(slotIndex).thenAccept(response -> {
                             app.enqueue(() -> {
                                 if (response != null) {
-                                    // Сервер успешно удалил предмет и вернул обновлённые данные
-                                    // Применяем их (обновит инвентарь и золото)
                                     if (uiManager != null) {
                                         uiManager.applyCharacterData(response);
                                     }
-                                    // Обновляем отображение
                                     updateGold();
                                     if (uiManager != null) uiManager.updatePotionCounts();
                                     showSellTab();
                                 } else {
-                                    // Сервер отказал – возможно, предмет уже удалён или ошибка
                                     System.err.println("[TraderWindow] Server rejected drop. Refreshing inventory...");
-                                    // Принудительно запрашиваем свежие данные
                                     if (networkManager != null) {
                                         networkManager.loadCharacterData().thenAccept(data -> {
                                             app.enqueue(() -> {
@@ -296,7 +294,6 @@ public class TraderWindow {
                             return null;
                         });
                     } else {
-                        // Оффлайн режим: просто удаляем локально
                         playerManager.setGold(playerManager.getGold() + price);
                         inventoryManager.removeItem(item);
                         updateGold();

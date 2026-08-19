@@ -788,194 +788,198 @@ private void closeAllWindowsExcept(String keepOpen) {
     }
 
     // ===== ОКНО ЛОГИНА =====
-    private void createLoginScreen() {
-        updateScale();
-        float screenWidth = app.getCamera().getWidth();
-        float screenHeight = app.getCamera().getHeight();
+   private void createLoginScreen() {
+    updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
 
-        float winW = 450 * scale;
-        float winH = 300 * scale;
+    float winW = 450 * scale;
+    float winH = 300 * scale;
 
-        loginWindow = new Container();
-        loginWindow.setPreferredSize(new Vector3f(winW, winH, 0));
-        loginWindow.setLayout(null);
-        loginWindow.setName("LoginWindow");
+    loginWindow = new Container();
+    loginWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+    loginWindow.setLayout(null);
+    loginWindow.setName("LoginWindow");
 
-        float x = (screenWidth - winW) / 2;
-        float y = (screenHeight - winH) / 2;
-        if (y < 0) y = 0;
-        loginWindow.setLocalTranslation(x, y, 0);
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    loginWindow.setLocalTranslation(x, y, 0);
 
-        Geometry bgGeom = createBackgroundGeometry(winW, winH);
-        loginWindow.attachChild(bgGeom);
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    loginWindow.attachChild(bgGeom);
 
-        Label title = new Label("Login");
-        title.setFontSize(30 * scale);
-        title.setColor(ColorRGBA.White);
-        title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
-        loginWindow.attachChild(title);
+    Label title = new Label("Login");
+    title.setFontSize(30 * scale);
+    title.setColor(ColorRGBA.White);
+    title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+    loginWindow.attachChild(title);
 
-        float labelY1 = winH - 85 * scale;
-        Label loginLabel = new Label("Login:");
-        loginLabel.setFontSize(18 * scale);
-        loginLabel.setColor(ColorRGBA.White);
-        loginLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
-        loginWindow.attachChild(loginLabel);
+    float labelY1 = winH - 85 * scale;
+    Label loginLabel = new Label("Login:");
+    loginLabel.setFontSize(18 * scale);
+    loginLabel.setColor(ColorRGBA.White);
+    loginLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+    loginWindow.attachChild(loginLabel);
 
-        loginField = new TextField("");
-        loginField.setPreferredSize(new Vector3f(220 * scale, 38 * scale, 0));
-        loginField.setColor(ColorRGBA.Black);
-        loginField.setFontSize(18 * scale);
-        loginField.setLocalTranslation(130 * scale, labelY1 - 8 * scale, 0.1f);
-        loginField.setSize(loginField.getPreferredSize());
-        loginWindow.attachChild(loginField);
+    loginField = new TextField("");
+    // Уменьшаем высоту до 26 * scale
+    loginField.setPreferredSize(new Vector3f(220 * scale, 26 * scale, 0));
+    loginField.setColor(ColorRGBA.Black);
+    loginField.setFontSize(18 * scale);
+    loginField.setLocalTranslation(130 * scale, labelY1 - 8 * scale, 0.1f);
+    loginField.setSize(loginField.getPreferredSize());
+    loginWindow.attachChild(loginField);
 
-        float labelY2 = winH - 140 * scale;
-        Label passLabel = new Label("Password:");
-        passLabel.setFontSize(18 * scale);
-        passLabel.setColor(ColorRGBA.White);
-        passLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
-        loginWindow.attachChild(passLabel);
+    float labelY2 = winH - 140 * scale;
+    Label passLabel = new Label("Password:");
+    passLabel.setFontSize(18 * scale);
+    passLabel.setColor(ColorRGBA.White);
+    passLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+    loginWindow.attachChild(passLabel);
 
-        passwordField = new TextField("");
-        passwordField.setPreferredSize(new Vector3f(220 * scale, 38 * scale, 0));
-        passwordField.setColor(ColorRGBA.Black);
-        passwordField.setFontSize(18 * scale);
-        passwordField.setLocalTranslation(130 * scale, labelY2 - 8 * scale, 0.1f);
-        passwordField.setSize(passwordField.getPreferredSize());
-        loginWindow.attachChild(passwordField);
+    passwordField = new TextField("");
+    // Уменьшаем высоту до 26 * scale
+    passwordField.setPreferredSize(new Vector3f(220 * scale, 26 * scale, 0));
+    passwordField.setColor(ColorRGBA.Black);
+    passwordField.setFontSize(18 * scale);
+    passwordField.setLocalTranslation(130 * scale, labelY2 - 8 * scale, 0.1f);
+    passwordField.setSize(passwordField.getPreferredSize());
+    loginWindow.attachChild(passwordField);
 
-        Button loginButton = new Button("Login");
-        loginButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-        loginButton.setColor(ColorRGBA.White);
-        loginButton.setFontSize(18 * scale);
-        loginButton.setLocalTranslation(85 * scale, 45 * scale, 0.1f);
-        loginButton.addClickCommands((source) -> {
-            if (loginVisible) {
-                String login = loginField.getText();
-                String pass = passwordField.getText();
-                if (!login.isEmpty() && !pass.isEmpty()) handleLogin(login, pass);
-            }
-        });
-        loginWindow.attachChild(loginButton);
+    Button loginButton = new Button("Login");
+    loginButton.setPreferredSize(new Vector3f(110 * scale, 30 * scale, 0));
+    loginButton.setColor(ColorRGBA.White);
+    loginButton.setFontSize(18 * scale);
+    loginButton.setLocalTranslation(85 * scale, 45 * scale, 0.1f);
+    loginButton.addClickCommands((source) -> {
+        if (loginVisible) {
+            String login = loginField.getText();
+            String pass = passwordField.getText();
+            if (!login.isEmpty() && !pass.isEmpty()) handleLogin(login, pass);
+        }
+    });
+    loginWindow.attachChild(loginButton);
 
-        Button registerButton = new Button("Register");
-        registerButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-        registerButton.setColor(ColorRGBA.White);
-        registerButton.setFontSize(18 * scale);
-        registerButton.setLocalTranslation(220 * scale, 45 * scale, 0.1f);
-        registerButton.addClickCommands((source) -> {
-            if (loginVisible) showRegisterScreen();
-        });
-        loginWindow.attachChild(registerButton);
+    Button registerButton = new Button("Register");
+    registerButton.setPreferredSize(new Vector3f(110 * scale, 30 * scale, 0));
+    registerButton.setColor(ColorRGBA.White);
+    registerButton.setFontSize(18 * scale);
+    registerButton.setLocalTranslation(220 * scale, 45 * scale, 0.1f);
+    registerButton.addClickCommands((source) -> {
+        if (loginVisible) showRegisterScreen();
+    });
+    loginWindow.attachChild(registerButton);
 
-        loginFields = new TextField[]{loginField, passwordField};
+    loginFields = new TextField[]{loginField, passwordField};
 
-        guiNode.attachChild(loginWindow);
-        loginWindow.setCullHint(Node.CullHint.Always);
-    }
+    guiNode.attachChild(loginWindow);
+    loginWindow.setCullHint(Node.CullHint.Always);
+}
 
-    // ===== ОКНО РЕГИСТРАЦИИ =====
     private void createRegisterScreen() {
-        updateScale();
-        float screenWidth = app.getCamera().getWidth();
-        float screenHeight = app.getCamera().getHeight();
+    updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
 
-        float winW = 480 * scale;
-        float winH = 420 * scale;
+    float winW = 480 * scale;
+    float winH = 420 * scale;
 
-        registerWindow = new Container();
-        registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
-        registerWindow.setLayout(null);
-        registerWindow.setName("RegisterWindow");
+    registerWindow = new Container();
+    registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+    registerWindow.setLayout(null);
+    registerWindow.setName("RegisterWindow");
 
-        float x = (screenWidth - winW) / 2;
-        float y = (screenHeight - winH) / 2;
-        if (y < 0) y = 0;
-        registerWindow.setLocalTranslation(x, y, 0);
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    registerWindow.setLocalTranslation(x, y, 0);
 
-        Geometry bgGeom = createBackgroundGeometry(winW, winH);
-        registerWindow.attachChild(bgGeom);
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    registerWindow.attachChild(bgGeom);
 
-        Label title = new Label("Registration");
-        title.setFontSize(30 * scale);
-        title.setColor(ColorRGBA.White);
-        title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
-        registerWindow.attachChild(title);
+    Label title = new Label("Registration");
+    title.setFontSize(30 * scale);
+    title.setColor(ColorRGBA.White);
+    title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+    registerWindow.attachChild(title);
 
-        float labelY1 = winH - 85 * scale;
-        Label emailLabel = new Label("Email:");
-        emailLabel.setFontSize(18 * scale);
-        emailLabel.setColor(ColorRGBA.White);
-        emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
-        registerWindow.attachChild(emailLabel);
+    float labelY1 = winH - 85 * scale;
+    Label emailLabel = new Label("Email:");
+    emailLabel.setFontSize(18 * scale);
+    emailLabel.setColor(ColorRGBA.White);
+    emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+    registerWindow.attachChild(emailLabel);
 
-        emailField = new TextField("");
-        emailField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-        emailField.setColor(ColorRGBA.Black);
-        emailField.setFontSize(18 * scale);
-        emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
-        emailField.setSize(emailField.getPreferredSize());
-        registerWindow.attachChild(emailField);
+    emailField = new TextField("");
+    // Уменьшаем высоту до 26 * scale
+    emailField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
+    emailField.setColor(ColorRGBA.Black);
+    emailField.setFontSize(18 * scale);
+    emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
+    emailField.setSize(emailField.getPreferredSize());
+    registerWindow.attachChild(emailField);
 
-        float labelY2 = winH - 140 * scale;
-        Label regLoginLabel = new Label("Login:");
-        regLoginLabel.setFontSize(18 * scale);
-        regLoginLabel.setColor(ColorRGBA.White);
-        regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
-        registerWindow.attachChild(regLoginLabel);
+    float labelY2 = winH - 140 * scale;
+    Label regLoginLabel = new Label("Login:");
+    regLoginLabel.setFontSize(18 * scale);
+    regLoginLabel.setColor(ColorRGBA.White);
+    regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+    registerWindow.attachChild(regLoginLabel);
 
-        regLoginField = new TextField("");
-        regLoginField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-        regLoginField.setColor(ColorRGBA.Black);
-        regLoginField.setFontSize(18 * scale);
-        regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
-        regLoginField.setSize(regLoginField.getPreferredSize());
-        registerWindow.attachChild(regLoginField);
+    regLoginField = new TextField("");
+    // Уменьшаем высоту до 26 * scale
+    regLoginField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
+    regLoginField.setColor(ColorRGBA.Black);
+    regLoginField.setFontSize(18 * scale);
+    regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
+    regLoginField.setSize(regLoginField.getPreferredSize());
+    registerWindow.attachChild(regLoginField);
 
-        float labelY3 = winH - 195 * scale;
-        Label regPassLabel = new Label("Password:");
-        regPassLabel.setFontSize(18 * scale);
-        regPassLabel.setColor(ColorRGBA.White);
-        regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
-        registerWindow.attachChild(regPassLabel);
+    float labelY3 = winH - 195 * scale;
+    Label regPassLabel = new Label("Password:");
+    regPassLabel.setFontSize(18 * scale);
+    regPassLabel.setColor(ColorRGBA.White);
+    regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
+    registerWindow.attachChild(regPassLabel);
 
-        regPasswordField = new TextField("");
-        regPasswordField.setPreferredSize(new Vector3f(240 * scale, 38 * scale, 0));
-        regPasswordField.setColor(ColorRGBA.Black);
-        regPasswordField.setFontSize(18 * scale);
-        regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
-        regPasswordField.setSize(regPasswordField.getPreferredSize());
-        registerWindow.attachChild(regPasswordField);
+    regPasswordField = new TextField("");
+    // Уменьшаем высоту до 26 * scale
+    regPasswordField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
+    regPasswordField.setColor(ColorRGBA.Black);
+    regPasswordField.setFontSize(18 * scale);
+    regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
+    regPasswordField.setSize(regPasswordField.getPreferredSize());
+    registerWindow.attachChild(regPasswordField);
 
-        Button registerButton = new Button("Register");
-        registerButton.setPreferredSize(new Vector3f(130 * scale, 35 * scale, 0));
-        registerButton.setColor(ColorRGBA.White);
-        registerButton.setFontSize(18 * scale);
-        registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
-        registerButton.addClickCommands((source) -> {
-            if (registerVisible) {
-                String email = emailField.getText();
-                String login = regLoginField.getText();
-                String pass = regPasswordField.getText();
-                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) handleRegister(email, login, pass);
-            }
-        });
-        registerWindow.attachChild(registerButton);
+    Button registerButton = new Button("Register");
+    registerButton.setPreferredSize(new Vector3f(130 * scale, 30 * scale, 0));
+    registerButton.setColor(ColorRGBA.White);
+    registerButton.setFontSize(18 * scale);
+    registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
+    registerButton.addClickCommands((source) -> {
+        if (registerVisible) {
+            String email = emailField.getText();
+            String login = regLoginField.getText();
+            String pass = regPasswordField.getText();
+            if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) handleRegister(email, login, pass);
+        }
+    });
+    registerWindow.attachChild(registerButton);
 
-        Button backButton = new Button("Back");
-        backButton.setPreferredSize(new Vector3f(110 * scale, 35 * scale, 0));
-        backButton.setColor(ColorRGBA.White);
-        backButton.setFontSize(18 * scale);
-        backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
-        backButton.addClickCommands((source) -> showLoginScreen());
-        registerWindow.attachChild(backButton);
+    Button backButton = new Button("Back");
+    backButton.setPreferredSize(new Vector3f(110 * scale, 30 * scale, 0));
+    backButton.setColor(ColorRGBA.White);
+    backButton.setFontSize(18 * scale);
+    backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
+    backButton.addClickCommands((source) -> showLoginScreen());
+    registerWindow.attachChild(backButton);
 
-        registerFields = new TextField[]{emailField, regLoginField, regPasswordField};
+    registerFields = new TextField[]{emailField, regLoginField, regPasswordField};
 
-        guiNode.attachChild(registerWindow);
-        registerWindow.setCullHint(Node.CullHint.Always);
-    }
+    guiNode.attachChild(registerWindow);
+    registerWindow.setCullHint(Node.CullHint.Always);
+}
 
     // ===== ПОКАЗ И СКРЫТИЕ ОКОН =====
     public void showLoginScreen() {

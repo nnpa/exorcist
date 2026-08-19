@@ -57,6 +57,7 @@ public class AuctionWindow {
 
     private float scale = 1f;
     private float winW, winH;
+    private float leftShift = 0f; // ← новое поле
 
     private final float ROW_HEIGHT = 26f;
     private final float GAP = 10f;
@@ -86,39 +87,44 @@ public class AuctionWindow {
         updateScale();
         windowNode = new Node("AuctionWindowNode");
 
-        winW = 700 * scale;
+        // Увеличиваем ширину на 10 пикселей и задаём смещение вправо
+        winW = (700 + 25) * scale;  // +10
         winH = 500 * scale;
+        leftShift = 19 * scale;     // смещение вправо
 
         Geometry bg = uiManager.createBackgroundGeometry(winW, winH);
+        bg.setLocalTranslation(0, 0, -0.1f);
         windowNode.attachChild(bg);
 
         Label title = new Label("Auction House");
         title.setFontSize(20 * scale);
         title.setColor(ColorRGBA.White);
-        title.setLocalTranslation(winW / 2 - 80 * scale, winH - 30 * scale, 0.1f);
+        title.setLocalTranslation(winW / 2 - 80 * scale + leftShift, winH - 30 * scale, 0.1f);
         windowNode.attachChild(title);
 
         Button closeBtn = new Button("X");
         closeBtn.setPreferredSize(new Vector3f(25 * scale, 25 * scale, 0));
-        closeBtn.setLocalTranslation(winW - 35 * scale, winH - 30 * scale, 0.1f);
+        closeBtn.setLocalTranslation(winW - 35 * scale + leftShift, winH - 30 * scale, 0.1f);
         closeBtn.addClickCommands(s -> hide());
         windowNode.attachChild(closeBtn);
 
         Button buyTab = new Button("Browse");
         buyTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
-        buyTab.setLocalTranslation(15 * scale, winH - 95 * scale, 0.1f);
+        buyTab.setLocalTranslation(15 * scale + leftShift, winH - 95 * scale, 0.1f);
         buyTab.addClickCommands(s -> showBrowseTab());
         windowNode.attachChild(buyTab);
 
         Button sellTab = new Button("Sell");
         sellTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
-        sellTab.setLocalTranslation(95 * scale, winH - 95 * scale, 0.1f);
+        sellTab.setLocalTranslation(95 * scale + leftShift, winH - 95 * scale, 0.1f);
         sellTab.addClickCommands(s -> showSellTab());
         windowNode.attachChild(sellTab);
 
         goldLabel = new Label("Gold: " + playerManager.getGold());
         goldLabel.setFontSize(14 * scale);
         goldLabel.setColor(ColorRGBA.Yellow);
+        goldLabel.setLocalTranslation(15 * scale + leftShift, winH - 65 * scale, 0.1f);
+        windowNode.attachChild(goldLabel);
 
         MouseEventControl.removeListenersFromSpatial(windowNode);
         MouseEventControl.addListenersToSpatial(windowNode, new MouseListener() {
@@ -132,15 +138,12 @@ public class AuctionWindow {
         showBrowseTab();
     }
 
-private void positionWindow() {
-    float w = app.getCamera().getWidth();
-    float h = app.getCamera().getHeight();
-    float winW = 700 * scale;
-    float winH = 600 * scale;
-    // Увеличиваем смещение на 50 пикселей (в масштабе)
-    float offsetY = 40 * scale +90 * scale; // было 40*scale, теперь +50*scale
-    windowNode.setLocalTranslation((w - winW) / 2, (h - winH) / 2 + offsetY, 0);
-}
+    private void positionWindow() {
+        float w = app.getCamera().getWidth();
+        float h = app.getCamera().getHeight();
+        float offsetY = 40 * scale + 90 * scale;
+        windowNode.setLocalTranslation((w - winW) / 2, (h - winH) / 2 + offsetY, 0);
+    }
 
     private void clearDynamicParts() {
         for (Spatial s : dynamicParts) {
@@ -158,7 +161,7 @@ private void positionWindow() {
 
         goldLabel.setText("Gold: " + playerManager.getGold());
         goldLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 30 * scale, 0));
-        goldLabel.setLocalTranslation(15 * scale, y, 0.1f);
+        goldLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
         windowNode.attachChild(goldLabel);
         dynamicParts.add(goldLabel);
         y -= 35 * scale;
@@ -168,7 +171,7 @@ private void positionWindow() {
         typeLabel.setFontSize(12 * scale);
         typeLabel.setColor(ColorRGBA.White);
         typeLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 20 * scale, 0));
-        typeLabel.setLocalTranslation(15 * scale, y, 0.1f);
+        typeLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
         windowNode.attachChild(typeLabel);
         dynamicParts.add(typeLabel);
         y -= 25 * scale;
@@ -177,7 +180,7 @@ private void positionWindow() {
         Container typeContainer = new Container();
         typeContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
         typeContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
-        typeContainer.setLocalTranslation(15 * scale, y, 0.1f);
+        typeContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
         for (String opt : typeOptions) {
             Button btn = new Button(opt);
             btn.setFontSize(11 * scale);
@@ -200,7 +203,7 @@ private void positionWindow() {
         rarityLabel.setFontSize(12 * scale);
         rarityLabel.setColor(ColorRGBA.White);
         rarityLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 20 * scale, 0));
-        rarityLabel.setLocalTranslation(15 * scale, y, 0.1f);
+        rarityLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
         windowNode.attachChild(rarityLabel);
         dynamicParts.add(rarityLabel);
         y -= 25 * scale;
@@ -209,7 +212,7 @@ private void positionWindow() {
         Container rarityContainer = new Container();
         rarityContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
         rarityContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
-        rarityContainer.setLocalTranslation(15 * scale, y, 0.1f);
+        rarityContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
         for (String opt : rarityOptions) {
             Button btn = new Button(opt);
             btn.setFontSize(11 * scale);
@@ -231,7 +234,7 @@ private void positionWindow() {
         Container lvlContainer = new Container();
         lvlContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
         lvlContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
-        lvlContainer.setLocalTranslation(15 * scale, y, 0.1f);
+        lvlContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
 
         Label lvlLabel = new Label("Min Lvl:");
         lvlLabel.setFontSize(12 * scale);
@@ -265,7 +268,7 @@ private void positionWindow() {
         listAndPaginationContainer.setLayout(new SpringGridLayout(Axis.Y, Axis.X));
         float containerWidth = winW - 40 * scale;
         listAndPaginationContainer.setPreferredSize(new Vector3f(containerWidth, 100 * scale, 0));
-        listAndPaginationContainer.setLocalTranslation(15 * scale, listStartY, 0.1f);
+        listAndPaginationContainer.setLocalTranslation(15 * scale + leftShift, listStartY, 0.1f);
         windowNode.attachChild(listAndPaginationContainer);
         dynamicParts.add(listAndPaginationContainer);
 
@@ -274,26 +277,25 @@ private void positionWindow() {
         paginationContainer.setPreferredSize(new Vector3f(containerWidth, PAGINATION_HEIGHT * scale, 0));
 
         // Тултип
-tooltipContainer = new Container();
-float tooltipWidth = 200 * scale;
-float tooltipHeight = 150 * scale;
-tooltipContainer.setPreferredSize(new Vector3f(tooltipWidth, tooltipHeight, 0));
-tooltipContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.05f, 0.05f, 0.1f, 0.95f)));
-// Позиционируем: отступ от правого края 10 пикселей, по вертикали центрируем
-float tooltipX = winW + 30 * scale; // или больше
-float tooltipY = winH / 2 - tooltipHeight / 2;
-tooltipContainer.setLocalTranslation(tooltipX, tooltipY, 0.1f);
-tooltipContainer.setCullHint(Node.CullHint.Always);
-windowNode.attachChild(tooltipContainer);
-dynamicParts.add(tooltipContainer);
+        tooltipContainer = new Container();
+        float tooltipWidth = 200 * scale;
+        float tooltipHeight = 150 * scale;
+        tooltipContainer.setPreferredSize(new Vector3f(tooltipWidth, tooltipHeight, 0));
+        tooltipContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.05f, 0.05f, 0.1f, 0.95f)));
+        // Позиционируем: отступ от правого края 10 пикселей, по вертикали центрируем
+        float tooltipX = winW + 30 * scale + leftShift; // сдвиг вправо
+        float tooltipY = winH / 2 - tooltipHeight / 2;
+        tooltipContainer.setLocalTranslation(tooltipX, tooltipY, 0.1f);
+        tooltipContainer.setCullHint(Node.CullHint.Always);
+        windowNode.attachChild(tooltipContainer);
+        dynamicParts.add(tooltipContainer);
 
-tooltipLabel = new Label("");
-tooltipLabel.setFontSize(12 * scale);
-tooltipLabel.setColor(ColorRGBA.White);
-tooltipLabel.setPreferredSize(new Vector3f(tooltipWidth - 10 * scale, tooltipHeight - 10 * scale, 0));
-tooltipLabel.setInsets(new Insets3f(5 * scale, 5 * scale, 5 * scale, 5 * scale));
-// setMultiline удалён — Label автоматически переносит строки по \n
-tooltipContainer.addChild(tooltipLabel);
+        tooltipLabel = new Label("");
+        tooltipLabel.setFontSize(12 * scale);
+        tooltipLabel.setColor(ColorRGBA.White);
+        tooltipLabel.setPreferredSize(new Vector3f(tooltipWidth - 10 * scale, tooltipHeight - 10 * scale, 0));
+        tooltipLabel.setInsets(new Insets3f(5 * scale, 5 * scale, 5 * scale, 5 * scale));
+        tooltipContainer.addChild(tooltipLabel);
 
         loadLots(1);
     }
@@ -375,7 +377,6 @@ tooltipContainer.addChild(tooltipLabel);
                             Item item = lot.getItems().get(0);
                             String tooltipText = buildTooltipText(item);
                             tooltipLabel.setText(tooltipText);
-                            // Цвет текста в зависимости от редкости
                             ColorRGBA rarityColor = item.getColor();
                             if (rarityColor != null) {
                                 tooltipLabel.setColor(rarityColor);
@@ -397,9 +398,7 @@ tooltipContainer.addChild(tooltipLabel);
                     }
 
                     @Override
-                    public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {
-                        // можно обновлять позицию, но оставим фиксированную
-                    }
+                    public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
                 });
 
                 listAndPaginationContainer.addChild(row);
@@ -419,9 +418,6 @@ tooltipContainer.addChild(tooltipLabel);
         ));
     }
 
-    // ============================================================
-    //   ФОРМИРОВАНИЕ ТЕКСТА ТУЛТИПА (исправлено)
-    // ============================================================
     private String buildTooltipText(Item item) {
         StringBuilder sb = new StringBuilder();
         sb.append(item.getName()).append("\n");
@@ -472,7 +468,7 @@ tooltipContainer.addChild(tooltipLabel);
         paginationContainer.addChild(nextBtn);
     }
 
-    // ---------- Вкладка продажи (без изменений) ----------
+    // ---------- Вкладка продажи ----------
     private void showSellTab() {
         clearDynamicParts();
 
@@ -485,7 +481,7 @@ tooltipContainer.addChild(tooltipLabel);
         header.setFontSize(14 * scale);
         header.setColor(ColorRGBA.White);
         header.setPreferredSize(new Vector3f(winW - 30 * scale, 30 * scale, 0));
-        header.setLocalTranslation(15 * scale, startY, 0.1f);
+        header.setLocalTranslation(15 * scale + leftShift, startY, 0.1f);
         windowNode.attachChild(header);
         dynamicParts.add(header);
 
@@ -493,7 +489,7 @@ tooltipContainer.addChild(tooltipLabel);
         SpringGridLayout gridLayout = new SpringGridLayout(Axis.Y, Axis.X, FillMode.None, FillMode.None);
         gridContainer.setLayout(gridLayout);
         gridContainer.setPreferredSize(new Vector3f(550 * scale, 240 * scale, 0));
-        gridContainer.setLocalTranslation(15 * scale, startY - 40 * scale, 0.1f);
+        gridContainer.setLocalTranslation(15 * scale + leftShift, startY - 40 * scale, 0.1f);
         gridContainer.setBackground(null);
         windowNode.attachChild(gridContainer);
         dynamicParts.add(gridContainer);
@@ -592,7 +588,7 @@ tooltipContainer.addChild(tooltipLabel);
         SpringGridLayout priceLayout = new SpringGridLayout(Axis.X, Axis.Y, FillMode.None, FillMode.None);
         priceContainer.setLayout(priceLayout);
         priceContainer.setPreferredSize(new Vector3f(550 * scale, 30 * scale, 0));
-        priceContainer.setLocalTranslation(15 * scale, priceY, 0.1f);
+        priceContainer.setLocalTranslation(15 * scale + leftShift, priceY, 0.1f);
         priceContainer.setBackground(null);
         windowNode.attachChild(priceContainer);
         dynamicParts.add(priceContainer);
@@ -641,19 +637,14 @@ tooltipContainer.addChild(tooltipLabel);
                     updateLotList();
                     updateStatus("Lot purchased successfully!");
                     uiManager.applyCharacterData(response);
-                    return null;
                 });
             } else {
-                app.enqueue(() -> {
-                    updateStatus("Failed to buy lot: server returned null.");
-                    return null;
-                });
+                app.enqueue(() -> updateStatus("Failed to buy lot: server returned null."));
             }
         }).exceptionally(ex -> {
             app.enqueue(() -> {
                 System.err.println("[AuctionWindow] Exception: " + ex.getMessage());
                 updateStatus("Network error: " + ex.getMessage());
-                return null;
             });
             return null;
         });
@@ -665,25 +656,23 @@ tooltipContainer.addChild(tooltipLabel);
             app.enqueue(() -> {
                 if (response == null) {
                     updateStatus("Failed to create lot: server returned null.");
-                    return null;
+                    return;
                 }
                 if (response.containsKey("error")) {
                     String errorMsg = (String) response.get("error");
                     updateStatus("Error: " + errorMsg);
-                    return null;
+                    return;
                 }
                 System.out.println("[AuctionWindow] Received characterData, applying...");
                 uiManager.applyCharacterData(response);
                 updateStatus("Lot successfully listed for " + price + "g!");
                 selectedSlot = -1;
                 showSellTab();
-                return null;
             });
         }).exceptionally(ex -> {
             app.enqueue(() -> {
                 System.err.println("[AuctionWindow] Exception: " + ex.getMessage());
                 updateStatus("Network error: " + ex.getMessage());
-                return null;
             });
             return null;
         });
@@ -694,7 +683,7 @@ tooltipContainer.addChild(tooltipLabel);
             statusLabel = new Label(msg);
             statusLabel.setFontSize(14 * scale);
             statusLabel.setColor(ColorRGBA.Red);
-            statusLabel.setLocalTranslation(15 * scale, 15 * scale, 0.1f);
+            statusLabel.setLocalTranslation(15 * scale + leftShift, 15 * scale, 0.1f);
             windowNode.attachChild(statusLabel);
             dynamicParts.add(statusLabel);
         } else {
@@ -749,8 +738,8 @@ tooltipContainer.addChild(tooltipLabel);
             uiManager.getGuiNode().attachChild(windowNode);
         }
     }
-    
-        public boolean isVisible() {
+
+    public boolean isVisible() {
         return isVisible;
     }
 }
