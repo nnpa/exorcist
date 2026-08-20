@@ -3,6 +3,8 @@ package com.mygame.managers;
 import com.jme3.anim.AnimComposer;
 import com.jme3.anim.SkinningControl;
 import com.jme3.app.SimpleApplication;
+import com.jme3.audio.AudioNode;
+import com.jme3.audio.AudioSource;
 import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.control.BetterCharacterControl;
@@ -18,32 +20,26 @@ import com.jme3.scene.shape.Sphere;
 import com.mygame.Main;
 import com.mygame.items.Item;
 import com.mygame.items.ItemGenerator;
-import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class PlayerManager {
     private Vector3f lastDungeonPosition = new Vector3f(0f, 2.5f, 0f);
-
-public Vector3f getLastDungeonPosition() { return lastDungeonPosition; }
-public void setLastDungeonPosition(Vector3f pos) { 
-    if (pos != null) this.lastDungeonPosition.set(pos);
-}
+    public Vector3f getLastDungeonPosition() { return lastDungeonPosition; }
+    public void setLastDungeonPosition(Vector3f pos) {
+        if (pos != null) this.lastDungeonPosition.set(pos);
+    }
     public int getCurrentDifficulty() { return currentDifficulty; }
-public void setCurrentDifficulty(int difficulty) { this.currentDifficulty = difficulty; }
-public String getCurrentDungeonId() { return currentDungeonId; }
-public void setCurrentDungeonId(String dungeonId) { this.currentDungeonId = dungeonId; }
-private int currentDifficulty = 1;
-private String currentDungeonId = "dungeon_1";
+    public void setCurrentDifficulty(int difficulty) { this.currentDifficulty = difficulty; }
+    public String getCurrentDungeonId() { return currentDungeonId; }
+    public void setCurrentDungeonId(String dungeonId) { this.currentDungeonId = dungeonId; }
+    private int currentDifficulty = 1;
+    private String currentDungeonId = "dungeon_1";
+
     private SimpleApplication app;
     private Node playerNode;
     private BetterCharacterControl characterControl;
-
     private AnimComposer animComposer;
     private SkinningControl skinningControl;
 
@@ -55,12 +51,10 @@ private String currentDungeonId = "dungeon_1";
     private int baseMaxMana = 50;
     private int experience = 0;
     private int gold = 100;
-
     private int healthPotions = 0;
     private int manaPotions = 0;
 
     private Map<String, Float> statBonuses = new HashMap<>();
-
     private int finalMaxHealth;
     private int finalHealth;
     private int finalMaxMana;
@@ -80,17 +74,18 @@ private String currentDungeonId = "dungeon_1";
 
     private Vector3f position = new Vector3f(0f, 2.5f, 0f);
     private Vector3f targetPosition = null;
-    private float arrivalThreshold = 0.5f;
-    
+    private float arrivalThreshold = 0.3f;
     private boolean isMovingToTarget = false;
 
     private Spatial currentTarget = null;
-    private float attackRange = 2.0f;
+    private float attackRange = 1.6f;
     private float attackCooldown = 0.8f;
     private float attackTimer = 0f;
 
-    private float skillAnimationTimer = 0f;
-    private static final float SKILL_ANIMATION_DURATION = 1.2f;
+    // ===== УПРАВЛЕНИЕ АНИМАЦИЕЙ (БЕЗ ТАЙМЕРА) =====
+    private boolean skillAnimationPlaying = false;
+    private String skillAnimationName = null;
+    private com.jme3.anim.tween.action.Action activeOneShotAction = null;
 
     private WorldManager worldManager;
     private DropManager dropManager;
@@ -110,9 +105,21 @@ private String currentDungeonId = "dungeon_1";
     private static final float MODEL_SCALE = 2.5f;
     private static final float PLAYER_HEIGHT_ABOVE_GROUND = 1.4f;
 
-    // ===== ИНТЕРПОЛЯЦИЯ ДЛЯ СГЛАЖИВАНИЯ ПОЗИЦИИ =====
     private Vector3f smoothPosition = new Vector3f();
     private float interpolationSpeed = 0.25f;
+
+    private float deathTimer = 0f;
+    private boolean isRespawning = false;
+
+    private int killsCounter = 5;
+    private static final int KILLS_PER_LEVEL = 6;
+
+    private UIManager uiManager;
+    private NetworkManager networkManager;
+
+    private AudioNode footstepNode;
+    private float footstepTimer = 0f;
+    private static final float FOOTSTEP_INTERVAL = 0.45f;
 
     public PlayerManager(SimpleApplication app) {
         this.app = app;
@@ -126,55 +133,51 @@ private String currentDungeonId = "dungeon_1";
         loadPlayerModel();
         loadPlayerData();
         attachToScene();
-
         createPhysicsBody();
-
         recalculateStats();
-
         healthPotions = 3;
         manaPotions = 3;
         this.currentDifficulty = 1;
-    this.currentDungeonId = "dungeon_1";
+        this.currentDungeonId = "dungeon_1";
+
+        footstepNode = SoundManager.getSoundNode(SoundManager.SOUND_FOOTSTEP);
+        if (footstepNode == null) {
+            System.err.println("[PlayerManager] Footstep sound not loaded!");
+        } else {
+            footstepNode.setLooping(false);
+        }
     }
-public void setTalentManager(TalentManager tm) {
-    this.talentManager = tm;
-    if (tm != null) {
-        // Если уже есть уровень, даём очки
-        tm.addPointsForLevel(baseLevel);
-        recalculateStats();
+
+    public void setTalentManager(TalentManager tm) {
+        this.talentManager = tm;
+        if (tm != null) {
+            tm.addPointsForLevel(baseLevel);
+            recalculateStats();
+        }
     }
-}
-public TalentManager getTalentManager() {
-    return talentManager;
-}
-    // ===== СОЗДАНИЕ BETTERCHARACTERCONTROL С НАСТРОЙКАМИ =====
+    public TalentManager getTalentManager() { return talentManager; }
+
     private void createPhysicsBody() {
         float radius = 0.4f;
         float height = 1.8f;
-        float mass = 120f; // увеличена масса для стабильности
-
+        float mass = 150f;
         characterControl = new BetterCharacterControl(radius, height, mass);
         characterControl.setGravity(new Vector3f(0, -9.81f * 3, 0));
         characterControl.warp(new Vector3f(0f, 2.5f, 0f));
         characterControl.setWalkDirection(Vector3f.ZERO);
-
-        // ===== ДЕМПФИРОВАНИЕ (уменьшает дрожание и отбрасывание) =====
-        characterControl.setPhysicsDamping(0.9f);
-        characterControl.getRigidBody().setDamping(0.1f, 0.9f);
-
+        characterControl.setPhysicsDamping(0.95f);
+        characterControl.getRigidBody().setDamping(0.15f, 0.95f);
         playerNode.addControl(characterControl);
-
-        System.out.println("[PlayerManager] BetterCharacterControl создан с массой " + mass + " и демпфированием.");
+        System.out.println("[PlayerManager] BetterCharacterControl created with mass " + mass);
     }
 
     public void setPhysicsSpace(PhysicsSpace space) {
         if (characterControl != null && space != null) {
             space.add(characterControl);
-            System.out.println("[PlayerManager] BetterCharacterControl добавлен в physics space.");
+            System.out.println("[PlayerManager] BetterCharacterControl added to physics space.");
         }
     }
 
-    // ---- Загрузка модели, анимации, прочие методы ----
     private void loadPlayerModel() {
         try {
             Spatial model = app.getAssetManager().loadModel("Models/Player/player.gltf");
@@ -183,7 +186,6 @@ public TalentManager getTalentManager() {
                 createPlaceholderModel();
                 return;
             }
-
             model.rotate(0, -FastMath.HALF_PI, 0);
             model.scale(MODEL_SCALE);
             model.updateModelBound();
@@ -191,11 +193,9 @@ public TalentManager getTalentManager() {
             float bottomY = bb.getCenter().y - bb.getYExtent();
             float offsetY = PLAYER_HEIGHT_ABOVE_GROUND - bottomY;
             model.move(0, offsetY, 0);
-
             playerNode.detachAllChildren();
             playerNode.attachChild(model);
             playerNode.setLocalTranslation(position);
-
             animComposer = findAnimComposer(model);
             if (animComposer != null) {
                 Set<String> clips = animComposer.getAnimClipsNames();
@@ -204,12 +204,10 @@ public TalentManager getTalentManager() {
                     System.out.println("  - " + clip);
                 }
                 if (clips.contains(ANIM_IDLE)) {
-                    animComposer.setCurrentAction(ANIM_IDLE);
-                    currentAnimation = ANIM_IDLE;
+                    playBaseAnimation(ANIM_IDLE);
                 } else if (!clips.isEmpty()) {
                     String first = clips.iterator().next();
-                    animComposer.setCurrentAction(first);
-                    currentAnimation = first;
+                    changeAnimation(first, true);
                 }
             }
             skinningControl = findSkinningControl(model);
@@ -223,33 +221,28 @@ public TalentManager getTalentManager() {
     private void createPlaceholderModel() {
         System.out.println("[PlayerManager] Creating placeholder model");
         Node modelNode = new Node("Placeholder");
-
         Geometry body = new Geometry("Body", new Box(0.4f, 0.6f, 0.3f));
         Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         mat.setColor("Color", ColorRGBA.Blue);
         body.setMaterial(mat);
         body.move(0, 0.6f, 0);
         modelNode.attachChild(body);
-
         Geometry head = new Geometry("Head", new Sphere(8, 8, 0.2f));
         Material headMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         headMat.setColor("Color", new ColorRGBA(1f, 0.8f, 0.6f, 1f));
         head.setMaterial(headMat);
         head.move(0, 1.2f, 0);
         modelNode.attachChild(head);
-
         Geometry leftLeg = new Geometry("LeftLeg", new Box(0.12f, 0.4f, 0.12f));
         Material legMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         legMat.setColor("Color", ColorRGBA.DarkGray);
         leftLeg.setMaterial(legMat);
         leftLeg.move(-0.15f, 0.2f, 0);
         modelNode.attachChild(leftLeg);
-
         Geometry rightLeg = new Geometry("RightLeg", new Box(0.12f, 0.4f, 0.12f));
         rightLeg.setMaterial(legMat);
         rightLeg.move(0.15f, 0.2f, 0);
         modelNode.attachChild(rightLeg);
-
         modelNode.scale(MODEL_SCALE);
         modelNode.move(0, PLAYER_HEIGHT_ABOVE_GROUND, 0);
         playerNode.attachChild(modelNode);
@@ -281,23 +274,15 @@ public TalentManager getTalentManager() {
         }
     }
 
-    public void setWorldManager(WorldManager wm) {
-        this.worldManager = wm;
-    }
+    public void setWorldManager(WorldManager wm) { this.worldManager = wm; }
+    public void setDropManager(DropManager dm) { this.dropManager = dm; }
 
-    public void setDropManager(DropManager dm) {
-        this.dropManager = dm;
-    }
-
-    // ===== ДВИЖЕНИЕ =====
     public void moveTo(Vector3f target) {
         if (playerNode == null || target == null || characterControl == null) return;
-
         if (currentTarget != null) {
             currentTarget = null;
             isAttacking = false;
         }
-
         this.targetPosition = new Vector3f(target.x, 0, target.z);
         this.isMovingToTarget = true;
         setMoving(true);
@@ -306,10 +291,8 @@ public TalentManager getTalentManager() {
 
     public void lookAt(Vector3f target) {
         if (playerNode == null || characterControl == null) return;
-        
         Vector3f currentPos = playerNode.getWorldTranslation();
         Vector3f direction = new Vector3f(target.x - currentPos.x, 0, target.z - currentPos.z);
-        
         if (direction.length() > 0.01f) {
             direction.normalizeLocal();
             characterControl.setViewDirection(direction);
@@ -319,147 +302,398 @@ public TalentManager getTalentManager() {
     public void stopMoving() {
         if (characterControl != null) {
             characterControl.setWalkDirection(Vector3f.ZERO);
+            characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
         }
         setMoving(false);
         targetPosition = null;
         isMovingToTarget = false;
         isAttacking = false;
         currentTarget = null;
-        playAnimation(ANIM_IDLE);
+        if (!skillAnimationPlaying) {
+            playBaseAnimation(ANIM_IDLE);
+        }
     }
 
-    // ---------- АТАКА ----------
 public void attackTarget(Spatial target) {
     if (target == null) return;
-    this.currentTarget = target;
-    this.isAttacking = true;
-    
-    Vector3f targetPos = target.getWorldTranslation();
-    Vector3f currentPos = characterControl != null ? characterControl.getRigidBody().getPhysicsLocation() : position;
-    
-    Vector3f dir = new Vector3f(targetPos.x - currentPos.x, 0, targetPos.z - currentPos.z);
-    float dist = dir.length();
-    
-    if (dist > 0.01f) {
-        dir.normalizeLocal();
-        // Вычисляем позицию остановки на расстоянии attackRange от цели
-        // (умножаем dir на (dist - attackRange) и добавляем к текущей позиции)
-        // Но проще: от позиции цели отступаем в сторону игрока на attackRange
-        Vector3f stopPos = targetPos.subtract(dir.mult(attackRange));
-        this.targetPosition = new Vector3f(stopPos.x, 0, stopPos.z);
-    } else {
-        // Если игрок уже в центре цели — оставляем как есть
-        this.targetPosition = new Vector3f(targetPos.x, 0, targetPos.z);
+    if (skillAnimationPlaying) return;
+
+    currentTarget = target;
+    isAttacking = true;
+
+    if (characterControl != null) {
+        characterControl.setWalkDirection(Vector3f.ZERO);
+        characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
     }
-    
-    setMoving(true);
-    lookAt(targetPos);
-    attackTimer = 0;
-    skillAnimationTimer = 0;
+    setMoving(false);
+    isMovingToTarget = false;
+    targetPosition = null;
+    lookAt(target.getWorldTranslation());
+
+    // УБИРАЕМ сброс attackTimer
+    // Теперь атака будет происходить только когда timer достигнет 0 в update()
+    // Это обеспечит постоянную задержку между ударами
 }
 
-   private void performAttack() {
-    if (currentTarget == null) return;
-    lookAt(currentTarget.getWorldTranslation());
-    float damage = baseDamage + getBonusStat("base_damage");
-    playAnimation(ANIM_ATTACK);
-    skillAnimationTimer = 0.6f;
-    attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
-
-    Monster monster = worldManager.getMonsterByModel(currentTarget);
-    if (monster != null && monster.isAlive()) {
-        monster.takeDamage(damage);
-        if (!monster.isAlive()) {
-            onMonsterKilled(); // <-- ДОБАВЛЯЕМ СЮДА
-
-            // Убираем генерацию предметов здесь – она теперь в onDeath монстра
-            // Очистка состояния
-            currentTarget = null;
-            isAttacking = false;
-            targetPosition = null;
-            isMovingToTarget = false;
-            setMoving(false);
-            if (characterControl != null) {
-                characterControl.setWalkDirection(Vector3f.ZERO);
-            }
-            playAnimation(ANIM_IDLE);
-        }
-        return;
+    // ===== АНИМАЦИИ (без actionSequence) =====
+    private boolean hasAnimation(String animationName) {
+        return animComposer != null && animationName != null && !animationName.isEmpty()
+                && animComposer.getAnimClipsNames().contains(animationName);
     }
 
-    // Старая логика для Geometry (если используется)
-    if (currentTarget instanceof Geometry) {
-        Geometry geom = (Geometry) currentTarget;
-        WorldManager.MonsterData md = worldManager.getMonsterByGeometry(geom);
-        if (md != null && !md.isDead) {
-            md.hp -= (int) damage;
-            if (md.hp <= 0) {
-                md.isDead = true;
-                Vector3f pos = geom.getWorldTranslation();
-                // Если для геометрии нужен дроп – оставляем старый код с ItemGenerator
-                int difficulty = this.getCurrentDifficulty();
-                List<Item> items = ItemGenerator.generateDrop(baseLevel, 3, difficulty);
-                if (dropManager != null) {
-                    dropManager.spawnDrops(pos, items);
-                }
-                geom.setCullHint(Node.CullHint.Always);
+    private void playBaseAnimation(String animationName) {
+        if (!isAlive || animComposer == null || animationName == null || animationName.isEmpty()) return;
+        if (skillAnimationPlaying) return;
+        if (!hasAnimation(animationName)) return;
+        if (animationName.equals(currentAnimation) && animComposer.getCurrentAction(AnimComposer.DEFAULT_LAYER) != null) return;
+        changeAnimation(animationName, true);
+    }
+
+    private boolean playSkillAnimation(String animationName) {
+        if (animComposer == null || !hasAnimation(animationName) || !isAlive) return false;
+        if (skillAnimationPlaying) return false;
+
+        // Удаляем текущую анимацию
+        animComposer.removeCurrentAction(AnimComposer.DEFAULT_LAYER);
+
+        // Запускаем один раз (loop = false)
+        com.jme3.anim.tween.action.Action action = animComposer.setCurrentAction(
+                animationName,
+                AnimComposer.DEFAULT_LAYER,
+                false
+        );
+
+        if (action == null) return false;
+
+        activeOneShotAction = action;
+        skillAnimationName = animationName;
+        skillAnimationPlaying = true;
+        currentAnimation = animationName;
+
+        System.out.println("[PlayerAnimation] Started one-shot: " + animationName);
+        return true;
+    }
+
+    private boolean changeAnimation(String animationName, boolean loop) {
+        if (animComposer == null || !hasAnimation(animationName)) return false;
+        animComposer.removeCurrentAction(AnimComposer.DEFAULT_LAYER);
+        try {
+            animComposer.setCurrentAction(animationName, AnimComposer.DEFAULT_LAYER, loop);
+            currentAnimation = animationName;
+            return true;
+        } catch (Exception e) {
+            System.err.println("[PlayerAnimation] Cannot play '" + animationName + "': " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isActiveOneShot() {
+        if (!skillAnimationPlaying || animComposer == null) return false;
+        com.jme3.anim.tween.action.Action current = animComposer.getCurrentAction(AnimComposer.DEFAULT_LAYER);
+        return current != null && current == activeOneShotAction;
+    }
+
+    private void finishSkillAnimation() {
+        if (!skillAnimationPlaying) return;
+        System.out.println("[PlayerAnimation] Finished one-shot: " + skillAnimationName);
+        skillAnimationPlaying = false;
+        skillAnimationName = null;
+        activeOneShotAction = null;
+        animComposer.removeCurrentAction(AnimComposer.DEFAULT_LAYER);
+        currentAnimation = "";
+        if (isAlive) {
+            if (currentTarget != null) {
+                // Если есть цель, остаёмся в Attack, но это будет обработано в update
+            } else if (isMovingToTarget || isMoving) {
+                playBaseAnimation(ANIM_WALK);
+            } else {
+                playBaseAnimation(ANIM_IDLE);
+            }
+        }
+    }
+
+    public void playAnimation(String animationName) {
+        if (animationName == null || animationName.isEmpty()) return;
+        if (ANIM_DIE.equals(animationName)) {
+            changeAnimation(animationName, false);
+            return;
+        }
+        if (ANIM_IDLE.equals(animationName) || ANIM_WALK.equals(animationName) || ANIM_RUN.equals(animationName)) {
+            playBaseAnimation(animationName);
+            return;
+        }
+        if (ANIM_ATTACK.equals(animationName) || ANIM_BLOCK.equals(animationName) ||
+                ANIM_SPIN.equals(animationName) || ANIM_KICK.equals(animationName) ||
+                ANIM_HEAL.equals(animationName)) {
+            playSkillAnimation(animationName);
+            return;
+        }
+        if (!skillAnimationPlaying) {
+            changeAnimation(animationName, true);
+        }
+    }
+
+    private void performAttack() {
+        if (currentTarget == null) return;
+        if (skillAnimationPlaying) return;
+
+        lookAt(currentTarget.getWorldTranslation());
+        float damage = baseDamage + getBonusStat("base_damage");
+        playSkillAnimation(ANIM_ATTACK);
+        attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
+
+        Monster monster = worldManager.getMonsterByModel(currentTarget);
+        if (monster != null && monster.isAlive()) {
+            SoundManager.playSound(SoundManager.SOUND_ATTACK_PLAYER);
+            monster.takeDamage(damage);
+            if (!monster.isAlive()) {
+                onMonsterKilled();
                 currentTarget = null;
                 isAttacking = false;
-                targetPosition = null;
-                isMovingToTarget = false;
                 setMoving(false);
                 if (characterControl != null) {
                     characterControl.setWalkDirection(Vector3f.ZERO);
+                    characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
                 }
-                playAnimation(ANIM_IDLE);
+                // Не форсируем Idle, анимация завершится сама
+            }
+            return;
+        }
+
+        if (currentTarget instanceof Geometry) {
+            Geometry geom = (Geometry) currentTarget;
+            WorldManager.MonsterData md = worldManager.getMonsterByGeometry(geom);
+            if (md != null && !md.isDead) {
+                md.hp -= (int) damage;
+                if (md.hp <= 0) {
+                    md.isDead = true;
+                    Vector3f pos = geom.getWorldTranslation();
+                    int difficulty = this.getCurrentDifficulty();
+                    List<Item> items = ItemGenerator.generateDrop(baseLevel, 3, difficulty);
+                    if (dropManager != null) {
+                        dropManager.spawnDrops(pos, items);
+                    }
+                    geom.setCullHint(Node.CullHint.Always);
+                    currentTarget = null;
+                    isAttacking = false;
+                    setMoving(false);
+                    if (characterControl != null) {
+                        characterControl.setWalkDirection(Vector3f.ZERO);
+                        characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+                    }
+                }
             }
         }
     }
-}
-   
-   public void setAlive(boolean alive) {
-    this.isAlive = alive;
+
+    public void setMoving(boolean moving) {
+        if (this.isMoving && !moving) {
+            footstepTimer = 0f;
+        }
+        this.isMoving = moving;
     }
 
-// В respawnPlayer:
-   
-     private void respawnPlayer() {
-        if (isRespawning) return;
-        isRespawning = true;
+    public void update(float tpf) {
+        // Шаги
+        if (isMoving && isAlive) {
+            footstepTimer += tpf;
+            if (footstepTimer >= FOOTSTEP_INTERVAL) {
+                footstepTimer = 0f;
+                if (footstepNode != null) {
+                    footstepNode.play();
+                }
+            }
+        } else {
+            if (footstepNode != null && footstepNode.getStatus() == AudioSource.Status.Playing) {
+                footstepNode.stop();
+            }
+            footstepTimer = 0f;
+        }
 
-        System.out.println("[PlayerManager] Respawning player...");
+        if (!isAlive) {
+            deathTimer += tpf;
+            if (deathTimer >= 0.3f && !isRespawning) {
+                respawnPlayer();
+            }
+            return;
+        }
 
-        // 1. Восстанавливаем здоровье и ману
-        setHealth(getMaxHealth());
-        setMana(getMaxMana());
-        setAlive(true);
+        // Проверка окончания одноразовой анимации
+        if (skillAnimationPlaying) {
+            if (!isActiveOneShot()) {
+                finishSkillAnimation();
+            }
+        }
 
-        // 2. Сбрасываем состояние движения и боя
-        setMoving(false);
-        isMovingToTarget = false;
-        targetPosition = null;
-        currentTarget = null;
-        isAttacking = false;
+        // Интерполяция позиции
         if (characterControl != null) {
-            characterControl.setWalkDirection(Vector3f.ZERO);
+            Vector3f physPos = playerNode.getWorldTranslation();
+            smoothPosition.interpolateLocal(physPos, 0.25f);
+            playerNode.setLocalTranslation(smoothPosition);
+            position.set(smoothPosition);
         }
 
-        // 3. Возвращаем в город (через WorldManager)
-        if (worldManager != null) {
-            worldManager.returnToCity();
+        // Движение к точке
+        if (currentTarget == null && isMovingToTarget && targetPosition != null && characterControl != null) {
+            Vector3f currentPos = smoothPosition;
+            float dist = currentPos.distance(targetPosition);
+
+            if (dist < arrivalThreshold) {
+                characterControl.setWalkDirection(Vector3f.ZERO);
+                characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+                setMoving(false);
+                isMovingToTarget = false;
+                targetPosition = null;
+                if (!skillAnimationPlaying) {
+                    playBaseAnimation(ANIM_IDLE);
+                }
+                return;
+            }
+
+            Vector3f dir = new Vector3f(
+                targetPosition.x - currentPos.x,
+                0,
+                targetPosition.z - currentPos.z
+            );
+            if (dir.length() > 0.01f) {
+                dir.normalizeLocal();
+                characterControl.setWalkDirection(dir.mult(4f));
+                setMoving(true);
+                if (!skillAnimationPlaying) {
+                    playBaseAnimation(ANIM_WALK);
+                }
+            } else {
+                characterControl.setWalkDirection(Vector3f.ZERO);
+                characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+                setMoving(false);
+                isMovingToTarget = false;
+                targetPosition = null;
+                if (!skillAnimationPlaying) {
+                    playBaseAnimation(ANIM_IDLE);
+                }
+            }
+            return;
         }
 
-        // 4. Сбрасываем анимацию на Idle
-        playAnimation(ANIM_IDLE);
+        // Бой
+        if (currentTarget != null) {
+            Vector3f targetPos = currentTarget.getWorldTranslation();
+            Vector3f currentPos = characterControl != null ? characterControl.getRigidBody().getPhysicsLocation() : position;
+            float dist = targetPos.distance(currentPos);
 
-        // 5. Сбрасываем таймер смерти
-        deathTimer = 0f;
-        isRespawning = false;
+            if (dist <= attackRange) {
+                if (isMoving) {
+                    setMoving(false);
+                    if (characterControl != null) {
+                        characterControl.setWalkDirection(Vector3f.ZERO);
+                        characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+                    }
+                }
+                isAttacking = true;
+                attackTimer -= tpf;
+                if (attackTimer <= 0) {
+                    performAttack();
+                    attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
+                }
+            } else {
+                Vector3f dir = new Vector3f(
+                    targetPos.x - currentPos.x,
+                    0,
+                    targetPos.z - currentPos.z
+                );
+                if (dir.length() > 0.01f) {
+                    dir.normalizeLocal();
+                    characterControl.setWalkDirection(dir.mult(4f));
+                    setMoving(true);
+                    if (!skillAnimationPlaying) {
+                        playBaseAnimation(ANIM_WALK);
+                    }
+                }
+                isAttacking = false;
+                attackTimer = 0;
+            }
+            return;
+        }
 
-        System.out.println("[PlayerManager] Respawn complete.");
+        // Idle
+        if (!isMoving && !isAttacking && !skillAnimationPlaying) {
+            playBaseAnimation(ANIM_IDLE);
+        }
     }
-    private float deathTimer = 0f;
-    private boolean isRespawning = false;
+
+    // ===== СКИЛЛЫ =====
+    public void castSkill(String skillName) {
+        if (animComposer == null) return;
+        if (skillAnimationPlaying) {
+            System.out.println("[Player] Skill already playing: " + skillAnimationName);
+            return;
+        }
+
+        System.out.println("[Player] Using skill: " + skillName);
+
+        switch (skillName) {
+            case "Heal":
+                if (finalMana < 10) {
+                    System.out.println("[Player] Not enough mana!");
+                    return;
+                }
+                if (!playSkillAnimation(ANIM_HEAL)) return;
+                SoundManager.playSound(SoundManager.SOUND_HEAL);
+                useMana(10);
+                float healPower = 20 + getBonusStat("heal_power");
+                heal((int) healPower);
+                break;
+            case "ShieldBash":
+                if (finalMana < 15) {
+                    System.out.println("[Player] Not enough mana!");
+                    return;
+                }
+                if (currentTarget != null) {
+                    if (!hasAnimation(ANIM_BLOCK)) return;
+                    lookAt(currentTarget.getWorldTranslation());
+                    if (!playSkillAnimation(ANIM_BLOCK)) return;
+                    SoundManager.playSound(SoundManager.SOUND_SHIELD_BASH);
+                    useMana(15);
+                    float bashDmg = 15 + getBonusStat("shield_bash_damage");
+                    dealDamageToTarget(bashDmg);
+                }
+                break;
+            case "Whirlwind":
+                if (finalMana < 20) {
+                    System.out.println("[Player] Not enough mana!");
+                    return;
+                }
+                if (currentTarget != null) {
+                    if (!hasAnimation(ANIM_SPIN)) return;
+                    lookAt(currentTarget.getWorldTranslation());
+                    if (!playSkillAnimation(ANIM_SPIN)) return;
+                    SoundManager.playSound(SoundManager.SOUND_WHIRLWIND);
+                    useMana(20);
+                    float wwDmg = 25 + getBonusStat("base_damage");
+                    dealDamageToTarget(wwDmg);
+                }
+                break;
+            case "Kick":
+                if (finalMana < 10) {
+                    System.out.println("[Player] Not enough mana!");
+                    return;
+                }
+                if (currentTarget != null) {
+                    if (!hasAnimation(ANIM_KICK)) return;
+                    lookAt(currentTarget.getWorldTranslation());
+                    if (!playSkillAnimation(ANIM_KICK)) return;
+                    SoundManager.playSound(SoundManager.SOUND_KICK);
+                    useMana(10);
+                    float kickDmg = 10 + getBonusStat("base_damage");
+                    dealDamageToTarget(kickDmg);
+                }
+                break;
+            default:
+                System.out.println("[Player] Unknown skill: " + skillName);
+                break;
+        }
+    }
+
     private void dealDamageToTarget(float amount) {
         if (currentTarget == null) return;
         System.out.println("[Player] Damage dealt: " + amount + " to " + currentTarget.getName());
@@ -472,205 +706,37 @@ public void attackTarget(Spatial target) {
         }
     }
 
-    // ---------- СКИЛЛЫ ----------
-    public void castSkill(String skillName) {
-        if (animComposer == null) return;
-        System.out.println("[Player] Using skill: " + skillName);
-
-        switch (skillName) {
-            case "Heal":
-                if (finalMana < 10) {
-                    System.out.println("[Player] Not enough mana!");
-                    return;
-                }
-                useMana(10);
-                playAnimation(ANIM_HEAL);
-                float healPower = 20 + getBonusStat("heal_power");
-                heal((int) healPower);
-                skillAnimationTimer = SKILL_ANIMATION_DURATION;
-                break;
-
-            case "ShieldBash":
-                if (finalMana < 15) {
-                    System.out.println("[Player] Not enough mana!");
-                    return;
-                }
-                if (currentTarget != null) {
-                    useMana(15);
-                    lookAt(currentTarget.getWorldTranslation());
-                    playAnimation(ANIM_BLOCK);
-                    float bashDmg = 15 + getBonusStat("shield_bash_damage");
-                    dealDamageToTarget(bashDmg);
-                    skillAnimationTimer = SKILL_ANIMATION_DURATION;
-                }
-                break;
-
-            case "Whirlwind":
-                if (finalMana < 20) {
-                    System.out.println("[Player] Not enough mana!");
-                    return;
-                }
-                if (currentTarget != null) {
-                    useMana(20);
-                    lookAt(currentTarget.getWorldTranslation());
-                    playAnimation(ANIM_SPIN);
-                    float wwDmg = 25 + getBonusStat("base_damage");
-                    dealDamageToTarget(wwDmg);
-                    skillAnimationTimer = SKILL_ANIMATION_DURATION;
-                }
-                break;
-
-            case "Kick":
-                if (finalMana < 10) {
-                    System.out.println("[Player] Not enough mana!");
-                    return;
-                }
-                if (currentTarget != null) {
-                    useMana(10);
-                    lookAt(currentTarget.getWorldTranslation());
-                    playAnimation(ANIM_KICK);
-                    float kickDmg = 10 + getBonusStat("base_damage");
-                    dealDamageToTarget(kickDmg);
-                    skillAnimationTimer = SKILL_ANIMATION_DURATION;
-                }
-                break;
-
-            default:
-                System.out.println("[Player] Unknown skill: " + skillName);
-                break;
-        }
-    }
-
-    // ---------- ОБНОВЛЕНИЕ (СО ВСЕМИ ИСПРАВЛЕНИЯМИ) ----------
-    public void update(float tpf) {
-        
-        if (!isAlive) {
-            deathTimer += tpf;
-            if (deathTimer >= 0.3f && !isRespawning) {
-                respawnPlayer();
-            }
-            // Не выполняем остальную логику, пока мёртв
-            return;
-        }
-        
-        coordsLogTimer += tpf;
-    if (coordsLogTimer >= 0.5f) { // каждые 0.5 секунды
-        coordsLogTimer = 0f;
-        System.out.println("[Player] Position: " + position);
-    }
-        if (skillAnimationTimer > 0) {
-            skillAnimationTimer -= tpf;
-            return;
-        }
-
-        // 1. Интерполяция позиции (сглаживание)
+    private void respawnPlayer() {
+        if (isRespawning) return;
+        isRespawning = true;
+        SoundManager.playSound(SoundManager.SOUND_PLAYER_DIE);
+        System.out.println("[PlayerManager] Respawning player...");
+        skillAnimationPlaying = false;
+        skillAnimationName = null;
+        activeOneShotAction = null;
+        animComposer.removeCurrentAction(AnimComposer.DEFAULT_LAYER);
+        setHealth(getMaxHealth());
+        setMana(getMaxMana());
+        setAlive(true);
+        setMoving(false);
+        targetPosition = null;
+        isMovingToTarget = false;
+        currentTarget = null;
+        isAttacking = false;
         if (characterControl != null) {
-            Vector3f physPos = playerNode.getWorldTranslation();
-            smoothPosition.interpolateLocal(physPos, interpolationSpeed);
-            playerNode.setLocalTranslation(smoothPosition);
-            position.set(smoothPosition);
+            characterControl.setWalkDirection(Vector3f.ZERO);
+            characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
         }
-
-        // 2. ДВИЖЕНИЕ К ЦЕЛИ
-        if (isMovingToTarget && targetPosition != null && characterControl != null) {
-            Vector3f currentPos = smoothPosition;
-            float dist = currentPos.distance(targetPosition);
-
-            if (dist < arrivalThreshold) {
-                characterControl.setWalkDirection(Vector3f.ZERO);
-                setMoving(false);
-                isMovingToTarget = false;
-                targetPosition = null;
-                if (!currentAnimation.equals(ANIM_IDLE)) {
-                    playAnimation(ANIM_IDLE);
-                }
-                return;
-            }
-
-            Vector3f dir = new Vector3f(
-                targetPosition.x - currentPos.x,
-                0,
-                targetPosition.z - currentPos.z
-            );
-            
-            if (dir.length() > 0.01f) {
-                dir.normalizeLocal();
-                // НЕ УМНОЖАЕМ НА tpf!
-                characterControl.setWalkDirection(dir.mult(4f));
-                setMoving(true);
-                if (!currentAnimation.equals(ANIM_WALK)) {
-                    playAnimation(ANIM_WALK);
-                }
-            } else {
-                characterControl.setWalkDirection(Vector3f.ZERO);
-                setMoving(false);
-                isMovingToTarget = false;
-                targetPosition = null;
-                playAnimation(ANIM_IDLE);
-            }
-            return;
+        if (worldManager != null) {
+            worldManager.returnToCity();
         }
-
-        // 3. БОЙ
-        if (currentTarget != null) {
-            Vector3f targetPos = currentTarget.getWorldTranslation();
-            Vector3f currentPos = smoothPosition;
-            float dist = targetPos.distance(currentPos);
-
-            if (dist <= attackRange) {
-                if (isMoving) {
-                    setMoving(false);
-                    characterControl.setWalkDirection(Vector3f.ZERO);
-                }
-                targetPosition = null;
-                isMovingToTarget = false;
-                isAttacking = true;
-                attackTimer -= tpf;
-                if (attackTimer <= 0) {
-                    performAttack();
-                    attackTimer = attackCooldown / (1 + getBonusStat("attack_speed") / 100f);
-                }
-                if (characterControl != null) {
-                    characterControl.setWalkDirection(Vector3f.ZERO);
-                }
-            } else {
-                Vector3f dir = new Vector3f(
-                    targetPos.x - currentPos.x,
-                    0,
-                    targetPos.z - currentPos.z
-                );
-                if (dir.length() > 0.01f) {
-                    dir.normalizeLocal();
-                    characterControl.setWalkDirection(dir.mult(4f));
-                    setMoving(true);
-                    if (!currentAnimation.equals(ANIM_WALK)) {
-                        playAnimation(ANIM_WALK);
-                    }
-                }
-                isAttacking = false;
-                attackTimer = 0;
-            }
-            return;
-        }
-
-        // 4. Если ничего не происходит – Idle
-        if (!isMoving && !isAttacking && !currentAnimation.equals(ANIM_IDLE)) {
-            playAnimation(ANIM_IDLE);
-        }
+        currentAnimation = "";
+        playBaseAnimation(ANIM_IDLE);
+        deathTimer = 0f;
+        isRespawning = false;
+        System.out.println("[PlayerManager] Respawn complete.");
     }
 
-    public void playAnimation(String animationName) {
-        if (animComposer == null) return;
-        if (animationName.equals(currentAnimation)) return;
-        animComposer.setCurrentAction(animationName);
-        currentAnimation = animationName;
-    }
-
-    public void setMoving(boolean moving) {
-        this.isMoving = moving;
-    }
-
-    // ---- Остальные методы (характеристики, здоровье, мана, уровни) ----
     public void applyTalentBonuses(Map<String, Float> bonuses) {
         statBonuses.clear();
         statBonuses.putAll(bonuses);
@@ -695,25 +761,11 @@ public void attackTarget(Spatial target) {
         critDamage = statBonuses.getOrDefault("crit_damage", 0f);
         attackSpeed = 1f + statBonuses.getOrDefault("attack_speed", 0f) / 100f;
         baseDamage = 10f + statBonuses.getOrDefault("base_damage", 0f);
-
         System.out.println("[Player] Stats recalculated. HP: " + finalMaxHealth + ", Damage: " + baseDamage);
     }
 
     private float getBonusStat(String key) {
         return statBonuses.getOrDefault(key, 0f);
-    }
-
-    public void addExperience(int exp) {
-        experience += exp;
-        int newLevel = baseLevel + experience / 1000;
-        if (newLevel > baseLevel) {
-            baseLevel = newLevel;
-            talentManager.addPointsForLevel(baseLevel);
-            baseMaxHealth += 10;
-            baseMaxMana += 5;
-            recalculateStats();
-            System.out.println("[Player] Level up! Level: " + baseLevel);
-        }
     }
 
     public void takeDamage(int damage) {
@@ -724,10 +776,13 @@ public void attackTarget(Spatial target) {
         if (finalHealth <= 0) {
             finalHealth = 0;
             isAlive = false;
-            playAnimation(ANIM_DIE);
+            skillAnimationPlaying = false;
+            skillAnimationName = null;
+            activeOneShotAction = null;
+            animComposer.removeCurrentAction(AnimComposer.DEFAULT_LAYER);
+            currentAnimation = "";
+            changeAnimation(ANIM_DIE, false);
             System.out.println("[Player] Player died!");
-        } else {
-            //playAnimation(ANIM_HIT);
         }
     }
 
@@ -749,7 +804,6 @@ public void attackTarget(Spatial target) {
         }
     }
 
-    // ---- Зелья ----
     public int getHealthPotions() { return healthPotions; }
     public int getManaPotions() { return manaPotions; }
     public void setHealthPotions(int count) { this.healthPotions = Math.max(0, count); }
@@ -815,6 +869,46 @@ public void attackTarget(Spatial target) {
         recalculateStats();
     }
 
+    public void onMonsterKilled() {
+        if (baseLevel >= 50) {
+            System.out.println("[PlayerManager] Max level reached, kills ignored.");
+            return;
+        }
+        killsCounter++;
+        System.out.println("[PlayerManager] Kills: " + killsCounter + "/" + KILLS_PER_LEVEL);
+        if (killsCounter >= KILLS_PER_LEVEL) {
+            killsCounter = 0;
+            if (networkManager != null) {
+                SoundManager.playSound(SoundManager.SOUND_LEVEL_UP);
+                networkManager.levelUp().thenAccept(response -> {
+                    app.enqueue(() -> {
+                        if (response != null && uiManager != null) {
+                            uiManager.applyCharacterData(response);
+                            if (uiManager.getTalentManager() != null) {
+                                networkManager.loadTalents().thenAccept(talentData -> {
+                                    app.enqueue(() -> {
+                                        if (talentData != null && uiManager.getTalentManager() != null) {
+                                            Map<String, Integer> talents = (Map<String, Integer>) talentData.get("talents");
+                                            int points = (int) talentData.get("availablePoints");
+                                            uiManager.getTalentManager().loadFromServer(talents, points);
+                                            if (uiManager.getTalentWindow() != null) {
+                                                uiManager.getTalentWindow().updateUI();
+                                            }
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                    });
+                });
+            }
+        }
+    }
+
+    public void resetKillsCounter() {
+        killsCounter = 0;
+    }
+
     public void attachToBone(String boneName, Spatial item) {
         if (skinningControl != null) {
             try {
@@ -837,7 +931,6 @@ public void attackTarget(Spatial target) {
         }
     }
 
-    // ---------- ГЕТТЕРЫ И СЕТТЕРЫ ----------
     public Node getPlayerNode() { return playerNode; }
     public Vector3f getPosition() { return position; }
     public String getPlayerName() { return playerName; }
@@ -850,6 +943,7 @@ public void attackTarget(Spatial target) {
     public int getGold() { return gold; }
     public void setGold(int gold) { this.gold = Math.max(0, gold); }
     public boolean isAlive() { return isAlive; }
+    public void setAlive(boolean alive) { this.isAlive = alive; }
     public AnimComposer getAnimComposer() { return animComposer; }
     public SkinningControl getSkinningControl() { return skinningControl; }
     public Spatial getCurrentTarget() { return currentTarget; }
@@ -870,62 +964,10 @@ public void attackTarget(Spatial target) {
         }
         playerNode.setLocalTranslation(pos);
     }
-    public void setSpeed(float speed) { /* не используется, оставлено для совместимости */ }
-    private float coordsLogTimer = 0f;
-    public String getCurrentDungeon() {
-        return currentDungeonId;
-    }
+    public void setSpeed(float speed) { /* not used */ }
+    public String getCurrentDungeon() { return currentDungeonId; }
+    public void setCurrentDungeon(String dungeonId) { this.currentDungeonId = dungeonId; }
 
-    public void setCurrentDungeon(String dungeonId) {
-        this.currentDungeonId = dungeonId;
-    }
-   private int killsCounter = 5;
-private static final int KILLS_PER_LEVEL = 6;
-
-public void onMonsterKilled() {
-    killsCounter++;
-    System.out.println("[PlayerManager] Kills: " + killsCounter + "/" + KILLS_PER_LEVEL);
-    if (killsCounter >= KILLS_PER_LEVEL) {
-        killsCounter = 0;
-        if (networkManager != null) {
-            networkManager.levelUp().thenAccept(response -> {
-                app.enqueue(() -> {
-                    if (response != null && uiManager != null) {
-                        uiManager.applyCharacterData(response);
-                        // Обновляем таланты
-                        if (uiManager.getTalentManager() != null) {
-                            networkManager.loadTalents().thenAccept(talentData -> {
-                                app.enqueue(() -> {
-                                    if (talentData != null && uiManager.getTalentManager() != null) {
-                                        Map<String, Integer> talents = (Map<String, Integer>) talentData.get("talents");
-                                        int points = (int) talentData.get("availablePoints");
-                                        uiManager.getTalentManager().loadFromServer(talents, points);
-                                        if (uiManager.getTalentWindow() != null) {
-                                            uiManager.getTalentWindow().updateUI();
-                                        }
-                                    }
-                                });
-                            });
-                        }
-                    }
-                });
-            });
-        }
-    }
-}
-
-    public void resetKillsCounter() {
-        killsCounter = 0;
-    }
-    
-    private UIManager uiManager;
-private NetworkManager networkManager;
-
-public void setUIManager(UIManager ui) {
-    this.uiManager = ui;
-}
-
-public void setNetworkManager(NetworkManager nm) {
-    this.networkManager = nm;
-}
+    public void setUIManager(UIManager ui) { this.uiManager = ui; }
+    public void setNetworkManager(NetworkManager nm) { this.networkManager = nm; }
 }

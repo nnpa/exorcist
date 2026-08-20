@@ -600,6 +600,7 @@ public CompletableFuture<Map<String, Object>> resetTalents() {
 }
 
 public CompletableFuture<Map<String, Object>> levelUp() {
+    
     return CompletableFuture.supplyAsync(() -> {
         try {
             if (authToken == null) return null;

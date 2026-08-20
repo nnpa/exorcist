@@ -4,6 +4,7 @@ import com.jme3.math.FastMath;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
 import com.mygame.managers.PlayerManager;
+import com.mygame.managers.SoundManager;
 
 public class MonsterAI {
 
@@ -15,6 +16,7 @@ public class MonsterAI {
     private static final float ATTACK_COOLDOWN_TIME = 1.5f;
     private float attackAnimTimer = 0f;
     private boolean isAttacking = false;
+    private boolean bossMusicStarted = false; // <-- новое поле
 
     public MonsterAI(Monster monster) {
         this.monster = monster;
@@ -63,7 +65,10 @@ public class MonsterAI {
                     monster.playAnimation("Walk");
                     System.out.println("Monster CHASING (lost target)");
                 } else {
-                    // Если кулдаун прошел и анимация атаки завершилась - бьем
+                    if (monster.isBoss() && !bossMusicStarted) {
+                        SoundManager.playMusic(SoundManager.MUSIC_BOSS);
+                        bossMusicStarted = true;
+                    }
                     attackPlayer();
                 }
                 break;

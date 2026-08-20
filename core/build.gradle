@@ -3,8 +3,10 @@ plugins {
 }
 
 dependencies {
-    implementation 'org.jmonkeyengine:jme3-core:3.6.1-stable'
-    
+    implementation 'org.jmonkeyengine:jme3-core:3.8.1-stable'
+    implementation 'org.jmonkeyengine:jme3-jogg:3.8.1-stable'  // ← было jme3-ogg
+
+
     // ===== Убрали старую JitPack версию, оставили одну совместимую пару =====
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 

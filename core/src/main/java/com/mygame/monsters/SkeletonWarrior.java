@@ -12,7 +12,7 @@ public class SkeletonWarrior extends Monster {
         setName("Skeleton Warrior");
         setLevel(1);
         setMaxHealth(30);
-        setHealth(30);
+        setHealth(230);
         setDamage(5);
         setAttackRange(1.5f);
         setMoveSpeed(2.0f);

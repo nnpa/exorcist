@@ -138,6 +138,8 @@ public class DropManager {
                     // Удаляем дроп только после успешного ответа
                     dropNode.detachChild(drop.node);
                     drops.remove(drop);
+                    SoundManager.playSound(SoundManager.SOUND_PICKUP); // <-- добавить
+
                     System.out.println("[DropManager] Picked up (server): " + drop.item.getName());
                 } else {
                     System.err.println("[DropManager] Server rejected pickup.");

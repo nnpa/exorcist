@@ -5,298 +5,1229 @@ import com.jme3.anim.tween.Tween;
 import com.jme3.anim.tween.Tweens;
 import com.jme3.anim.tween.action.Action;
 import com.jme3.app.SimpleApplication;
-import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
 import com.jme3.math.Vector3f;
 import com.jme3.renderer.queue.RenderQueue;
-import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.scene.shape.Quad;
 import com.jme3.scene.control.BillboardControl;
+
 import com.mygame.items.Item;
 import com.mygame.items.LootTable;
 import com.mygame.managers.DropManager;
 import com.mygame.managers.PlayerManager;
+import com.mygame.managers.SoundManager;
 import com.mygame.managers.WorldManager;
+
+import com.simsilica.lemur.DefaultRangedValueModel;
+import com.simsilica.lemur.Panel;
+import com.simsilica.lemur.ProgressBar;
+import com.simsilica.lemur.RangedValueModel;
+import com.simsilica.lemur.component.QuadBackgroundComponent;
 
 import java.util.List;
 
 public class Monster {
 
-    // ===== БАЗОВЫЕ ПОЛЯ =====
+    // ============================================================
+    // БОСС MUSIC
+    // ============================================================
+
+    private boolean bossMusicStarted = false;
+
+    // ============================================================
+    // БАЗОВЫЕ ПОЛЯ
+    // ============================================================
+
     private String id;
     private String name;
     private int level;
+
     private float health;
     private float maxHealth;
+
     private float damage;
     private float attackRange;
     private float moveSpeed;
     private float aggroRange;
 
-    // ===== МОДЕЛЬ И АНИМАЦИЯ =====
+    // ============================================================
+    // МОДЕЛЬ И АНИМАЦИЯ
+    // ============================================================
+
     private Node modelNode;
     private Node healthBarNode;
-    private Geometry hpBarBackground;
-    private Geometry hpBarForeground;
+
     private AnimComposer animComposer;
+
     private Vector3f spawnPosition;
     private Vector3f currentPosition;
 
-    // ===== СИСТЕМЫ =====
+    // ============================================================
+    // HP BAR
+    // ============================================================
+
+    private ProgressBar hpBar;
+
+    /*
+     * Модель HP.
+     *
+     * Диапазон:
+     *
+     * 0                  maxHealth
+     * |----------------------|
+     *
+     * Значение:
+     *
+     * health
+     */
+    private RangedValueModel hpModel;
+
+    // ============================================================
+    // СИСТЕМЫ
+    // ============================================================
+
     private LootTable lootTable;
     private MonsterAI ai;
+
     private DropManager dropManager;
     private PlayerManager playerManager;
-    private WorldManager worldManager; // для смены данжа
+    private WorldManager worldManager;
 
-    // ===== СОСТОЯНИЕ =====
+    // ============================================================
+    // СОСТОЯНИЕ
+    // ============================================================
+
     private boolean isAlive = true;
+
     private float deathTimer = -1f;
+
     private static final float DEATH_DELAY_FALLBACK = 3.0f;
 
-    // ===== ФЛАГИ БОССА (НОВЫЕ ПОЛЯ) =====
+    // ============================================================
+    // БОСС
+    // ============================================================
+
     private boolean isBoss = false;
     private boolean isFinalBoss = false;
+
     private String nextDungeonId = null;
+
     private boolean increaseDifficultyOnDeath = false;
 
-    // ===== ВСПОМОГАТЕЛЬНОЕ =====
+    // ============================================================
+    // APPLICATION
+    // ============================================================
+
     private static SimpleApplication app;
 
-    // ===== КОНСТРУКТОРЫ =====
+    // ============================================================
+    // КОНСТРУКТОР
+    // ============================================================
+
     public Monster() {
+
         this.ai = new MonsterAI(this);
+
         System.out.println("[Monster] AI created");
     }
 
+    // ============================================================
+    // APPLICATION
+    // ============================================================
+
     public static void setApp(SimpleApplication application) {
+
         app = application;
+
+        System.out.println("[Monster] Application assigned");
     }
 
-    // ===== ГЕТТЕРЫ И СЕТТЕРЫ (базовые) =====
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    // ============================================================
+    // ID
+    // ============================================================
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public String getId() {
+        return id;
+    }
 
-    public int getLevel() { return level; }
-    public void setLevel(int level) { this.level = level; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public float getHealth() { return health; }
-    public void setHealth(float health) { this.health = health; }
+    // ============================================================
+    // NAME
+    // ============================================================
 
-    public float getMaxHealth() { return maxHealth; }
-    public void setMaxHealth(float maxHealth) { this.maxHealth = maxHealth; }
+    public String getName() {
+        return name;
+    }
 
-    public float getDamage() { return damage; }
-    public void setDamage(float damage) { this.damage = damage; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public float getAttackRange() { return attackRange; }
-    public void setAttackRange(float attackRange) { this.attackRange = attackRange; }
+    // ============================================================
+    // LEVEL
+    // ============================================================
 
-    public float getMoveSpeed() { return moveSpeed; }
-    public void setMoveSpeed(float moveSpeed) { this.moveSpeed = moveSpeed; }
+    public int getLevel() {
+        return level;
+    }
 
-    public float getAggroRange() { return aggroRange; }
-    public void setAggroRange(float aggroRange) { this.aggroRange = aggroRange; }
+    public void setLevel(int level) {
+        this.level = level;
+    }
 
-    public Node getModelNode() { return modelNode; }
-    public void setModelNode(Node modelNode) {
-        this.modelNode = modelNode;
-        if (modelNode != null) {
-            modelNode.rotate(0, -FastMath.HALF_PI, 0);
-            modelNode.setName("Monster");
-            if (spawnPosition != null) modelNode.setLocalTranslation(spawnPosition);
-            this.currentPosition = spawnPosition != null ? spawnPosition.clone() : new Vector3f(0, 0, 0);
-            animComposer = findAnimComposer(modelNode);
-            if (animComposer != null) {
-                animComposer.setCurrentAction("Idle");
-            }
-            createHealthBar();
+    // ============================================================
+    // HEALTH
+    // ============================================================
+
+    public float getHealth() {
+        return health;
+    }
+
+    public void setHealth(float health) {
+
+        /*
+         * Не позволяем HP быть отрицательным.
+         */
+        this.health = Math.max(0f, health);
+
+        /*
+         * Если maxHealth уже известен,
+         * ограничиваем HP сверху.
+         */
+        if (maxHealth > 0f &&
+                this.health > maxHealth) {
+
+            this.health = maxHealth;
+        }
+
+        /*
+         * Если ProgressBar уже создан,
+         * синхронизируем его.
+         */
+        updateHealthBar();
+    }
+
+    // ============================================================
+    // MAX HEALTH
+    // ============================================================
+
+    public float getMaxHealth() {
+        return maxHealth;
+    }
+
+    public void setMaxHealth(float maxHealth) {
+
+        this.maxHealth =
+                Math.max(0f, maxHealth);
+
+        /*
+         * Если maxHealth уже установлен,
+         * HP не может быть больше него.
+         */
+        if (this.maxHealth > 0f &&
+                this.health > this.maxHealth) {
+
+            this.health = this.maxHealth;
+        }
+
+        /*
+         * Если HP-bar уже существует,
+         * необходимо создать модель с новым диапазоном.
+         */
+        if (hpBar != null) {
+
+            rebuildHealthBarModel();
+
+        } else {
+
+            updateHealthBar();
         }
     }
 
-    public Vector3f getSpawnPosition() { return spawnPosition; }
-    public void setSpawnPosition(Vector3f spawnPosition) {
-        this.spawnPosition = spawnPosition;
-        this.currentPosition = spawnPosition.clone();
-        if (modelNode != null) modelNode.setLocalTranslation(spawnPosition);
+    // ============================================================
+    // DAMAGE
+    // ============================================================
+
+    public float getDamage() {
+        return damage;
     }
 
-    public Vector3f getPosition() { return currentPosition; }
-    public void setPosition(Vector3f position) {
-        this.currentPosition = position;
-        if (modelNode != null) modelNode.setLocalTranslation(position);
+    public void setDamage(float damage) {
+        this.damage = damage;
     }
 
-    public LootTable getLootTable() { return lootTable; }
-    public void setLootTable(LootTable lootTable) { this.lootTable = lootTable; }
+    // ============================================================
+    // ATTACK RANGE
+    // ============================================================
 
-    public boolean isAlive() { return isAlive; }
-    public void setAlive(boolean alive) { isAlive = alive; }
+    public float getAttackRange() {
+        return attackRange;
+    }
 
-    public void setDropManager(DropManager dropManager) {
+    public void setAttackRange(float attackRange) {
+        this.attackRange = attackRange;
+    }
+
+    // ============================================================
+    // MOVE SPEED
+    // ============================================================
+
+    public float getMoveSpeed() {
+        return moveSpeed;
+    }
+
+    public void setMoveSpeed(float moveSpeed) {
+        this.moveSpeed = moveSpeed;
+    }
+
+    // ============================================================
+    // AGGRO RANGE
+    // ============================================================
+
+    public float getAggroRange() {
+        return aggroRange;
+    }
+
+    public void setAggroRange(float aggroRange) {
+        this.aggroRange = aggroRange;
+    }
+
+    // ============================================================
+    // MODEL NODE
+    // ============================================================
+
+    public Node getModelNode() {
+        return modelNode;
+    }
+
+    public void setModelNode(Node modelNode) {
+
+        this.modelNode = modelNode;
+
+        if (modelNode == null) {
+            return;
+        }
+
+        /*
+         * Поворот модели.
+         */
+        modelNode.rotate(
+                0,
+                -FastMath.HALF_PI,
+                0
+        );
+
+        modelNode.setName("Monster");
+
+        /*
+         * Позиция появления.
+         */
+        if (spawnPosition != null) {
+
+            modelNode.setLocalTranslation(
+                    spawnPosition
+            );
+        }
+
+        /*
+         * Текущая позиция.
+         */
+        currentPosition =
+                spawnPosition != null
+                        ? spawnPosition.clone()
+                        : new Vector3f(0, 0, 0);
+
+        // ========================================================
+        // ANIMATION COMPOSER
+        // ========================================================
+
+        animComposer =
+                findAnimComposer(modelNode);
+
+        if (animComposer != null) {
+
+            try {
+
+                animComposer.setCurrentAction("Idle");
+
+            } catch (Exception e) {
+
+                System.err.println(
+                        "[Monster] Idle animation error: "
+                                + e.getMessage()
+                );
+            }
+        }
+
+        // ========================================================
+        // HP BAR
+        // ========================================================
+
+        createHealthBar();
+    }
+
+    // ============================================================
+    // SPAWN POSITION
+    // ============================================================
+
+    public Vector3f getSpawnPosition() {
+        return spawnPosition;
+    }
+
+    public void setSpawnPosition(
+            Vector3f spawnPosition
+    ) {
+
+        if (spawnPosition == null) {
+
+            this.spawnPosition =
+                    new Vector3f(0, 0, 0);
+
+        } else {
+
+            this.spawnPosition =
+                    spawnPosition.clone();
+        }
+
+        this.currentPosition =
+                this.spawnPosition.clone();
+
+        if (modelNode != null) {
+
+            modelNode.setLocalTranslation(
+                    this.spawnPosition
+            );
+        }
+    }
+
+    // ============================================================
+    // CURRENT POSITION
+    // ============================================================
+
+    public Vector3f getPosition() {
+        return currentPosition;
+    }
+
+    public void setPosition(
+            Vector3f position
+    ) {
+
+        if (position == null) {
+            return;
+        }
+
+        this.currentPosition =
+                position.clone();
+
+        if (modelNode != null) {
+
+            modelNode.setLocalTranslation(
+                    this.currentPosition
+            );
+        }
+    }
+
+    // ============================================================
+    // LOOT
+    // ============================================================
+
+    public LootTable getLootTable() {
+        return lootTable;
+    }
+
+    public void setLootTable(
+            LootTable lootTable
+    ) {
+
+        this.lootTable = lootTable;
+    }
+
+    // ============================================================
+    // ALIVE
+    // ============================================================
+
+    public boolean isAlive() {
+        return isAlive;
+    }
+
+    public void setAlive(boolean alive) {
+        isAlive = alive;
+    }
+
+    // ============================================================
+    // DROP MANAGER
+    // ============================================================
+
+    public void setDropManager(
+            DropManager dropManager
+    ) {
+
         this.dropManager = dropManager;
     }
 
-    public void setPlayerManager(PlayerManager playerManager) {
-        this.playerManager = playerManager;
+    // ============================================================
+    // PLAYER MANAGER
+    // ============================================================
+
+    public void setPlayerManager(
+            PlayerManager playerManager
+    ) {
+
+        this.playerManager =
+                playerManager;
+
         if (ai != null) {
-            ai.setPlayerManager(playerManager);
+
+            ai.setPlayerManager(
+                    playerManager
+            );
         }
     }
 
-    public void setWorldManager(WorldManager worldManager) {
-        this.worldManager = worldManager;
+    // ============================================================
+    // WORLD MANAGER
+    // ============================================================
+
+    public void setWorldManager(
+            WorldManager worldManager
+    ) {
+
+        this.worldManager =
+                worldManager;
     }
 
-    // ===== НОВЫЕ ГЕТТЕРЫ И СЕТТЕРЫ ДЛЯ БОССОВ =====
-    public boolean isBoss() { return isBoss; }
-    public void setBoss(boolean boss) { isBoss = boss; }
+    // ============================================================
+    // BOSS
+    // ============================================================
 
-    public boolean isFinalBoss() { return isFinalBoss; }
-    public void setFinalBoss(boolean finalBoss) { isFinalBoss = finalBoss; }
+    public boolean isBoss() {
+        return isBoss;
+    }
 
-    public String getNextDungeonId() { return nextDungeonId; }
-    public void setNextDungeonId(String nextDungeonId) { this.nextDungeonId = nextDungeonId; }
+    public void setBoss(boolean boss) {
+        isBoss = boss;
+    }
 
-    public boolean isIncreaseDifficultyOnDeath() { return increaseDifficultyOnDeath; }
-    public void setIncreaseDifficultyOnDeath(boolean increase) { this.increaseDifficultyOnDeath = increase; }
+    // ============================================================
+    // FINAL BOSS
+    // ============================================================
 
-    // ===== ЗДОРОВЬЕ И АНИМАЦИЯ =====
+    public boolean isFinalBoss() {
+        return isFinalBoss;
+    }
+
+    public void setFinalBoss(
+            boolean finalBoss
+    ) {
+
+        isFinalBoss = finalBoss;
+    }
+
+    // ============================================================
+    // NEXT DUNGEON
+    // ============================================================
+
+    public String getNextDungeonId() {
+        return nextDungeonId;
+    }
+
+    public void setNextDungeonId(
+            String nextDungeonId
+    ) {
+
+        this.nextDungeonId =
+                nextDungeonId;
+    }
+
+    // ============================================================
+    // DIFFICULTY
+    // ============================================================
+
+    public boolean isIncreaseDifficultyOnDeath() {
+        return increaseDifficultyOnDeath;
+    }
+
+    public void setIncreaseDifficultyOnDeath(
+            boolean increase
+    ) {
+
+        this.increaseDifficultyOnDeath =
+                increase;
+    }
+
+    // ============================================================
+    // TAKE DAMAGE
+    // ============================================================
+
     public void takeDamage(float amount) {
-        if (!isAlive) return;
+
+        /*
+         * Мёртвый монстр больше не получает урон.
+         */
+        if (!isAlive) {
+            return;
+        }
+
+        /*
+         * Некорректный урон игнорируем.
+         */
+        if (amount <= 0f) {
+            return;
+        }
+
+        // ========================================================
+        // УРОН
+        // ========================================================
+
         health -= amount;
-        System.out.println("[Monster] " + name + " took " + amount + " damage, HP: " + health + "/" + maxHealth);
+
+        /*
+         * HP минимум 0.
+         */
+        if (health < 0f) {
+
+            health = 0f;
+        }
+
+        System.out.println(
+                "[Monster] " +
+                        name +
+                        " took " +
+                        amount +
+                        " damage"
+        );
+
+        System.out.println(
+                "[Monster] HP = " +
+                        health +
+                        "/" +
+                        maxHealth
+        );
+
+        // ========================================================
+        // ОБНОВЛЕНИЕ HP BAR
+        // ========================================================
+
         updateHealthBar();
-        if (health <= 0) {
-            health = 0;
+
+        // ========================================================
+        // СМЕРТЬ
+        // ========================================================
+
+        if (health <= 0f) {
+
             isAlive = false;
+
             onDeath();
+
         } else {
+
+            // ====================================================
+            // GET HIT
+            // ====================================================
+
             playAnimation("GetHit");
         }
     }
 
-    protected void onDeath() {
-        // Анимация смерти и удаление модели
-        if (animComposer != null) {
-            Action dieAction = animComposer.makeAction("Die");
-            Tween doneTween = Tweens.callMethod(this, "removeModel");
-            Action sequence = animComposer.actionSequence("die_sequence", dieAction, doneTween);
-            animComposer.setCurrentAction("die_sequence");
+    // ============================================================
+    // CREATE HEALTH BAR
+    // ============================================================
+
+    private void createHealthBar() {
+
+        if (app == null) {
+
+            System.err.println(
+                    "[Monster] app == null. " +
+                            "Call Monster.setApp() first."
+            );
+
+            return;
+        }
+
+        if (modelNode == null) {
+
+            System.err.println(
+                    "[Monster] modelNode == null."
+            );
+
+            return;
+        }
+
+        // ========================================================
+        // УДАЛЯЕМ СТАРЫЙ BAR
+        // ========================================================
+
+        if (healthBarNode != null) {
+
+            healthBarNode.removeFromParent();
+        }
+
+        healthBarNode =
+                new Node("HealthBarNode");
+
+        healthBarNode.setQueueBucket(
+                RenderQueue.Bucket.Transparent
+        );
+
+        // ========================================================
+        // ДИАПАЗОН HP
+        // ========================================================
+
+        /*
+         * Если maxHealth ещё не установлен,
+         * временно используем 1.
+         */
+        double max =
+                maxHealth > 0f
+                        ? maxHealth
+                        : 1.0;
+
+        /*
+         * Текущее значение.
+         */
+        double value =
+                Math.max(
+                        0.0,
+                        Math.min(
+                                health,
+                                max
+                        )
+                );
+
+        // ========================================================
+        // СОЗДАЁМ МОДЕЛЬ
+        // ========================================================
+
+        hpModel =
+                new DefaultRangedValueModel(
+                        0.0,
+                        max,
+                        value
+                );
+
+        // ========================================================
+        // СОЗДАЁМ PROGRESS BAR
+        // ========================================================
+
+        hpBar =
+                new ProgressBar(
+                        hpModel
+                );
+
+        hpBar.setPreferredSize(
+                new Vector3f(
+                        1.2f,
+                        0.15f,
+                        0f
+                )
+        );
+
+        // ========================================================
+        // СЕРЫЙ ФОН
+        // ========================================================
+
+        hpBar.setBackground(
+                new QuadBackgroundComponent(
+                        new ColorRGBA(
+                                0.2f,
+                                0.2f,
+                                0.2f,
+                                0.8f
+                        )
+                )
+        );
+
+        // ========================================================
+        // ЗЕЛЁНАЯ ЗАПОЛНЕННАЯ ЧАСТЬ
+        // ========================================================
+
+        /*
+         * ВАЖНО:
+         *
+         * Получаем indicator только здесь.
+         *
+         * Больше НЕ меняем его в updateHealthBar().
+         */
+        Panel indicator =
+                hpBar.getValueIndicator();
+
+        if (indicator != null) {
+
+            indicator.setBackground(
+                    new QuadBackgroundComponent(
+                            ColorRGBA.Green
+                    )
+            );
+        }
+
+        // ========================================================
+        // ПОЗИЦИЯ
+        // ========================================================
+
+        hpBar.setLocalTranslation(
+                0f,
+                1.2f,
+                0f
+        );
+
+        // ========================================================
+        // BILLBOARD
+        // ========================================================
+
+        BillboardControl billboard =
+                new BillboardControl();
+
+        healthBarNode.addControl(
+                billboard
+        );
+
+        // ========================================================
+        // ATTACH BAR
+        // ========================================================
+
+        healthBarNode.attachChild(
+                hpBar
+        );
+
+        modelNode.attachChild(
+                healthBarNode
+        );
+
+        // ========================================================
+        // VISIBILITY
+        // ========================================================
+
+        if (health <= 0f) {
+
+            hpBar.setCullHint(
+                    Spatial.CullHint.Always
+            );
+
         } else {
+
+            hpBar.setCullHint(
+                    Spatial.CullHint.Inherit
+            );
+        }
+
+        System.out.println(
+                "[Monster] Health bar created: " +
+                        health +
+                        "/" +
+                        maxHealth
+        );
+    }
+
+    // ============================================================
+    // REBUILD HP MODEL
+    // ============================================================
+
+    private void rebuildHealthBarModel() {
+
+        if (hpBar == null) {
+            return;
+        }
+
+        if (maxHealth <= 0f) {
+            return;
+        }
+
+        /*
+         * Текущее значение.
+         */
+        double value =
+                Math.max(
+                        0.0,
+                        Math.min(
+                                health,
+                                maxHealth
+                        )
+                );
+
+        /*
+         * Создаём новую модель.
+         */
+        hpModel =
+                new DefaultRangedValueModel(
+                        0.0,
+                        maxHealth,
+                        value
+                );
+
+        /*
+         * Передаём новую модель ProgressBar.
+         */
+        hpBar.setModel(
+                hpModel
+        );
+
+        /*
+         * После смены модели снова устанавливаем
+         * зелёный фон индикатора.
+         *
+         * Но это происходит только при изменении
+         * maxHealth, а НЕ при каждом ударе.
+         */
+        Panel indicator =
+                hpBar.getValueIndicator();
+
+        if (indicator != null) {
+
+            indicator.setBackground(
+                    new QuadBackgroundComponent(
+                            ColorRGBA.Green
+                    )
+            );
+        }
+
+        if (health <= 0f) {
+
+            hpBar.setCullHint(
+                    Spatial.CullHint.Always
+            );
+
+        } else {
+
+            hpBar.setCullHint(
+                    Spatial.CullHint.Inherit
+            );
+        }
+    }
+
+    // ============================================================
+    // UPDATE HEALTH BAR
+    // ============================================================
+
+    public void updateHealthBar() {
+
+        /*
+         * HP bar может ещё не существовать.
+         *
+         * Например:
+         *
+         * setHealth()
+         * вызывается до
+         * setModelNode()
+         */
+        if (hpBar == null) {
+            return;
+        }
+
+        if (hpModel == null) {
+            return;
+        }
+
+        if (maxHealth <= 0f) {
+            return;
+        }
+
+        // ========================================================
+        // CLAMP
+        // ========================================================
+
+        if (health < 0f) {
+
+            health = 0f;
+        }
+
+        if (health > maxHealth) {
+
+            health = maxHealth;
+        }
+
+        // ========================================================
+        // ГЛАВНОЕ ИЗМЕНЕНИЕ
+        // ========================================================
+
+        /*
+         * НЕ используем:
+         *
+         * hpBar.setProgressPercent(...)
+         *
+         * НЕ меняем:
+         *
+         * getValueIndicator()
+         *
+         * НЕ меняем цвет.
+         *
+         * Просто передаём новое значение модели.
+         *
+         * Lemur сам изменит размер заполненной части.
+         */
+        hpModel.setValue(
+                health
+        );
+
+        // ========================================================
+        // ПРОЦЕНТ ДЛЯ DEBUG
+        // ========================================================
+
+        double percent =
+                health / maxHealth;
+
+        System.out.println(
+                "[Monster] HP BAR UPDATE: " +
+                        health +
+                        "/" +
+                        maxHealth +
+                        " = " +
+                        (percent * 100.0) +
+                        "%"
+        );
+
+        // ========================================================
+        // VISIBILITY
+        // ========================================================
+
+        /*
+         * Скрываем только при смерти.
+         *
+         * При первом/обычном ударе CullHint НЕ меняется.
+         */
+        if (health <= 0f) {
+
+            hpBar.setCullHint(
+                    Spatial.CullHint.Always
+            );
+
+        } else {
+
+            hpBar.setCullHint(
+                    Spatial.CullHint.Inherit
+            );
+        }
+    }
+
+    // ============================================================
+    // DEATH
+    // ============================================================
+
+    protected void onDeath() {
+
+        // ========================================================
+        // SOUND
+        // ========================================================
+
+        SoundManager.playSound(
+                SoundManager.SOUND_MONSTER_DIE
+        );
+
+        // ========================================================
+        // АНИМАЦИЯ СМЕРТИ
+        // ========================================================
+
+        if (animComposer != null) {
+
+            try {
+
+                Action dieAction =
+                        animComposer.makeAction(
+                                "Die"
+                        );
+
+                Tween doneTween =
+                        Tweens.callMethod(
+                                this,
+                                "removeModel"
+                        );
+
+                Action sequence =
+                        animComposer.actionSequence(
+                                "die_sequence",
+                                dieAction,
+                                doneTween
+                        );
+
+                animComposer.setCurrentAction(
+                        "die_sequence"
+                );
+
+            } catch (Exception e) {
+
+                System.err.println(
+                        "[Monster] Death animation error: " +
+                                e.getMessage()
+                );
+
+                removeModel();
+            }
+
+        } else {
+
             removeModel();
         }
 
+        // ========================================================
+        // HIDE HP BAR
+        // ========================================================
+
         if (healthBarNode != null) {
-            healthBarNode.setCullHint(Spatial.CullHint.Always);
+
+            healthBarNode.setCullHint(
+                    Spatial.CullHint.Always
+            );
         }
 
-        // Дроп предметов
-        if (lootTable != null && dropManager != null) {
-            int difficulty = playerManager != null ? playerManager.getCurrentDifficulty() : 1;
-            List<Item> items = lootTable.rollForLoot(difficulty);
+        // ========================================================
+        // DROP
+        // ========================================================
+
+        if (lootTable != null &&
+                dropManager != null) {
+
+            int difficulty =
+                    playerManager != null
+                            ? playerManager.getCurrentDifficulty()
+                            : 1;
+
+            List<Item> items =
+                    lootTable.rollForLoot(
+                            difficulty
+                    );
+
             if (!items.isEmpty()) {
-                dropManager.spawnDrops(currentPosition, items);
+
+                dropManager.spawnDrops(
+                        currentPosition,
+                        items
+                );
             }
         }
 
-        // ===== ЛОГИКА БОССА: СМЕНА ДАНЖА =====
-        if ((isBoss || isFinalBoss) && nextDungeonId != null && worldManager != null) {
-            worldManager.changeDungeon(nextDungeonId, increaseDifficultyOnDeath);
+        // ========================================================
+        // BOSS DUNGEON
+        // ========================================================
+
+        if ((isBoss || isFinalBoss) &&
+                nextDungeonId != null &&
+                worldManager != null) {
+
+            worldManager.changeDungeon(
+                    nextDungeonId,
+                    increaseDifficultyOnDeath
+            );
         }
     }
+
+    // ============================================================
+    // REMOVE MODEL
+    // ============================================================
 
     public void removeModel() {
-        if (modelNode != null && modelNode.getParent() != null) {
-            modelNode.getParent().detachChild(modelNode);
-            modelNode = null;
+
+        if (modelNode != null &&
+                modelNode.getParent() != null) {
+
+            modelNode.getParent()
+                    .detachChild(
+                            modelNode
+                    );
         }
+
+        modelNode = null;
     }
 
-    // ===== ПОЛОСКА ЗДОРОВЬЯ =====
-    private void createHealthBar() {
-        if (app == null) {
-            System.err.println("[Monster] app is null, cannot create health bar. Call Monster.setApp() first!");
-            return;
-        }
-        healthBarNode = new Node("HealthBarNode");
-        healthBarNode.setQueueBucket(RenderQueue.Bucket.Transparent);
+    // ============================================================
+    // FIND ANIM COMPOSER
+    // ============================================================
 
-        float barWidth = 1.2f;
-        float barHeight = 0.15f;
-        float yOffset = 1.2f;
+    private AnimComposer findAnimComposer(
+            Spatial spatial
+    ) {
 
-        Quad bgQuad = new Quad(barWidth, barHeight);
-        hpBarBackground = new Geometry("HPBarBg", bgQuad);
-        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bgMat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.2f, 0.8f));
-        hpBarBackground.setMaterial(bgMat);
-        hpBarBackground.setLocalTranslation(-barWidth/2, yOffset, 0);
-        healthBarNode.attachChild(hpBarBackground);
-
-        Quad fgQuad = new Quad(barWidth - 0.04f, barHeight - 0.04f);
-        hpBarForeground = new Geometry("HPBarFg", fgQuad);
-        Material fgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        fgMat.setColor("Color", ColorRGBA.Green);
-        hpBarForeground.setMaterial(fgMat);
-        hpBarForeground.setLocalTranslation(-(barWidth - 0.04f)/2, yOffset + 0.02f, 0.01f);
-        healthBarNode.attachChild(hpBarForeground);
-
-        BillboardControl billboard = new BillboardControl();
-        healthBarNode.addControl(billboard);
-        modelNode.attachChild(healthBarNode);
-    }
-
-    public void updateHealthBar() {
-        if (hpBarForeground == null) return;
-        float percent = Math.max(0, health / maxHealth);
-        float barWidth = 1.2f - 0.04f;
-        float newWidth = barWidth * percent;
-        Quad quad = (Quad) hpBarForeground.getMesh();
-        quad.updateGeometry(newWidth, 0.15f - 0.04f);
-        float yOffset = 1.2f;
-        hpBarForeground.setLocalTranslation(-barWidth/2 + 0.02f, yOffset + 0.02f, 0.01f);
-        Material mat = hpBarForeground.getMaterial();
-        if (percent > 0.5f) mat.setColor("Color", ColorRGBA.Green);
-        else if (percent > 0.25f) mat.setColor("Color", ColorRGBA.Yellow);
-        else mat.setColor("Color", ColorRGBA.Red);
-    }
-
-    // ===== АНИМАЦИИ =====
-    private AnimComposer findAnimComposer(Spatial spatial) {
         if (spatial instanceof Node) {
-            for (Spatial child : ((Node) spatial).getChildren()) {
-                AnimComposer found = findAnimComposer(child);
-                if (found != null) return found;
+
+            for (Spatial child :
+                    ((Node) spatial).getChildren()) {
+
+                AnimComposer found =
+                        findAnimComposer(child);
+
+                if (found != null) {
+
+                    return found;
+                }
             }
         }
-        return spatial.getControl(AnimComposer.class);
+
+        return spatial.getControl(
+                AnimComposer.class
+        );
     }
 
-    public void playAnimation(String animName) {
-        if (animComposer != null) {
-            animComposer.setCurrentAction(animName);
+    // ============================================================
+    // PLAY ANIMATION
+    // ============================================================
+
+    public void playAnimation(
+            String animName
+    ) {
+
+        if (animComposer == null) {
+            return;
+        }
+
+        if (animName == null ||
+                animName.isEmpty()) {
+
+            return;
+        }
+
+        try {
+
+            animComposer.setCurrentAction(
+                    animName
+            );
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "[Monster] Animation error: " +
+                            animName +
+                            " -> " +
+                            e.getMessage()
+            );
         }
     }
 
-    // ===== ОБНОВЛЕНИЕ =====
+    // ============================================================
+    // UPDATE
+    // ============================================================
+
     public void update(float tpf) {
+
+        // ========================================================
+        // DEAD
+        // ========================================================
+
         if (!isAlive) {
-            if (deathTimer > 0) {
+
+            if (deathTimer > 0f) {
+
                 deathTimer -= tpf;
-                if (deathTimer <= 0) {
+
+                if (deathTimer <= 0f) {
+
                     removeModel();
                 }
             }
+
             return;
         }
+
+        // ========================================================
+        // AI
+        // ========================================================
+
         if (ai != null) {
+
             ai.update(tpf);
         }
     }

@@ -526,6 +526,8 @@ public class InventoryManager {
                         System.out.println("[InventoryManager] Equip successful. Applying data.");
                         uiManager.applyCharacterData(response);
                         updateUI();
+                        SoundManager.playSound(SoundManager.SOUND_CLICK);
+
                     } else {
                         System.err.println("[InventoryManager] Equip failed: response is null.");
                         requestInventoryRefresh();
@@ -567,6 +569,7 @@ public class InventoryManager {
                         System.out.println("[InventoryManager] Unequip success, applying data");
                         uiManager.applyCharacterData(response);
                         updateUI();
+                        SoundManager.playSound(SoundManager.SOUND_UNEQUIP); // <-- добавлено
                     } else {
                         System.err.println("[InventoryManager] Unequip failed: response null, requesting refresh");
                         requestInventoryRefresh();
@@ -664,9 +667,11 @@ public class InventoryManager {
     public void show() {
         updateUI();
         setVisible(true);
+         SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
     }
 
     public void hide() {
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_CLOSE);
         setVisible(false);
     }
 

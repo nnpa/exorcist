@@ -2,10 +2,8 @@ package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.input.KeyInput;
-import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.KeyTrigger;
-import com.jme3.input.event.*;
 import com.jme3.material.Material;
 import com.jme3.material.MatParam;
 import com.jme3.math.ColorRGBA;
@@ -19,41 +17,39 @@ import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
 import com.simsilica.lemur.component.SpringGridLayout;
 import com.simsilica.lemur.GuiGlobals;
-import com.simsilica.lemur.style.Attributes;
-import com.simsilica.lemur.style.Styles;
+import com.simsilica.lemur.focus.FocusNavigationFunctions;
 import com.mygame.Main;
 import com.mygame.items.ItemGenerator;
 import com.mygame.managers.GameManager.GameState;
+import com.simsilica.lemur.component.TextEntryComponent;
+import com.simsilica.lemur.event.KeyAction;
+import com.simsilica.lemur.event.KeyActionListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 public class UIManager {
-    // Поля
+    // Поля (без изменений)...
     private Node backgroundNode;
     private Geometry backgroundGeom;
     private String backgroundTexturePath = "Interface/login_bg.png";
     private TalentManager talentManager;
 
     public TalentManager getTalentManager() { return talentManager; }
-
     public TalentWindow getTalentWindow() {
         if (talentWindow == null && talentManager != null) {
             createWindows(true);
         }
         return talentWindow;
     }
-
     public TraderWindow getTraderWindow() {
         if (traderWindow == null && playerManager != null && inventoryManager != null) {
             traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
         }
         return traderWindow;
     }
-
     public AuctionWindow getAuctionWindow() {
         if (auctionWindow == null && playerManager != null && inventoryManager != null) {
             auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
@@ -64,98 +60,72 @@ public class UIManager {
     private AuctionWindow auctionWindow;
     private TraderWindow traderWindow;
 
-    // Методы открытия окон с проверкой
-    public void openAuction() {
-        toggleAuction();
+    public void openAuction() { toggleAuction(); }
+    public void openTrader() { toggleTrader(); }
+
+    public void toggleInventory() {
+        if (inventoryManager == null) return;
+        if (inventoryManager.isVisible()) {
+            inventoryManager.hide();
+            SoundManager.playSound(SoundManager.SOUND_WINDOW_CLOSE);
+        } else {
+            closeAllWindowsExcept("inventory");
+            inventoryManager.show();
+            SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
+        }
     }
 
-    public void openTrader() {
-        toggleTrader();
+    public void toggleTalents() {
+        if (talentWindow == null) return;
+        if (talentWindow.isVisible()) {
+            talentWindow.hide();
+            SoundManager.playSound(SoundManager.SOUND_WINDOW_CLOSE);
+        } else {
+            closeAllWindowsExcept("talents");
+            talentWindow.show();
+            SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
+        }
     }
 
-   public void toggleInventory() {
-    if (inventoryManager == null) return;
-    // Если инвентарь открыт → закрываем
-    if (inventoryManager.isVisible()) {
-        inventoryManager.hide();
-        return;
-    }
-    // Иначе закрываем все остальные окна и открываем инвентарь
-    closeAllWindowsExcept("inventory");
-    inventoryManager.show();
-}
-
-public void toggleTalents() {
-    if (talentWindow == null) return;
-    if (talentWindow.isVisible()) {
-        talentWindow.hide();
-        return;
-    }
-    closeAllWindowsExcept("talents");
-    talentWindow.show();
-}
-
-public void toggleAuction() {
-    if (auctionWindow == null) {
-        auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
-    }
-    if (auctionWindow.isVisible()) {
-        auctionWindow.hide();
-        return;
-    }
-    closeAllWindowsExcept("auction");
-    auctionWindow.show();
-}
-
-public void toggleTrader() {
-    if (traderWindow == null) {
-        traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
-    }
-    if (traderWindow.isVisible()) {
-        traderWindow.hide();
-        return;
-    }
-    closeAllWindowsExcept("trader");
-    traderWindow.show();
-}
-
-private void closeAllWindowsExcept(String keepOpen) {
-    // Закрываем инвентарь
-    if (!"inventory".equals(keepOpen) && inventoryManager != null && inventoryManager.isVisible()) {
-        inventoryManager.hide();
-    }
-    // Закрываем таланты
-    if (!"talents".equals(keepOpen) && talentWindow != null && talentWindow.isVisible()) {
-        talentWindow.hide();
-    }
-    // Закрываем аукцион
-    if (!"auction".equals(keepOpen) && auctionWindow != null && auctionWindow.isVisible()) {
-        auctionWindow.hide();
-    }
-    // Закрываем торговца
-    if (!"trader".equals(keepOpen) && traderWindow != null && traderWindow.isVisible()) {
-        traderWindow.hide();
-    }
-}
-
-    private boolean isAuctionOrTraderOpen() {
-        return (auctionWindow != null && auctionWindow.isVisible()) ||
-               (traderWindow != null && traderWindow.isVisible());
+    public void toggleAuction() {
+        if (auctionWindow == null) {
+            auctionWindow = new AuctionWindow(app, this, inventoryManager, playerManager);
+        }
+        if (auctionWindow.isVisible()) {
+            auctionWindow.hide();
+            return;
+        }
+        closeAllWindowsExcept("auction");
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_TRADER);
+        auctionWindow.show();
     }
 
-    private boolean isInventoryOrTalentsOpen() {
-        return (inventoryManager != null && inventoryManager.isVisible()) ||
-               (talentWindow != null && talentWindow.isVisible());
+    public void toggleTrader() {
+        if (traderWindow == null) {
+            traderWindow = new TraderWindow(app, playerManager, inventoryManager, this);
+        }
+        if (traderWindow.isVisible()) {
+            traderWindow.hide();
+            return;
+        }
+        closeAllWindowsExcept("trader");
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_TRADER);
+        traderWindow.show();
     }
 
-    private void closeAuctionAndTrader() {
-        if (auctionWindow != null && auctionWindow.isVisible()) auctionWindow.hide();
-        if (traderWindow != null && traderWindow.isVisible()) traderWindow.hide();
-    }
-
-    private void closeInventoryAndTalents() {
-        if (inventoryManager != null && inventoryManager.isVisible()) inventoryManager.hide();
-        if (talentWindow != null && talentWindow.isVisible()) talentWindow.hide();
+    private void closeAllWindowsExcept(String keepOpen) {
+        if (!"inventory".equals(keepOpen) && inventoryManager != null && inventoryManager.isVisible()) {
+            inventoryManager.hide();
+        }
+        if (!"talents".equals(keepOpen) && talentWindow != null && talentWindow.isVisible()) {
+            talentWindow.hide();
+        }
+        if (!"auction".equals(keepOpen) && auctionWindow != null && auctionWindow.isVisible()) {
+            auctionWindow.hide();
+        }
+        if (!"trader".equals(keepOpen) && traderWindow != null && traderWindow.isVisible()) {
+            traderWindow.hide();
+        }
     }
 
     private SimpleApplication app;
@@ -222,9 +192,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     private static final String KEY_INVENTORY = "inventory";
     private static final String KEY_TALENTS = "talents";
 
-    // RawInputListener для перехвата Tab и Enter
-    private RawInputListener authRawListener;
-
     public UIManager(SimpleApplication app) {
         this.app = app;
         this.guiNode = app.getGuiNode();
@@ -246,7 +213,6 @@ private void closeAllWindowsExcept(String keepOpen) {
         scale = Math.max(0.5f, Math.min(scale, 1.5f));
     }
 
-    // ===== УПРАВЛЕНИЕ НОДАМИ =====
     public void attachNode(Node node) {
         if (node != null && !guiNode.hasChild(node)) {
             guiNode.attachChild(node);
@@ -268,7 +234,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     public void onTraderOpened(Node node) { attachNode(node); }
     public void onTraderClosed(Node node) { detachNode(node); }
 
-    // ===== ФОНОВАЯ ГЕОМЕТРИЯ =====
     public Geometry createBackgroundGeometry(float width, float height) {
         Texture leatherTexture = null;
         try {
@@ -293,6 +258,10 @@ private void closeAllWindowsExcept(String keepOpen) {
 
     // ===== ИНИЦИАЛИЗАЦИЯ =====
     public void initialize() {
+        // Отключаем навигацию Lemur (Tab)
+        GuiGlobals.getInstance().getFocusNavigationState().setEnabled(false);
+        GuiGlobals.getInstance().getInputMapper().deactivateGroup(FocusNavigationFunctions.UI_NAV);
+
         createLoginScreen();
         createRegisterScreen();
         createHUD();
@@ -307,15 +276,12 @@ private void closeAllWindowsExcept(String keepOpen) {
         hudNode.attachChild(talentButton);
         hudNode.attachChild(playerStatsContainer);
 
-        // Изначально все окна скрыты
         loginWindow.setCullHint(Node.CullHint.Always);
         registerWindow.setCullHint(Node.CullHint.Always);
         hideHUD();
-        GuiGlobals.getInstance().getFocusNavigationState().setEnabled(false);
 
-        // Регистрируем обработчики
         setupKeyboardShortcuts();
-        setupAuthRawInputListener();
+        setupAuthKeys(); // только для Tab
 
         createBackground();
         hideBackground();
@@ -323,6 +289,52 @@ private void closeAllWindowsExcept(String keepOpen) {
         if (backgroundNode != null && !guiNode.hasChild(backgroundNode)) {
             guiNode.attachChild(backgroundNode);
         }
+    }
+
+    // ===== ОБРАБОТЧИК TAB (глобальный) =====
+    private void setupAuthKeys() {
+        System.out.println("[UI] Setting up auth keys...");
+
+        app.getInputManager().addMapping("AUTH_TAB", new KeyTrigger(KeyInput.KEY_TAB));
+
+        ActionListener authListener = new ActionListener() {
+            @Override
+            public void onAction(String name, boolean isPressed, float tpf) {
+                if (!isPressed) return;
+                if (name.equals("AUTH_TAB")) {
+                    if (loginVisible && loginFields != null && loginFields.length > 0) {
+                        moveFocus(loginFields);
+                    } else if (registerVisible && registerFields != null && registerFields.length > 0) {
+                        moveFocus(registerFields);
+                    }
+                }
+            }
+        };
+        app.getInputManager().addListener(authListener, "AUTH_TAB");
+    }
+
+    // ===== ПЕРЕКЛЮЧЕНИЕ ФОКУСА =====
+    private void moveFocus(TextField[] fields) {
+        if (fields == null || fields.length == 0) return;
+
+        Spatial currentFocus = GuiGlobals.getInstance().getFocusManagerState().getFocus();
+        int currentIndex = -1;
+        for (int i = 0; i < fields.length; i++) {
+            if (fields[i] == currentFocus) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        int nextIndex = (currentIndex + 1) % fields.length;
+        final TextField nextField = fields[nextIndex];
+
+        app.enqueue(() -> {
+            GuiGlobals.getInstance().requestFocus(nextField);
+            if (GuiGlobals.getInstance().getFocusManagerState().getFocus() != nextField) {
+                GuiGlobals.getInstance().getFocusManagerState().setFocus(nextField);
+            }
+        });
     }
 
     // ===== ФОНОВОЕ ИЗОБРАЖЕНИЕ =====
@@ -382,9 +394,7 @@ private void closeAllWindowsExcept(String keepOpen) {
         }
     }
 
-    public void forceShowLogin() {
-        showLoginScreen();
-    }
+    public void forceShowLogin() { showLoginScreen(); }
 
     // ===== HUD КЛАВИШИ =====
     private void setupKeyboardShortcuts() {
@@ -404,22 +414,10 @@ private void closeAllWindowsExcept(String keepOpen) {
                 if (!hudVisible) return;
 
                 switch (name) {
-                    case KEY_SKILL1:
-                        if (playerManager != null) playerManager.castSkill("Heal");
-                        flashButton(skill1Btn);
-                        break;
-                    case KEY_SKILL2:
-                        if (playerManager != null) playerManager.castSkill("ShieldBash");
-                        flashButton(skill2Btn);
-                        break;
-                    case KEY_SKILL3:
-                        if (playerManager != null) playerManager.castSkill("Whirlwind");
-                        flashButton(skill3Btn);
-                        break;
-                    case KEY_SKILL4:
-                        if (playerManager != null) playerManager.castSkill("Kick");
-                        flashButton(skill4Btn);
-                        break;
+                    case KEY_SKILL1: if (playerManager != null) playerManager.castSkill("Heal"); flashButton(skill1Btn); break;
+                    case KEY_SKILL2: if (playerManager != null) playerManager.castSkill("ShieldBash"); flashButton(skill2Btn); break;
+                    case KEY_SKILL3: if (playerManager != null) playerManager.castSkill("Whirlwind"); flashButton(skill3Btn); break;
+                    case KEY_SKILL4: if (playerManager != null) playerManager.castSkill("Kick"); flashButton(skill4Btn); break;
                     case KEY_HEALTH_POTION:
                         if (playerManager != null) {
                             playerManager.useHealthPotion();
@@ -436,14 +434,8 @@ private void closeAllWindowsExcept(String keepOpen) {
                             flashButton(manaPotionBtn);
                         }
                         break;
-                    case KEY_INVENTORY:
-                        toggleInventory(); // <- изменено
-                        flashButton(inventoryButton);
-                        break;
-                    case KEY_TALENTS:
-                        toggleTalents(); // <- изменено
-                        flashButton(talentButton);
-                        break;
+                    case KEY_INVENTORY: toggleInventory(); flashButton(inventoryButton); break;
+                    case KEY_TALENTS: toggleTalents(); flashButton(talentButton); break;
                 }
             }
         };
@@ -462,82 +454,9 @@ private void closeAllWindowsExcept(String keepOpen) {
         final ColorRGBA finalOriginalColor = originalColor.clone();
         mat.setColor("Color", new ColorRGBA(1f, 1f, 0f, 1f));
         new Thread(() -> {
-            try {
-                Thread.sleep(150);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            try { Thread.sleep(150); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             app.enqueue(() -> mat.setColor("Color", finalOriginalColor));
         }).start();
-    }
-
-    private void setupAuthRawInputListener() {
-        if (authRawListener != null) {
-            app.getInputManager().removeRawInputListener(authRawListener);
-        }
-
-        authRawListener = new RawInputListener() {
-            @Override public void beginInput() {}
-            @Override public void endInput() {}
-            @Override public void onJoyAxisEvent(JoyAxisEvent evt) {}
-            @Override public void onJoyButtonEvent(JoyButtonEvent evt) {}
-            @Override public void onMouseMotionEvent(MouseMotionEvent evt) {}
-            @Override public void onMouseButtonEvent(MouseButtonEvent evt) {}
-
-            @Override
-            public void onKeyEvent(KeyInputEvent evt) {
-                if (evt.isPressed()) {
-                    int key = evt.getKeyCode();
-                    if (key == KeyInput.KEY_TAB || key == KeyInput.KEY_RETURN) {
-                        processAuthKey(key);
-                        evt.setConsumed();
-                    }
-                }
-            }
-
-            private void processAuthKey(int key) {
-                if (key == KeyInput.KEY_TAB) {
-                    if (loginVisible && loginFields != null && loginFields.length > 0) {
-                        moveFocus(loginFields);
-                    } else if (registerVisible && registerFields != null && registerFields.length > 0) {
-                        moveFocus(registerFields);
-                    }
-                } else if (key == KeyInput.KEY_RETURN) {
-                    if (loginVisible) {
-                        String login = loginField.getText();
-                        String pass = passwordField.getText();
-                        if (!login.isEmpty() && !pass.isEmpty()) {
-                            handleLogin(login, pass);
-                        }
-                    } else if (registerVisible) {
-                        String email = emailField.getText();
-                        String login = regLoginField.getText();
-                        String pass = regPasswordField.getText();
-                        if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
-                            handleRegister(email, login, pass);
-                        }
-                    }
-                }
-            }
-
-            @Override public void onTouchEvent(TouchEvent evt) {}
-        };
-        app.getInputManager().addRawInputListener(authRawListener);
-        System.out.println("[UI] Auth RawInputListener for Tab/Enter setup complete.");
-    }
-
-    // ===== ПЕРЕКЛЮЧЕНИЕ ФОКУСА =====
-    private void moveFocus(TextField[] fields) {
-        if (fields == null || fields.length == 0) return;
-        Spatial currentFocus = GuiGlobals.getInstance().getFocusManagerState().getFocus();
-        for (int i = 0; i < fields.length; i++) {
-            if (fields[i] == currentFocus) {
-                int nextIndex = (i + 1) % fields.length;
-                GuiGlobals.getInstance().requestFocus(fields[nextIndex]);
-                return;
-            }
-        }
-        GuiGlobals.getInstance().requestFocus(fields[0]);
     }
 
     // ===== HUD =====
@@ -607,7 +526,6 @@ private void closeAllWindowsExcept(String keepOpen) {
         mpCountLabel.setLocalTranslation(buttonSizeScaled - 25 * scale, 10 * scale, 0.1f);
         manaPotionBtn.attachChild(mpCountLabel);
 
-        // Скиллы
         skill1Btn = createIconOnlyButton("Interface/Icons/light.png", buttonSizeScaled);
         skill1Btn.addClickCommands((source) -> { if (playerManager != null) playerManager.castSkill("Heal"); });
         hudButtons.add(skill1Btn);
@@ -624,20 +542,20 @@ private void closeAllWindowsExcept(String keepOpen) {
         skill4Btn.addClickCommands((source) -> { if (playerManager != null) playerManager.castSkill("Kick"); });
         hudButtons.add(skill4Btn);
 
-        // Инвентарь (изменён обработчик)
         inventoryButton = createIconOnlyButton("Interface/Icons/backpack.png", buttonSizeScaled);
         inventoryButton.addClickCommands((source) -> {
+            SoundManager.playSound(SoundManager.SOUND_CLICK);
             toggleInventory();
         });
         hudButtons.add(inventoryButton);
 
-        // Таланты (изменён обработчик)
         talentButton = new Button("T");
         talentButton.setPreferredSize(new Vector3f(buttonSizeScaled, buttonSizeScaled, 0));
         talentButton.setBackground(null);
         talentButton.setColor(ColorRGBA.White);
         talentButton.setFontSize(24 * scale);
         talentButton.addClickCommands((source) -> {
+            SoundManager.playSound(SoundManager.SOUND_CLICK);
             toggleTalents();
         });
     }
@@ -776,6 +694,7 @@ private void closeAllWindowsExcept(String keepOpen) {
         updateHUDPosition(true);
         updatePotionCounts();
         updatePlayerStats();
+        updatePlayerName();
     }
 
     public void hideHUD() {
@@ -787,8 +706,8 @@ private void closeAllWindowsExcept(String keepOpen) {
         if (playerStatsContainer != null) playerStatsContainer.setCullHint(Node.CullHint.Always);
     }
 
-    // ===== ОКНО ЛОГИНА =====
-   private void createLoginScreen() {
+    // ===== ОКНО ЛОГИНА (с обработчиком Enter) =====
+private void createLoginScreen() {
     updateScale();
     float screenWidth = app.getCamera().getWidth();
     float screenHeight = app.getCamera().getHeight();
@@ -823,7 +742,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     loginWindow.attachChild(loginLabel);
 
     loginField = new TextField("");
-    // Уменьшаем высоту до 26 * scale
     loginField.setPreferredSize(new Vector3f(220 * scale, 26 * scale, 0));
     loginField.setColor(ColorRGBA.Black);
     loginField.setFontSize(18 * scale);
@@ -839,7 +757,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     loginWindow.attachChild(passLabel);
 
     passwordField = new TextField("");
-    // Уменьшаем высоту до 26 * scale
     passwordField.setPreferredSize(new Vector3f(220 * scale, 26 * scale, 0));
     passwordField.setColor(ColorRGBA.Black);
     passwordField.setFontSize(18 * scale);
@@ -853,6 +770,7 @@ private void closeAllWindowsExcept(String keepOpen) {
     loginButton.setFontSize(18 * scale);
     loginButton.setLocalTranslation(85 * scale, 45 * scale, 0.1f);
     loginButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
         if (loginVisible) {
             String login = loginField.getText();
             String pass = passwordField.getText();
@@ -867,16 +785,50 @@ private void closeAllWindowsExcept(String keepOpen) {
     registerButton.setFontSize(18 * scale);
     registerButton.setLocalTranslation(220 * scale, 45 * scale, 0.1f);
     registerButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
         if (loginVisible) showRegisterScreen();
     });
     loginWindow.attachChild(registerButton);
 
     loginFields = new TextField[]{loginField, passwordField};
 
+    // ===== ОБРАБОТЧИК ENTER ДЛЯ ПОЛЯ ЛОГИНА =====
+    loginField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (loginVisible) {
+                String login = loginField.getText();
+                String pass = passwordField.getText();
+                if (!login.isEmpty() && !pass.isEmpty()) {
+                    handleLogin(login, pass);
+                } else {
+                    showLoginError("Please fill in all fields.");
+                }
+            }
+        }
+    });
+
+    // ===== ОБРАБОТЧИК ENTER ДЛЯ ПОЛЯ ПАРОЛЯ =====
+    passwordField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (loginVisible) {
+                String login = loginField.getText();
+                String pass = passwordField.getText();
+                if (!login.isEmpty() && !pass.isEmpty()) {
+                    handleLogin(login, pass);
+                } else {
+                    showLoginError("Please fill in all fields.");
+                }
+            }
+        }
+    });
+
     guiNode.attachChild(loginWindow);
     loginWindow.setCullHint(Node.CullHint.Always);
 }
 
+    // ===== ОКНО РЕГИСТРАЦИИ (с обработчиком Enter) =====
     private void createRegisterScreen() {
     updateScale();
     float screenWidth = app.getCamera().getWidth();
@@ -912,7 +864,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     registerWindow.attachChild(emailLabel);
 
     emailField = new TextField("");
-    // Уменьшаем высоту до 26 * scale
     emailField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
     emailField.setColor(ColorRGBA.Black);
     emailField.setFontSize(18 * scale);
@@ -928,7 +879,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     registerWindow.attachChild(regLoginLabel);
 
     regLoginField = new TextField("");
-    // Уменьшаем высоту до 26 * scale
     regLoginField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
     regLoginField.setColor(ColorRGBA.Black);
     regLoginField.setFontSize(18 * scale);
@@ -944,7 +894,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     registerWindow.attachChild(regPassLabel);
 
     regPasswordField = new TextField("");
-    // Уменьшаем высоту до 26 * scale
     regPasswordField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
     regPasswordField.setColor(ColorRGBA.Black);
     regPasswordField.setFontSize(18 * scale);
@@ -958,6 +907,7 @@ private void closeAllWindowsExcept(String keepOpen) {
     registerButton.setFontSize(18 * scale);
     registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
     registerButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
         if (registerVisible) {
             String email = emailField.getText();
             String login = regLoginField.getText();
@@ -976,6 +926,56 @@ private void closeAllWindowsExcept(String keepOpen) {
     registerWindow.attachChild(backButton);
 
     registerFields = new TextField[]{emailField, regLoginField, regPasswordField};
+
+    // ===== ОБРАБОТЧИК ENTER ДЛЯ ПОЛЯ EMAIL =====
+    emailField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                } else {
+                    showLoginError("Please fill in all fields.");
+                }
+            }
+        }
+    });
+
+    // ===== ОБРАБОТЧИК ENTER ДЛЯ ПОЛЯ ЛОГИНА РЕГИСТРАЦИИ =====
+    regLoginField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                } else {
+                    showLoginError("Please fill in all fields.");
+                }
+            }
+        }
+    });
+
+    // ===== ОБРАБОТЧИК ENTER ДЛЯ ПОЛЯ ПАРОЛЯ РЕГИСТРАЦИИ =====
+    regPasswordField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                } else {
+                    showLoginError("Please fill in all fields.");
+                }
+            }
+        }
+    });
 
     guiNode.attachChild(registerWindow);
     registerWindow.setCullHint(Node.CullHint.Always);
@@ -1083,6 +1083,7 @@ private void closeAllWindowsExcept(String keepOpen) {
         yesButton.setColor(ColorRGBA.White);
         yesButton.setLocalTranslation(60*scale, 30*scale, 0.1f);
         yesButton.addClickCommands((source) -> {
+            SoundManager.playSound(SoundManager.SOUND_CLICK);
             hideTeleporterDialog();
             Main main = (Main) app;
             if (main != null) {
@@ -1130,6 +1131,7 @@ private void closeAllWindowsExcept(String keepOpen) {
     public void setPlayerManager(PlayerManager pm) {
         this.playerManager = pm;
         updatePlayerStats();
+        updatePlayerName();
     }
 
     public void setInventoryManager(InventoryManager im) {
@@ -1205,9 +1207,6 @@ private void closeAllWindowsExcept(String keepOpen) {
     }
 
     public void cleanup() {
-        if (authRawListener != null) {
-            app.getInputManager().removeRawInputListener(authRawListener);
-        }
         detachNode(hudNode);
         if (inventoryManager != null) inventoryManager.cleanup();
         if (talentWindow != null) talentWindow.hide();
@@ -1322,6 +1321,7 @@ private void closeAllWindowsExcept(String keepOpen) {
         if (data.containsKey("level")) {
             playerManager.setLevel(((Number) data.get("level")).intValue());
         }
+        updatePlayerName(); 
         if (data.containsKey("experience")) {
             playerManager.setExperience(((Number) data.get("experience")).intValue());
         }
@@ -1334,8 +1334,6 @@ private void closeAllWindowsExcept(String keepOpen) {
         updatePlayerStats();
         updatePotionCounts();
     }
-    
-
 
     private void showLoginError(String message) {
         Label errorLabel = new Label(message);
@@ -1392,5 +1390,12 @@ private void closeAllWindowsExcept(String keepOpen) {
         if (gm != null) gm.setState(GameState.CITY);
         updatePlayerStats();
         updatePotionCounts();
+    }
+
+    public void updatePlayerName() {
+        if (playerManager == null || playerNameLabel == null) return;
+        String name = playerManager.getPlayerName();
+        int level = playerManager.getLevel();
+        playerNameLabel.setText(name + " [" + level + "]");
     }
 }

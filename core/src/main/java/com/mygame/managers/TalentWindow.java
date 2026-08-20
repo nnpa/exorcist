@@ -172,6 +172,7 @@ public class TalentWindow {
         resetButton.setFontSize(12 * scale);
         resetButton.setLocalTranslation(currentWidth - 90 * scale, 25 * scale, 0.1f);
 resetButton.addClickCommands((source) -> {
+    SoundManager.playSound(SoundManager.SOUND_CLICK);
     if (isVisible) {
         talentManager.resetTalentsAsync().thenAccept(success -> {
             app.enqueue(() -> {

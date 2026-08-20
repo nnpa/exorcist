@@ -134,7 +134,7 @@ public class WorldManager {
 
         cityNode.setCullHint(Node.CullHint.Dynamic);
         npcNode.setCullHint(Node.CullHint.Dynamic);
-
+SoundManager.playMusic(SoundManager.MUSIC_CITY);
         System.out.println("[WorldManager] City loaded!");
     }
 
@@ -493,6 +493,7 @@ public class WorldManager {
         if (Main.getInstance() != null) {
             Main.getInstance().getGameManager().setState(GameState.DUNGEON);
         }
+        SoundManager.playMusic(SoundManager.MUSIC_DUNGEON);
     }
 
     public void returnToCity() {

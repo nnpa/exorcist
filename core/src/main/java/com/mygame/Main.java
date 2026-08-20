@@ -30,32 +30,23 @@ import com.mygame.monsters.Monster;
 import com.simsilica.lemur.Label;
 import java.util.Map;
 import java.awt.*;
-import com.jme3.input.RawInputListener;
-import com.jme3.input.event.MouseButtonEvent;
-import com.jme3.input.event.MouseMotionEvent;
-import com.jme3.input.event.KeyInputEvent;
-import com.jme3.input.event.JoyAxisEvent;
-import com.jme3.input.event.JoyButtonEvent;
-import com.jme3.math.Vector2f;
-import com.jme3.math.Vector3f;
-import com.jme3.math.Ray;
 import com.jme3.collision.CollisionResults;
 import com.jme3.collision.CollisionResult;
-import com.jme3.scene.Spatial;
-import com.jme3.scene.Node;
+import com.jme3.math.Ray;
+import com.jme3.renderer.RenderManager;
 import com.simsilica.lemur.Button;
 import com.simsilica.lemur.Panel;
 import com.simsilica.lemur.Container;
-import com.simsilica.lemur.Label;
+
 public class Main extends SimpleApplication {
     private String getPath(Spatial s) {
-    StringBuilder sb = new StringBuilder();
-    while (s != null) {
-        sb.insert(0, "/" + s.getName());
-        s = s.getParent();
+        StringBuilder sb = new StringBuilder();
+        while (s != null) {
+            sb.insert(0, "/" + s.getName());
+            s = s.getParent();
+        }
+        return sb.toString();
     }
-    return sb.toString();
-}
 
     private static Main instance;
     private GameManager gameManager;
@@ -144,99 +135,7 @@ public class Main extends SimpleApplication {
 
     @Override
     public void simpleInitApp() {
-        
-        
-    inputManager.addRawInputListener(new RawInputListener() {
-    @Override
-    public void beginInput() {}
 
-    @Override
-    public void endInput() {}
-
-    @Override
-    public void onJoyAxisEvent(JoyAxisEvent evt) {}
-
-    @Override
-    public void onJoyButtonEvent(JoyButtonEvent evt) {}
-
-    @Override
-    public void onMouseMotionEvent(MouseMotionEvent evt) {}
-
-    @Override
-    public void onMouseButtonEvent(MouseButtonEvent evt) {
-        // Логируем только нажатия левой кнопки мыши
-        if (evt.getButtonIndex() == 0 && evt.isPressed()) {
-            // Координаты клика
-            Vector2f click2d = new Vector2f(evt.getX(), evt.getY());
-            Vector3f click3d = cam.getWorldCoordinates(new Vector2f(click2d.x, click2d.y), 0f);
-            Vector3f dir = cam.getWorldCoordinates(new Vector2f(click2d.x, click2d.y), 1f).subtract(click3d).normalizeLocal();
-            Ray ray = new Ray(click3d, dir);
-
-            // Проверяем попадание в guiNode (интерфейс)
-            CollisionResults results = new CollisionResults();
-            guiNode.collideWith(ray, results);
-
-            System.out.println("=== GLOBAL CLICK DEBUG ===");
-            System.out.println("Click coordinates: (" + evt.getX() + ", " + evt.getY() + ")");
-            if (results.size() > 0) {
-                for (CollisionResult res : results) {
-                    Spatial target = res.getGeometry();
-                    System.out.println("  Hit spatial: " + target);
-                    System.out.println("    Name: " + target.getName());
-                    System.out.println("    Class: " + target.getClass().getSimpleName());
-                    // Проверяем, является ли целевой объект кнопкой или дочерним элементом кнопки
-                    Spatial parent = target;
-                    while (parent != null) {
-                        if (parent instanceof Button) {
-                            System.out.println("    -> This is a Button! Text: " + ((Button) parent).getText());
-                            break;
-                        } else if (parent instanceof Panel) {
-                            System.out.println("    -> This is a Panel");
-                            break;
-                        } else if (parent instanceof Container) {
-                            System.out.println("    -> This is a Container");
-                            break;
-                        } else if (parent instanceof Label) {
-                            System.out.println("    -> This is a Label");
-                            break;
-                        }
-                        parent = parent.getParent();
-                    }
-                    System.out.println("    Full path: " + getPath(target));
-                }
-            } else {
-                System.out.println("  No GUI elements under cursor.");
-                // Также проверяем попадание в rootNode (3D мир)
-                CollisionResults worldResults = new CollisionResults();
-                rootNode.collideWith(ray, worldResults);
-                if (worldResults.size() > 0) {
-                    System.out.println("  But hit a 3D object: " + worldResults.getClosestCollision().getGeometry());
-                }
-            }
-            System.out.println("=============================");
-        }
-    }
-
-    @Override
-    public void onKeyEvent(KeyInputEvent evt) {}
-
-    @Override
-    public void onTouchEvent(TouchEvent evt) {
-        // Для отладки на Android можно раскомментировать и добавить логику
-        // System.out.println("Touch event: " + evt);
-    }
-});
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         setDisplayFps(false);
         setDisplayStatView(false);
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
@@ -244,7 +143,7 @@ public class Main extends SimpleApplication {
         int height = screenSize.height;
         setResolution(width, height, false);
         instance = this;
-
+ SoundManager.initialize(this);
         viewPort.setBackgroundColor(new ColorRGBA(0.2f, 0.2f, 0.2f, 1f));
 
         // ===== ФИЗИКА =====
@@ -264,10 +163,15 @@ public class Main extends SimpleApplication {
 
         // Инициализация менеджеров
         initializeManagers();
+if (playerManager != null && playerManager.getPlayerNode() != null) {
+            cameraControl = new CameraFollowControl(cam, playerManager.getPlayerNode());
+            playerManager.getPlayerNode().addControl(cameraControl);
+        }
 
         if (playerManager != null) {
             playerManager.setPhysicsSpace(bulletAppState.getPhysicsSpace());
         }
+        
         if (worldManager != null) {
             worldManager.setBulletAppState(bulletAppState);
         }
@@ -351,11 +255,111 @@ public class Main extends SimpleApplication {
         }, "ReturnToCity");
 
         Monster.setApp(this);
-        
-        
+
         playerManager.setUIManager(uiManager);
         playerManager.setNetworkManager(networkManager);
+
+        // ===== ГЛОБАЛЬНЫЙ ОБРАБОТЧИК КЛИКОВ (отладка) =====
+        inputManager.addRawInputListener(new RawInputListener() {
+            @Override
+            public void beginInput() {}
+            @Override
+            public void endInput() {}
+            @Override
+            public void onJoyAxisEvent(JoyAxisEvent evt) {}
+            @Override
+            public void onJoyButtonEvent(JoyButtonEvent evt) {}
+            @Override
+            public void onMouseMotionEvent(MouseMotionEvent evt) {}
+            @Override
+            public void onMouseButtonEvent(MouseButtonEvent evt) {
+                if (evt.getButtonIndex() == 0 && evt.isPressed()) {
+                    Vector2f click2d = new Vector2f(evt.getX(), evt.getY());
+                    Vector3f click3d = cam.getWorldCoordinates(new Vector2f(click2d.x, click2d.y), 0f);
+                    Vector3f dir = cam.getWorldCoordinates(new Vector2f(click2d.x, click2d.y), 1f).subtract(click3d).normalizeLocal();
+                    Ray ray = new Ray(click3d, dir);
+
+                    CollisionResults results = new CollisionResults();
+                    guiNode.collideWith(ray, results);
+
+                    System.out.println("=== GLOBAL CLICK DEBUG ===");
+                    System.out.println("Click coordinates: (" + evt.getX() + ", " + evt.getY() + ")");
+                    if (results.size() > 0) {
+                        for (CollisionResult res : results) {
+                            Spatial target = res.getGeometry();
+                            System.out.println("  Hit spatial: " + target);
+                            System.out.println("    Name: " + target.getName());
+                            System.out.println("    Class: " + target.getClass().getSimpleName());
+                            Spatial parent = target;
+                            while (parent != null) {
+                                if (parent instanceof Button) {
+                                    System.out.println("    -> This is a Button! Text: " + ((Button) parent).getText());
+                                    break;
+                                } else if (parent instanceof Panel) {
+                                    System.out.println("    -> This is a Panel");
+                                    break;
+                                } else if (parent instanceof Container) {
+                                    System.out.println("    -> This is a Container");
+                                    break;
+                                } else if (parent instanceof Label) {
+                                    System.out.println("    -> This is a Label");
+                                    break;
+                                }
+                                parent = parent.getParent();
+                            }
+                            System.out.println("    Full path: " + getPath(target));
+                        }
+                    } else {
+                        System.out.println("  No GUI elements under cursor.");
+                        CollisionResults worldResults = new CollisionResults();
+                        rootNode.collideWith(ray, worldResults);
+                        if (worldResults.size() > 0) {
+                            System.out.println("  But hit a 3D object: " + worldResults.getClosestCollision().getGeometry());
+                        }
+                    }
+                    System.out.println("=============================");
+                }
+            }
+            @Override
+            public void onKeyEvent(KeyInputEvent evt) {}
+            @Override
+            public void onTouchEvent(TouchEvent evt) {}
+        });
     }
+
+    // ===== ОБНОВЛЕНИЕ КАМЕРЫ =====
+    private void updateCamera() {
+        if (!worldLoaded || gameManager == null) return;
+        GameState state = gameManager.getCurrentState();
+        if (state != GameState.CITY && state != GameState.DUNGEON) return;
+        if (playerManager == null) return;
+
+        Node playerNode = playerManager.getPlayerNode();
+        if (playerNode == null) return;
+
+        Vector3f playerPos = playerNode.getWorldTranslation();
+        if (playerPos == null) return;
+
+        float distance = 18f;
+        float height = 22f;
+        float x = FastMath.sin(cameraAngle) * distance;
+        float z = FastMath.cos(cameraAngle) * distance;
+        Vector3f camPos = playerPos.add(new Vector3f(x, height, z));
+
+        // Плавное следование камеры
+        Vector3f currentCamPos = cam.getLocation();
+        camPos.interpolateLocal(currentCamPos, 0.15f);
+
+        cam.setLocation(camPos);
+        Vector3f lookTarget = playerPos.add(new Vector3f(0, -0.5f, 0));
+        cam.lookAt(lookTarget, Vector3f.UNIT_Y);
+    }
+
+@Override
+public void simpleRender(RenderManager rm) {
+    super.simpleRender(rm);
+    updateCamera();
+}
 
     public void loadTalentsFromServer() {
         if (networkManager == null || uiManager == null) return;
@@ -390,8 +394,10 @@ public class Main extends SimpleApplication {
         PhysicsSpace space = bulletAppState.getPhysicsSpace();
         space.setAccuracy(0.001f);
         space.setMaxSubSteps(10);
+        space.setGravity(new Vector3f(0, -30f, 0));
         bulletAppState.setSpeed(0.8f);
-        System.out.println("[Main] Физика включена");
+        bulletAppState.setThreadingType(BulletAppState.ThreadingType.SEQUENTIAL);
+        System.out.println("[Main] Физика включена и настроена");
 
         worldManager.loadCityWithPhysics();
 
@@ -591,7 +597,6 @@ public class Main extends SimpleApplication {
         isInitialized = true;
     }
 
-    // ===== simpleUpdate =====
     @Override
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
@@ -600,30 +605,11 @@ public class Main extends SimpleApplication {
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);
         if (uiManager != null) uiManager.update(tpf);
-
-        if (worldLoaded && gameManager != null) {
-            GameState state = gameManager.getCurrentState();
-            if (state == GameState.CITY || state == GameState.DUNGEON) {
-                Node playerNode = playerManager.getPlayerNode();
-                if (playerNode != null) {
-                    Vector3f playerPos = playerNode.getWorldTranslation();
-                    float distance = 18f;
-                    float height = 22f;
-                    float x = FastMath.sin(cameraAngle) * distance;
-                    float z = FastMath.cos(cameraAngle) * distance;
-                    Vector3f camPos = playerPos.add(new Vector3f(x, height, z));
-                    cam.setLocation(camPos);
-                    Vector3f lookTarget = playerPos.add(new Vector3f(0, -0.5f, 0));
-                    cam.lookAt(lookTarget, Vector3f.UNIT_Y);
-                }
-            }
-        }
     }
 
     @Override
     public void destroy() {
-        // ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ: убрал gameManager.cleanup()
-        // чтобы игра не закрывалась при нажатии клавиш
+        SoundManager.cleanup();
         super.destroy();
     }
 
@@ -641,6 +627,7 @@ public class Main extends SimpleApplication {
             if (aw != null) aw.updateLayout(w, h);
         }
     }
+    private CameraFollowControl cameraControl; 
 
     public static Main getInstance() { return instance; }
     public GameManager getGameManager() { return gameManager; }
