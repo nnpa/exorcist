@@ -18,9 +18,9 @@ javafx {
 
 dependencies {
     // Объединенные библиотеки JMonkeyEngine 3.8.1
-    implementation 'org.jmonkeyengine:jme3-core:3.8.1-stable'
-    implementation 'org.jmonkeyengine:jme3-desktop:3.8.1-stable'
-    implementation 'org.jmonkeyengine:jme3-lwjgl:3.8.1-stable'
+implementation 'org.jmonkeyengine:jme3-core:3.8.1-stable'
+implementation 'org.jmonkeyengine:jme3-desktop:3.8.1-stable'
+implementation 'org.jmonkeyengine:jme3-lwjgl3:3.8.1-stable'
     implementation 'org.jmonkeyengine:jme3-plugins:3.8.1-stable'
     implementation 'org.jmonkeyengine:jme3-jogg:3.8.1-stable'
 
@@ -36,6 +36,10 @@ dependencies {
     // JavaFX для иконок и окон
     implementation 'org.openjfx:javafx-controls:21'
     implementation 'org.openjfx:javafx-graphics:21'
+implementation 'net.java.dev.jna:jna:5.16.0'
+implementation 'net.java.dev.jna:jna-platform:5.16.0'
+implementation 'org.lwjgl:lwjgl-glfw:3.3.6'
+
 }
 
 application {
@@ -50,7 +54,9 @@ sourceSets {
         }
     }
 }
-
+processResources {
+    duplicatesStrategy = 'exclude'
+}
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
