@@ -2,13 +2,12 @@ package com.mygame;
 
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
-import java.io.InputStream;
 
 public class DesktopLauncher {
     public static void main(String[] args) {
-        // Загружаем иконки
         BufferedImage[] icons = null;
         try {
             icons = new BufferedImage[]{
@@ -25,16 +24,26 @@ public class DesktopLauncher {
         Main app = new Main();
         AppSettings settings = new AppSettings(true);
         settings.setTitle("Exorcist");
-        settings.setWidth(1280);
-        settings.setHeight(720);
+
+        GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        DisplayMode mode = gd.getDisplayMode();
+        settings.setResolution(mode.getWidth(), mode.getHeight());
+        settings.setFrequency(mode.getRefreshRate());
+
+        // Один полноэкранный режим
+        settings.setFullscreen(true);
+        settings.setResizable(false);
+
         settings.setVSync(true);
         settings.setSamples(4);
         settings.setUseInput(true);
         if (icons != null) {
             settings.setIcons(icons);
         }
+
         app.setSettings(settings);
         app.setShowSettings(false);
+        app.setPauseOnLostFocus(false);
         app.start(JmeContext.Type.Display);
     }
 }

@@ -17,7 +17,6 @@ import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.system.AppSettings;
 import com.jme3.collision.CollisionResults;
 import com.jme3.collision.CollisionResult;
 import com.jme3.math.Ray;
@@ -39,25 +38,8 @@ import com.simsilica.lemur.Container;
 
 import java.util.Map;
 import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
-import javax.imageio.ImageIO;
-
-// ===== JAVA FX (ВИДЕО-ЗАСТАВКА) =====
-import javafx.application.Platform;
-import javafx.scene.Scene;
-import javafx.scene.layout.StackPane;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
-import javafx.scene.media.MediaView;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 
 public class Main extends SimpleApplication {
-
-    // ===== ИКОНКИ =====
-    private static BufferedImage[] applicationIcons;
 
     private static Main instance;
     private GameManager gameManager;
@@ -78,149 +60,16 @@ public class Main extends SimpleApplication {
     private float mouseSensitivity = 0.005f;
     private CameraFollowControl cameraControl;
 
-    // ===== JAVA FX ВИДЕО =====
-    private boolean introSkipped = false;
-    private Stage introStage;
-    private MediaPlayer introPlayer;
-
-    // ============================================================
-    //                    ЗАГРУЗКА ИКОНОК (ИСПРАВЛЕНО)
-    // ============================================================
-
-    private static BufferedImage[] loadApplicationIcons() {
-        String[] names = {"icon16.png", "icon32.png", "icon64.png", "icon128.png"};
-        BufferedImage[] result = new BufferedImage[names.length];
-
-        for (int i = 0; i < names.length; i++) {
-            String name = names[i];
-            InputStream is = null;
-            try {
-                // Пробуем разные варианты путей
-                String[] paths = {
-                    name,                     // без слеша, через ClassLoader
-                    "/" + name,               // с ведущим слешем, через getResource
-                    "icons/" + name,          // в подпапке icons (если она есть)
-                    "/icons/" + name          // с ведущим слешем
-                };
-                for (String path : paths) {
-                    // Пробуем через ClassLoader
-                    is = Main.class.getClassLoader().getResourceAsStream(path);
-                    if (is == null) {
-                        // Пробуем через getResource (иногда работает иначе)
-                        is = Main.class.getResourceAsStream(path);
-                    }
-                    if (is != null) {
-                        System.out.println("[Icons] Found resource via path: " + path);
-                        break;
-                    }
-                }
-                if (is == null) {
-                    System.err.println("[Icons] File not found: " + name + " (tried: " + String.join(", ", paths) + ")");
-                    throw new IOException("Resource not found: " + name);
-                }
-
-                result[i] = ImageIO.read(is);
-                if (result[i] == null) {
-                    throw new IOException("Failed to decode image: " + name);
-                }
-                System.out.println("[Icons] Loaded " + name +
-                        " : " + result[i].getWidth() + "x" + result[i].getHeight());
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to load application icon: " + name, e);
-            } finally {
-                if (is != null) {
-                    try { is.close(); } catch (IOException ignored) {}
-                }
-            }
-        }
-        return result;
-    }
-
-    // ============================================================
-    //                    ТОЧКА ВХОДА
-    // ============================================================
-
-    public static void main(String[] args) {
-        System.out.println("[Main] Starting...");
-
-        // Загружаем иконки
-        try {
-            applicationIcons = loadApplicationIcons();
-            System.out.println("[Main] Icons loaded successfully, count=" + applicationIcons.length);
-        } catch (Exception e) {
-            System.err.println("[Main] Error loading icons: " + e.getMessage());
-            e.printStackTrace();
-            applicationIcons = null;
-        }
-
-        AppSettings settings = new AppSettings(true);
-        settings.setTitle("Exorcist");
-
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        settings.setResolution(screenSize.width, screenSize.height);
-        settings.setResizable(true);
-        settings.setFullscreen(false);
-        settings.setVSync(false);
-        settings.setSamples(4);
-        settings.setUseInput(true);
-        settings.setRenderer("LWJGL3");
-
-        // Устанавливаем иконки в настройки (стандартный способ, может не работать в LWJGL3)
-        if (applicationIcons != null) {
-            settings.setIcons(applicationIcons);
-            System.out.println("[Main] Icons passed to settings.");
-        }
-
-        Main app = new Main();
-        app.setSettings(settings);
-        app.setShowSettings(false);
-        app.start();
-    }
-
-    // ============================================================
-    //                 ИЗМЕНЕНИЕ РАЗРЕШЕНИЯ
-    // ============================================================
-
-    public void setResolution(int width, int height, boolean fullscreen) {
-        AppSettings settings = getContext().getSettings();
-        settings.setResolution(width, height);
-        settings.setFullscreen(fullscreen);
-        if (fullscreen) {
-            settings.setResizable(false);
-        } else {
-            settings.setResizable(true);
-        }
-
-        if (applicationIcons != null) {
-            settings.setIcons(applicationIcons);
-        }
-
-        setSettings(settings);
-        System.out.println("[Main] Restarting window for resolution change...");
-        restart();
-
-        // После перезапуска окна снова устанавливаем иконки через рефлексию
-        if (applicationIcons != null) {
-            this.enqueue(() -> {
-                setWindowIconByReflection();
-                return null;
-            });
-        }
-    }
-
-    // ============================================================
-    //                 ИНИЦИАЛИЗАЦИЯ
-    // ============================================================
-
     @Override
     public void simpleInitApp() {
-        setDisplayFps(false);
-        setDisplayStatView(false);
-
         instance = this;
 
+        setDisplayFps(false);
+        setDisplayStatView(false);
+        viewPort.setBackgroundColor(ColorRGBA.Black);
+
+        // ЗВУК
         SoundManager.initialize(this);
-        viewPort.setBackgroundColor(new ColorRGBA(0.2f, 0.2f, 0.2f, 1f));
 
         // ФИЗИКА
         bulletAppState = new BulletAppState();
@@ -228,13 +77,16 @@ public class Main extends SimpleApplication {
         bulletAppState.setThreadingType(BulletAppState.ThreadingType.SEQUENTIAL);
         stateManager.attach(bulletAppState);
 
+        // ОСВЕЩЕНИЕ
         setupLighting();
 
+        // LEMUR
         GuiGlobals.initialize(this);
         applySkinStyle();
         applyTextFieldStyle();
         GuiGlobals.getInstance().getStyles().setDefaultStyle("glass");
 
+        // КАМЕРА
         flyCam.setEnabled(false);
         inputManager.setCursorVisible(true);
 
@@ -263,6 +115,19 @@ public class Main extends SimpleApplication {
         }
 
         // УПРАВЛЕНИЕ
+        setupInput();
+
+        Monster.setApp(this);
+        playerManager.setUIManager(uiManager);
+        playerManager.setNetworkManager(networkManager);
+
+        // СРАЗУ ПОКАЗЫВАЕМ ЛОГИН (вместо видео)
+        if (uiManager != null) {
+            uiManager.forceShowLogin();
+        }
+    }
+
+    private void setupInput() {
         inputManager.addMapping("MouseClick", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -316,144 +181,17 @@ public class Main extends SimpleApplication {
                 }
             }
         }, "ReturnToCity");
-
-        Monster.setApp(this);
-        playerManager.setUIManager(uiManager);
-        playerManager.setNetworkManager(networkManager);
-
-        // ВИДЕО
-        showIntroVideo();
-
-        // GLOBAL CLICK DEBUG (без изменений)
-        inputManager.addRawInputListener(new RawInputListener() {
-            @Override public void beginInput() {}
-            @Override public void endInput() {}
-            @Override public void onJoyAxisEvent(JoyAxisEvent evt) {}
-            @Override public void onJoyButtonEvent(JoyButtonEvent evt) {}
-            @Override public void onMouseMotionEvent(MouseMotionEvent evt) {}
-            @Override public void onMouseButtonEvent(MouseButtonEvent evt) {
-                if (evt.getButtonIndex() == 0 && evt.isPressed()) {
-                    Vector2f click2d = new Vector2f(evt.getX(), evt.getY());
-                    Vector3f click3d = cam.getWorldCoordinates(new Vector2f(click2d.x, click2d.y), 0f);
-                    Vector3f dir = cam.getWorldCoordinates(new Vector2f(click2d.x, click2d.y), 1f).subtract(click3d).normalizeLocal();
-                    Ray ray = new Ray(click3d, dir);
-                    CollisionResults results = new CollisionResults();
-                    guiNode.collideWith(ray, results);
-                    System.out.println("=== GLOBAL CLICK DEBUG ===");
-                    System.out.println("Click coordinates: (" + evt.getX() + ", " + evt.getY() + ")");
-                    if (results.size() > 0) {
-                        for (CollisionResult res : results) {
-                            Spatial target = res.getGeometry();
-                            System.out.println("  Hit spatial: " + target);
-                            System.out.println("    Name: " + target.getName());
-                            System.out.println("    Class: " + target.getClass().getSimpleName());
-                            Spatial parent = target;
-                            while (parent != null) {
-                                if (parent instanceof Button) {
-                                    System.out.println("    -> This is a Button! Text: " + ((Button) parent).getText());
-                                    break;
-                                } else if (parent instanceof Panel) {
-                                    System.out.println("    -> This is a Panel");
-                                    break;
-                                } else if (parent instanceof Container) {
-                                    System.out.println("    -> This is a Container");
-                                    break;
-                                } else if (parent instanceof Label) {
-                                    System.out.println("    -> This is a Label");
-                                    break;
-                                }
-                                parent = parent.getParent();
-                            }
-                            System.out.println("    Full path: " + getPath(target));
-                        }
-                    } else {
-                        System.out.println("  No GUI elements under cursor.");
-                        CollisionResults worldResults = new CollisionResults();
-                        rootNode.collideWith(ray, worldResults);
-                        if (worldResults.size() > 0) {
-                            System.out.println("  But hit a 3D object: " + worldResults.getClosestCollision().getGeometry());
-                        }
-                    }
-                    System.out.println("=============================");
-                }
-            }
-            @Override public void onKeyEvent(KeyInputEvent evt) {}
-            @Override public void onTouchEvent(TouchEvent evt) {}
-        });
-
-        // Устанавливаем иконки через рефлексию (после создания окна)
-        setWindowIconByReflection();
     }
 
-    private String getPath(Spatial s) {
-        StringBuilder sb = new StringBuilder();
-        while (s != null) {
-            sb.insert(0, "/" + s.getName());
-            s = s.getParent();
-        }
-        return sb.toString();
+    @Override
+    public void simpleUpdate(float tpf) {
+        super.simpleUpdate(tpf);
+        if (gameManager != null) gameManager.update(tpf);
+        if (playerManager != null) playerManager.update(tpf);
+        if (worldManager != null) worldManager.update(tpf);
+        if (uiManager != null) uiManager.update(tpf);
+        updateCamera();
     }
-
-    // ============================================================
-    //                    JAVA FX ВИДЕО
-    // ============================================================
-
-    private void showIntroVideo() {
-        Platform.startup(() -> {});
-        Platform.runLater(() -> {
-            try {
-                introStage = new Stage();
-                introStage.initStyle(StageStyle.UNDECORATED);
-                introStage.setFullScreen(true);
-                introStage.setAlwaysOnTop(true);
-                String path = getClass().getResource("/video/video2.mp4").toExternalForm();
-                Media media = new Media(path);
-                introPlayer = new MediaPlayer(media);
-                introPlayer.setAutoPlay(true);
-                MediaView view = new MediaView(introPlayer);
-                view.setPreserveRatio(true);
-                view.setFitWidth(Toolkit.getDefaultToolkit().getScreenSize().getWidth());
-                view.setFitHeight(Toolkit.getDefaultToolkit().getScreenSize().getHeight());
-                StackPane root = new StackPane(view);
-                root.setStyle("-fx-background-color: black;");
-                Scene scene = new Scene(root);
-                scene.setOnKeyPressed(e -> skipIntro());
-                scene.setOnMouseClicked(e -> skipIntro());
-                introPlayer.setOnEndOfMedia(this::skipIntro);
-                introStage.setScene(scene);
-                introStage.show();
-            } catch (Exception e) {
-                e.printStackTrace();
-                finishIntro();
-            }
-        });
-    }
-
-    private void skipIntro() {
-        if (introSkipped) return;
-        introSkipped = true;
-        Platform.runLater(() -> {
-            if (introPlayer != null) {
-                introPlayer.stop();
-                introPlayer.dispose();
-                introPlayer = null;
-            }
-            if (introStage != null) {
-                introStage.hide();
-                introStage.close();
-                introStage = null;
-            }
-            finishIntro();
-        });
-    }
-
-    private void finishIntro() {
-        uiManager.forceShowLogin();
-    }
-
-    // ============================================================
-    //                    КАМЕРА
-    // ============================================================
 
     private void updateCamera() {
         if (!worldLoaded || gameManager == null) return;
@@ -463,7 +201,6 @@ public class Main extends SimpleApplication {
 
         Node playerNode = playerManager.getPlayerNode();
         if (playerNode == null) return;
-
         Vector3f playerPos = playerNode.getWorldTranslation();
         if (playerPos == null) return;
 
@@ -488,7 +225,7 @@ public class Main extends SimpleApplication {
     }
 
     // ============================================================
-    //                    ТАЛАНТЫ И МИР
+    //                    МИР, КЛИКИ, ТАЛАНТЫ
     // ============================================================
 
     public void loadTalentsFromServer() {
@@ -523,7 +260,6 @@ public class Main extends SimpleApplication {
         space.setGravity(new Vector3f(0, -30f, 0));
         bulletAppState.setSpeed(0.8f);
         bulletAppState.setThreadingType(BulletAppState.ThreadingType.SEQUENTIAL);
-        System.out.println("[Main] Физика включена и настроена");
 
         worldManager.loadCityWithPhysics();
 
@@ -531,7 +267,6 @@ public class Main extends SimpleApplication {
             Node playerNode = playerManager.getPlayerNode();
             if (playerNode != null && !rootNode.hasChild(playerNode)) {
                 rootNode.attachChild(playerNode);
-                System.out.println("[Main] Персонаж добавлен в rootNode");
             }
             Vector3f spawnPos = new Vector3f(0f, 0.5f, -8f);
             playerManager.setPosition(spawnPos);
@@ -539,9 +274,7 @@ public class Main extends SimpleApplication {
                 playerManager.getCharacterControl().warp(spawnPos);
                 playerManager.getCharacterControl().setWalkDirection(Vector3f.ZERO);
             }
-            System.out.println("[Main] Персонаж на позиции: " + spawnPos);
         }
-
         gameManager.setState(GameState.CITY);
         worldManager.switchToCity();
         worldLoaded = true;
@@ -549,17 +282,10 @@ public class Main extends SimpleApplication {
         loadTalentsFromServer();
     }
 
-    // ============================================================
-    //                    КЛИКИ
-    // ============================================================
-
     private void handleClick(float screenX, float screenY) {
         if (!worldLoaded || playerManager == null) return;
         DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
-        if (drop != null) {
-            dropManager.pickupDrop(drop);
-            return;
-        }
+        if (drop != null) { dropManager.pickupDrop(drop); return; }
 
         Vector3f groundPoint = getGroundPoint(screenX, screenY);
         if (groundPoint == null) return;
@@ -568,52 +294,31 @@ public class Main extends SimpleApplication {
         if (worldManager.getCityNode() != null) {
             for (Spatial child : worldManager.getCityNode().getChildren()) {
                 if (child.getName() != null && child.getName().equals("Teleporter")) {
-                    float dist = child.getWorldTranslation().distance(groundPoint);
-                    if (dist < 1.5f) {
-                        teleporter = child;
-                        break;
-                    }
+                    if (child.getWorldTranslation().distance(groundPoint) < 1.5f) { teleporter = child; break; }
                 }
             }
         }
-        if (teleporter != null) {
-            if (uiManager != null) uiManager.showTeleporterDialog();
-            return;
-        }
+        if (teleporter != null) { if (uiManager != null) uiManager.showTeleporterDialog(); return; }
 
         Spatial npc = null;
         if (worldManager.getNpcNode() != null) {
             for (Spatial child : worldManager.getNpcNode().getChildren()) {
                 if (child.getName() != null && child.getName().equals("NPC_Trader")) {
-                    float dist = child.getWorldTranslation().distance(groundPoint);
-                    if (dist < 1.5f) {
-                        npc = child;
-                        break;
-                    }
+                    if (child.getWorldTranslation().distance(groundPoint) < 1.5f) { npc = child; break; }
                 }
             }
         }
-        if (npc != null) {
-            if (uiManager != null) uiManager.openTrader();
-            return;
-        }
+        if (npc != null) { if (uiManager != null) uiManager.openTrader(); return; }
 
         Spatial auctioneer = null;
         if (worldManager.getNpcNode() != null) {
             for (Spatial child : worldManager.getNpcNode().getChildren()) {
                 if (child.getName() != null && child.getName().equals("NPC_Auctioneer")) {
-                    float dist = child.getWorldTranslation().distance(groundPoint);
-                    if (dist < 1.5f) {
-                        auctioneer = child;
-                        break;
-                    }
+                    if (child.getWorldTranslation().distance(groundPoint) < 1.5f) { auctioneer = child; break; }
                 }
             }
         }
-        if (auctioneer != null) {
-            if (uiManager != null) uiManager.openAuction();
-            return;
-        }
+        if (auctioneer != null) { if (uiManager != null) uiManager.openAuction(); return; }
 
         Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f);
         if (clicked != null) {
@@ -623,7 +328,6 @@ public class Main extends SimpleApplication {
                 return;
             }
         }
-
         playerManager.moveTo(groundPoint);
     }
 
@@ -639,7 +343,7 @@ public class Main extends SimpleApplication {
     }
 
     // ============================================================
-    //                    ОСВЕЩЕНИЕ И GUI STYLE
+    //                    СВЕТ И СТИЛИ
     // ============================================================
 
     private void setupLighting() {
@@ -723,70 +427,7 @@ public class Main extends SimpleApplication {
     }
 
     // ============================================================
-    //                    UPDATE И DESTROY
-    // ============================================================
-
-    @Override
-    public void simpleUpdate(float tpf) {
-        super.simpleUpdate(tpf);
-        if (gameManager != null) gameManager.update(tpf);
-        if (playerManager != null) playerManager.update(tpf);
-        if (worldManager != null) worldManager.update(tpf);
-        if (uiManager != null) uiManager.update(tpf);
-    }
-
-    @Override
-    public void destroy() {
-        if (introPlayer != null) {
-            Platform.runLater(() -> {
-                try {
-                    introPlayer.stop();
-                    introPlayer.dispose();
-                    introPlayer = null;
-                    System.gc();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-
-        if (introStage != null) {
-            Platform.runLater(() -> {
-                try {
-                    introStage.hide();
-                    introStage.close();
-                    introStage = null;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-
-        SoundManager.cleanup();
-        super.destroy();
-    }
-
-    // ============================================================
-    //                    RESIZE
-    // ============================================================
-
-    @Override
-    public void reshape(int w, int h) {
-        super.reshape(w, h);
-        if (uiManager != null) uiManager.onResize(w, h);
-        if (inventoryManager != null) inventoryManager.updateLayout(w, h);
-        if (uiManager != null) {
-            TalentWindow tw = uiManager.getTalentWindow();
-            if (tw != null) tw.updateLayout(w, h);
-            TraderWindow trw = uiManager.getTraderWindow();
-            if (trw != null) trw.updateLayout(w, h);
-            AuctionWindow aw = uiManager.getAuctionWindow();
-            if (aw != null) aw.updateLayout(w, h);
-        }
-    }
-
-    // ============================================================
-    //                    GETTERS
+    //                    ГЕТТЕРЫ
     // ============================================================
 
     public static Main getInstance() { return instance; }
@@ -799,38 +440,9 @@ public class Main extends SimpleApplication {
     public DropManager getDropManager() { return dropManager; }
     public boolean isWorldLoaded() { return worldLoaded; }
 
-    // ============================================================
-    //                    УСТАНОВКА ИКОНОК ЧЕРЕЗ РЕФЛЕКСИЮ
-    // ============================================================
-
-    private void setWindowIconByReflection() {
-        if (applicationIcons == null) {
-            System.err.println("[Main] Icons not loaded, cannot set via reflection.");
-            return;
-        }
-        try {
-            // Ищем метод setWindowIcon во всей иерархии наследования контекста
-            Class<?> clazz = getContext().getClass();
-            java.lang.reflect.Method method = null;
-            while (clazz != null && method == null) {
-                try {
-                    method = clazz.getDeclaredMethod("setWindowIcon", AppSettings.class);
-                } catch (NoSuchMethodException ignored) {
-                    clazz = clazz.getSuperclass();
-                }
-            }
-            if (method == null) {
-                System.err.println("[Main] No setWindowIcon method found in context hierarchy.");
-                return;
-            }
-            method.setAccessible(true);
-            AppSettings temp = new AppSettings(true);
-            temp.setIcons(applicationIcons);
-            method.invoke(getContext(), temp);
-            System.out.println("[Main] Window icon set successfully via reflection.");
-        } catch (Exception e) {
-            System.err.println("[Main] Failed to set window icon via reflection: " + e.getMessage());
-            e.printStackTrace();
-        }
+    @Override
+    public void destroy() {
+        SoundManager.cleanup();
+        super.destroy();
     }
 }
