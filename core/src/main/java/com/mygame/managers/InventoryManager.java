@@ -85,126 +85,127 @@ public class InventoryManager {
     // ================================================================
     //   ЗАГРУЗКА С СЕРВЕРА
     // ================================================================
-   public void loadFromServerData(List<Map<String, Object>> inventoryData) {
-    System.out.println("==================================================");
-    System.out.println("[InventoryManager] loadFromServerData: received " + (inventoryData != null ? inventoryData.size() : "null") + " items from server");
-    System.out.println("==================================================");
+    public void loadFromServerData(List<Map<String, Object>> inventoryData) {
+        System.out.println("==================================================");
+        System.out.println("[InventoryManager] loadFromServerData: received " + (inventoryData != null ? inventoryData.size() : "null") + " items from server");
+        System.out.println("==================================================");
 
-    // Очищаем инвентарь перед загрузкой
-    Arrays.fill(inventoryItems, null);
-    Arrays.fill(equipment, null);
+        Arrays.fill(inventoryItems, null);
+        Arrays.fill(equipment, null);
 
-    if (inventoryData == null || inventoryData.isEmpty()) {
-        System.out.println("[InventoryManager] No inventory data to load.");
-        updateUI();
-        return;
-    }
+        if (inventoryData == null || inventoryData.isEmpty()) {
+            System.out.println("[InventoryManager] No inventory data to load.");
+            updateUI();
+            return;
+        }
 
-    // Обработка каждого предмета
-    for (Map<String, Object> data : inventoryData) {
-        try {
-            System.out.println("--------------------------------------------------");
-            System.out.println("[InventoryManager] Processing data. Keys: " + data.keySet());
+        for (Map<String, Object> data : inventoryData) {
+            try {
+                System.out.println("--------------------------------------------------");
+                System.out.println("[InventoryManager] Processing data. Keys: " + data.keySet());
 
-            // ---- Извлечение слота ----
-            int slot = -1;
-            Object slotObj = data.get("slot");
-            if (slotObj instanceof Number) {
-                slot = ((Number) slotObj).intValue();
-            } else if (slotObj instanceof String) {
-                try {
-                    slot = Integer.parseInt((String) slotObj);
-                } catch (NumberFormatException e) {
-                    System.err.println("[InventoryManager] Invalid slot format: " + slotObj);
+                // ---- Извлечение слота ----
+                int slot = -1;
+                Object slotObj = data.get("slot");
+                if (slotObj instanceof Number) {
+                    slot = ((Number) slotObj).intValue();
+                } else if (slotObj instanceof String) {
+                    try {
+                        slot = Integer.parseInt((String) slotObj);
+                    } catch (NumberFormatException e) {
+                        System.err.println("[InventoryManager] Invalid slot format: " + slotObj);
+                    }
                 }
-            }
 
-            // ---- Извлечение equipped ----
-            boolean equipped = false;
-            Object eqObj = data.get("equipped");
-            if (eqObj instanceof Boolean) {
-                equipped = (Boolean) eqObj;
-            } else if (eqObj instanceof String) {
-                equipped = Boolean.parseBoolean((String) eqObj);
-            } else if (eqObj instanceof Number) {
-                equipped = ((Number) eqObj).intValue() != 0;
-            }
+                // ---- Извлечение equipped ----
+                boolean equipped = false;
+                Object eqObj = data.get("equipped");
+                if (eqObj instanceof Boolean) {
+                    equipped = (Boolean) eqObj;
+                } else if (eqObj instanceof String) {
+                    equipped = Boolean.parseBoolean((String) eqObj);
+                } else if (eqObj instanceof Number) {
+                    equipped = ((Number) eqObj).intValue() != 0;
+                }
 
-            // ---- Извлечение equipped_slot ----
-            String equippedSlot = null;
-            Object eqSlotObj = data.get("equipped_slot");
-            if (eqSlotObj == null) {
-                eqSlotObj = data.get("equippedSlot"); // запасной вариант
-            }
-            if (eqSlotObj != null) {
-                equippedSlot = eqSlotObj.toString();
-            }
+                // ---- Извлечение equipped_slot ----
+                String equippedSlot = null;
+                Object eqSlotObj = data.get("equipped_slot");
+                if (eqSlotObj == null) {
+                    eqSlotObj = data.get("equippedSlot");
+                }
+                if (eqSlotObj != null) {
+                    equippedSlot = eqSlotObj.toString();
+                }
 
-            // ---- Извлечение и создание Item ----
-            Object itemMapObj = data.get("item");
-            Item item = null;
-            if (itemMapObj instanceof Map) {
-                Map<String, Object> itemMap = (Map<String, Object>) itemMapObj;
-                System.out.println("[InventoryManager] Item map keys: " + itemMap.keySet());
-                item = Item.fromMap(itemMap);
-                if (item == null) {
-                    System.err.println("[InventoryManager] ERROR: Item.fromMap returned null for map: " + itemMap);
+                // ---- Извлечение и создание Item ----
+                Object itemMapObj = data.get("item");
+                Item item = null;
+                if (itemMapObj instanceof Map) {
+                    Map<String, Object> itemMap = (Map<String, Object>) itemMapObj;
+                    System.out.println("[InventoryManager] Item map keys: " + itemMap.keySet());
+                    item = Item.fromMap(itemMap);
+                    if (item == null) {
+                        System.err.println("[InventoryManager] ERROR: Item.fromMap returned null for map: " + itemMap);
+                        continue;
+                    }
+                } else {
+                    System.err.println("[InventoryManager] Key 'item' is missing or not a Map!");
                     continue;
                 }
-            } else {
-                System.err.println("[InventoryManager] Key 'item' is missing or not a Map!");
-                continue;
-            }
 
-            // ---- Размещение предмета ----
-            if (equipped) {
-                // Экипированный предмет
-                int equipIndex = getEquipIndexBySlot(equippedSlot);
-                if (equipIndex != -1 && equipIndex < equipment.length) {
-                    equipment[equipIndex] = item;
-                    System.out.println("[SUCCESS] Equipped into slot " + equippedSlot + " (" + equipIndex + "): " + item.getName());
+                // ---- Размещение предмета ----
+                if (equipped) {
+                    int equipIndex = getEquipIndexBySlot(equippedSlot);
+                    if (equipIndex != -1 && equipIndex < equipment.length) {
+                        equipment[equipIndex] = item;
+                        System.out.println("[SUCCESS] Equipped into slot " + equippedSlot + " (" + equipIndex + "): " + item.getName());
+                    } else {
+                        System.err.println("[ERROR] Unknown equipment slot: " + equippedSlot + " (index " + equipIndex + ")");
+                    }
                 } else {
-                    System.err.println("[ERROR] Unknown equipment slot: " + equippedSlot + " (index " + equipIndex + ")");
+                    if (slot >= 0 && slot < inventoryItems.length) {
+                        inventoryItems[slot] = item;
+                        System.out.println("[SUCCESS] Placed into inventory slot " + slot + ": " + item.getName());
+                    } else {
+                        System.err.println("[ERROR] Invalid or missing slot for item: " + item.getName() + " (slot=" + slot + "). Skipping.");
+                    }
                 }
-            } else {
-                // Неэкипированный предмет – должен иметь слот
-                if (slot >= 0 && slot < inventoryItems.length) {
-                    inventoryItems[slot] = item;
-                    System.out.println("[SUCCESS] Placed into inventory slot " + slot + ": " + item.getName());
-                } else {
-                    // Если слот отсутствует или невалидный – ошибка данных, логируем и пропускаем
-                    System.err.println("[ERROR] Invalid or missing slot for item: " + item.getName() + " (slot=" + slot + "). Skipping.");
-                    // Здесь можно было бы поместить в свободный слот, но мы не будем додумывать.
-                }
+
+            } catch (Exception e) {
+                System.err.println("[CRITICAL ERROR] Cannot process inventory item: " + e.getMessage());
+                e.printStackTrace();
             }
-
-        } catch (Exception e) {
-            System.err.println("[CRITICAL ERROR] Cannot process inventory item: " + e.getMessage());
-            e.printStackTrace();
         }
+
+        System.out.println("==================================================");
+        System.out.println("[TOTAL] Items in inventory: " + countItems() + ", in equipment: " + countEquipment());
+        for (int i = 0; i < inventoryItems.length; i++) {
+            if (inventoryItems[i] != null) {
+                System.out.println("  slot " + i + ": " + inventoryItems[i].getName());
+            }
+        }
+        for (int i = 0; i < equipment.length; i++) {
+            if (equipment[i] != null) {
+                System.out.println("  equip " + i + ": " + equipment[i].getName());
+            }
+        }
+        System.out.println("==================================================");
+
+        updateUI();
     }
 
-    // ---- Итоговая статистика ----
-    System.out.println("==================================================");
-    System.out.println("[TOTAL] Items in inventory: " + countItems() + ", in equipment: " + countEquipment());
-    for (int i = 0; i < inventoryItems.length; i++) {
-        if (inventoryItems[i] != null) {
-            System.out.println("  slot " + i + ": " + inventoryItems[i].getName());
-        }
+    private int countItems() {
+        int c = 0;
+        for (Item i : inventoryItems) if (i != null) c++;
+        return c;
     }
-    for (int i = 0; i < equipment.length; i++) {
-        if (equipment[i] != null) {
-            System.out.println("  equip " + i + ": " + equipment[i].getName());
-        }
+
+    private int countEquipment() {
+        int c = 0;
+        for (Item i : equipment) if (i != null) c++;
+        return c;
     }
-    System.out.println("==================================================");
-
-    // ---- Обновление UI ----
-    updateUI();
-}
-
-    private int countItems() { int c = 0; for (Item i : inventoryItems) if (i != null) c++; return c; }
-    private int countEquipment() { int c = 0; for (Item i : equipment) if (i != null) c++; return c; }
 
     private int getEquipIndexBySlot(String slot) {
         if (slot == null) return -1;
@@ -298,189 +299,180 @@ public class InventoryManager {
         slotSpaces.clear();
     }
 
-   private void createUI(float screenWidth, float screenHeight) {
-    inventoryNode.detachAllChildren();
-    uiElements.clear();
+    private void createUI(float screenWidth, float screenHeight) {
+        inventoryNode.detachAllChildren();
+        uiElements.clear();
 
-    float eqWidth = 250 * scale;
-    float eqHeight = 450 * scale;
-    float invWidth = 400 * scale;
-    float invHeight = (350 + 100) * scale;
-    float spacing = 30 * scale;
+        float eqWidth = 250 * scale;
+        float eqHeight = 450 * scale;
+        float invWidth = 400 * scale;
+        float invHeight = (350 + 100) * scale;
+        float spacing = 30 * scale;
 
-    float totalWidth = eqWidth + spacing + invWidth;
-    float startX = (screenWidth - totalWidth) / 2;
-    float startY = (screenHeight - (eqHeight + invHeight) / 2) / 2 - 100 * scale;
+        float totalWidth = eqWidth + spacing + invWidth;
+        float startX = (screenWidth - totalWidth) / 2;
+        float startY = (screenHeight - (eqHeight + invHeight) / 2) / 2 - 100 * scale;
 
-    float slotSize = 60 * scale;                // размер одной кнопки
-    float shiftDown = slotSize *1;             // ← сдвиг вниз на 2 высоты кнопки (можно регулировать)
+        float slotSize = 60 * scale;
+        float shiftDown = slotSize * 1;
 
-    float eqX = startX;
-    float eqY = startY + 100 * scale;           // фон левого окна остаётся на месте
-    float invX = startX + eqWidth + spacing;
-    float invY = startY + 50 * scale;           // правое окно поднято на 100 пикселей
+        float eqX = startX;
+        float eqY = startY + 100 * scale;
+        float invX = startX + eqWidth + spacing;
+        float invY = startY + 50 * scale;
 
-    // ===== ФОНЫ =====
-    if (uiManager != null) {
-        Geometry eqBg = uiManager.createBackgroundGeometry(eqWidth, eqHeight);
-        eqBg.setLocalTranslation(eqX, eqY, -1f);
-        eqBg.setUserData("pickable", false);
-        inventoryNode.attachChild(eqBg);
-        uiElements.add(eqBg);
+        // Фоны
+        if (uiManager != null) {
+            Geometry eqBg = uiManager.createBackgroundGeometry(eqWidth, eqHeight);
+            eqBg.setLocalTranslation(eqX, eqY, -1f);
+            eqBg.setUserData("pickable", false);
+            inventoryNode.attachChild(eqBg);
+            uiElements.add(eqBg);
 
-        Geometry invBg = uiManager.createBackgroundGeometry(invWidth, invHeight);
-        invBg.setLocalTranslation(invX, invY, -1f);
-        invBg.setUserData("pickable", false);
-        inventoryNode.attachChild(invBg);
-        uiElements.add(invBg);
-    }
-
-    // ===== СЛОТЫ ЭКИПИРОВКИ (сдвинуты вниз на shiftDown — вычитаем из Y) =====
-    float offsetY = 70 * scale;
-    createSlotGeometry(eqX + 95 * scale, eqY + 320 * scale + offsetY - shiftDown, 0, slotSize);
-    createSlotGeometry(eqX + 160 * scale, eqY + 250 * scale + offsetY - shiftDown, 2, slotSize);
-    createSlotGeometry(eqX + 30 * scale, eqY + 250 * scale + offsetY - shiftDown, 3, slotSize);
-    createSlotGeometry(eqX + 95 * scale, eqY + 180 * scale + offsetY - shiftDown, 1, slotSize);
-    createSlotGeometry(eqX + 95 * scale, eqY + 110 * scale + offsetY - shiftDown, 4, slotSize);
-    createSlotGeometry(eqX + 95 * scale, eqY + 40 * scale + offsetY - shiftDown, 5, slotSize);
-    createSlotGeometry(eqX + 30 * scale, eqY + 110 * scale + offsetY - shiftDown, 6, slotSize);
-
-    // Кнопка Close для экипировки (тоже сдвигаем вниз)
-    Button closeEq = new Button("Close");
-    closeEq.setFontSize(16 * scale);
-    closeEq.setLocalTranslation(eqX + eqWidth - 80 * scale, eqY + eqHeight - 30 * scale - shiftDown, 0);
-    closeEq.addClickCommands((source) -> hide());
-    inventoryNode.attachChild(closeEq);
-    uiElements.add(closeEq);
-
-    // ===== ЯЧЕЙКИ ИНВЕНТАРЯ (без изменений) =====
-    float cellSize = 55 * scale;
-    float spacingCell = 8 * scale;
-    float paddingLeft = 40 * scale;
-    float paddingTop = 40 * scale;
-    float startXCell = invX + paddingLeft;
-    float startYCell = invY + invHeight - paddingTop;
-
-    for (int i = 0; i < 20; i++) {
-        int col = i % 4;
-        int row = i / 4;
-        float x = startXCell + col * (cellSize + spacingCell);
-        float y = startYCell - row * (cellSize + spacingCell);
-
-        Button cell = new Button("");
-        cell.setPreferredSize(new Vector3f(cellSize, cellSize, 1f));
-        cell.setInsets(new Insets3f(0, 0, 0, 0));
-        cell.setLocalTranslation(x, y, 0f);
-
-        Item item = inventoryItems[i];
-        if (item != null) {
-            Texture tex = null;
-            try {
-                tex = app.getAssetManager().loadTexture(item.getIconPath());
-            } catch (Exception e) {}
-            if (tex != null) {
-                cell.setBackground(new QuadBackgroundComponent(tex));
-                cell.setText("");
-            } else {
-                cell.setBackground(new QuadBackgroundComponent(item.getFallbackColor()));
-                cell.setText(item.getName().substring(0, 1));
-                cell.setFontSize(20 * scale);
-                cell.setColor(ColorRGBA.Black);
-            }
-        } else {
-            cell.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f)));
-            cell.setText("");
+            Geometry invBg = uiManager.createBackgroundGeometry(invWidth, invHeight);
+            invBg.setLocalTranslation(invX, invY, -1f);
+            invBg.setUserData("pickable", false);
+            inventoryNode.attachChild(invBg);
+            uiElements.add(invBg);
         }
-        final int idx = i;
-        cell.addClickCommands((source) -> {
-            if (!isVisible) return;
-            handleInventoryClick(idx);
-        });
-        addTooltipListener(cell, idx, true);
-        inventoryNode.attachChild(cell);
-        uiElements.add(cell);
-        slotSpaces.add(cell);
-    }
 
-    // Кнопка Close для инвентаря
-    Button closeInv = new Button("Close");
-    closeInv.setFontSize(16 * scale);
-    closeInv.setLocalTranslation(invX + invWidth - 80 * scale, invY + invHeight - 30 * scale, 0);
-    closeInv.addClickCommands((source) -> hide());
-    inventoryNode.attachChild(closeInv);
-    uiElements.add(closeInv);
+        // Слоты экипировки
+        float offsetY = 70 * scale;
+        createSlotGeometry(eqX + 95 * scale, eqY + 320 * scale + offsetY - shiftDown, 0, slotSize);
+        createSlotGeometry(eqX + 160 * scale, eqY + 250 * scale + offsetY - shiftDown, 2, slotSize);
+        createSlotGeometry(eqX + 30 * scale, eqY + 250 * scale + offsetY - shiftDown, 3, slotSize);
+        createSlotGeometry(eqX + 95 * scale, eqY + 180 * scale + offsetY - shiftDown, 1, slotSize);
+        createSlotGeometry(eqX + 95 * scale, eqY + 110 * scale + offsetY - shiftDown, 4, slotSize);
+        createSlotGeometry(eqX + 95 * scale, eqY + 40 * scale + offsetY - shiftDown, 5, slotSize);
+        createSlotGeometry(eqX + 30 * scale, eqY + 110 * scale + offsetY - shiftDown, 6, slotSize);
 
-    // Тултип
-    tooltipLabel = new Label("");
-    tooltipLabel.setFontSize(14 * scale);
-    tooltipLabel.setColor(ColorRGBA.White);
-    tooltipLabel.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f)));
-    tooltipLabel.setPreferredSize(new Vector3f(280 * scale, 100 * scale, 1f));
-    tooltipLabel.setLocalTranslation(10 * scale, 160 * scale, 10f);
-    tooltipLabel.setCullHint(Node.CullHint.Always);
-    inventoryNode.attachChild(tooltipLabel);
-    uiElements.add(tooltipLabel);
-}
+        Button closeEq = new Button("X");
+        closeEq.setFontSize(16 * scale);
+        closeEq.setLocalTranslation(eqX + eqWidth - 80 * scale, eqY + eqHeight - 30 * scale - shiftDown, 0);
+        closeEq.addClickCommands((source) -> hide());
+        inventoryNode.attachChild(closeEq);
+        uiElements.add(closeEq);
 
-    // ================================================================
-    //   СОЗДАНИЕ СЛОТА ЭКИПИРОВКИ (GEOMETRY) С ОТЛАДКОЙ
-    // ================================================================
-    private void createSlotGeometry(float x, float y, int slotIndex, float slotSize) {
-        System.out.println("[DEBUG] Slot " + slotIndex + " at (" + x + ", " + y + ") size=" + slotSize);
+        // Ячейки инвентаря (ИСПОЛЬЗУЕМ GEOMETRY, чтобы клик был точным)
+        float cellSize = 55 * scale;
+        float spacingCell = 8 * scale;
+        float paddingLeft = 40 * scale;
+        float paddingTop = 40 * scale;
+        float startXCell = invX + paddingLeft;
+        float startYCell = invY + invHeight - paddingTop - 50 * scale;
 
-        Quad quad = new Quad(slotSize, slotSize);
-        Geometry geo = new Geometry("slotGeo_" + slotIndex, quad);
-        geo.setLocalTranslation(x, y, 1f); // Z = 1, чтобы быть над фоном
+        for (int i = 0; i < 20; i++) {
+            int col = i % 4;
+            int row = i / 4;
+            float x = startXCell + col * (cellSize + spacingCell);
+            float y = startYCell - row * (cellSize + spacingCell);
 
-        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+            Geometry cell = new Geometry("InvCell_" + i, new Quad(cellSize, cellSize));
+            cell.setLocalTranslation(x, y, 1f);
 
-
-            // Обычная логика с текстурой или цветом
-            if (equipment[slotIndex] != null) {
-                Item item = equipment[slotIndex];
+            Material cellMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+            Item item = inventoryItems[i];
+            if (item != null) {
                 Texture tex = null;
                 try {
                     tex = app.getAssetManager().loadTexture(item.getIconPath());
                 } catch (Exception e) {}
                 if (tex != null) {
-                    mat.setTexture("ColorMap", tex);
+                    cellMat.setTexture("ColorMap", tex);
                 } else {
-                    mat.setColor("Color", item.getFallbackColor());
+                    cellMat.setColor("Color", item.getFallbackColor());
                 }
             } else {
-                Texture emptyTex = null;
-                try {
-                    emptyTex = app.getAssetManager().loadTexture(EMPTY_SLOT_ICONS[slotIndex]);
-                } catch (Exception e) {}
-                if (emptyTex != null) {
-                    mat.setTexture("ColorMap", emptyTex);
-                } else {
-                    mat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
-                }
+                cellMat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
             }
-        
+            cell.setMaterial(cellMat);
+
+            final int idx = i;
+            MouseEventControl.addListenersToSpatial(cell, new MouseListener() {
+                @Override
+                public void mouseButtonEvent(MouseButtonEvent evt, Spatial spatial, Spatial target) {
+                    if (evt.isPressed() && evt.getButtonIndex() == 0 && isVisible) {
+                        float localX = evt.getX() - x;
+                        float localY = evt.getY() - y;
+                        if (localX >= 0 && localX <= cellSize && localY >= 0 && localY <= cellSize) {
+                            handleInventoryClick(idx);
+                        }
+                    }
+                }
+                @Override public void mouseEntered(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
+                @Override public void mouseExited(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
+                @Override public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
+            });
+
+            addTooltipListener(cell, idx, true);
+
+            inventoryNode.attachChild(cell);
+            uiElements.add(cell);
+            slotSpaces.add(cell);
+        }
+
+        Button closeInv = new Button("X");
+        closeInv.setFontSize(16 * scale);
+        closeInv.setLocalTranslation(invX + invWidth - 80 * scale, invY + invHeight - 30 * scale, 0);
+        closeInv.addClickCommands((source) -> hide());
+        inventoryNode.attachChild(closeInv);
+        uiElements.add(closeInv);
+
+        tooltipLabel = new Label("");
+        tooltipLabel.setFontSize(14 * scale);
+        tooltipLabel.setColor(ColorRGBA.White);
+        tooltipLabel.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.1f, 0.1f, 0.2f, 0.95f)));
+        tooltipLabel.setPreferredSize(new Vector3f(280 * scale, 100 * scale, 1f));
+        tooltipLabel.setLocalTranslation(10 * scale, 160 * scale, 10f);
+        tooltipLabel.setCullHint(Node.CullHint.Always);
+        inventoryNode.attachChild(tooltipLabel);
+        uiElements.add(tooltipLabel);
+    }
+
+    private void createSlotGeometry(float x, float y, int slotIndex, float slotSize) {
+        System.out.println("[DEBUG] Slot " + slotIndex + " at (" + x + ", " + y + ") size=" + slotSize);
+
+        Quad quad = new Quad(slotSize, slotSize);
+        Geometry geo = new Geometry("slotGeo_" + slotIndex, quad);
+        geo.setLocalTranslation(x, y, 1f);
+
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+
+        if (equipment[slotIndex] != null) {
+            Item item = equipment[slotIndex];
+            Texture tex = null;
+            try {
+                tex = app.getAssetManager().loadTexture(item.getIconPath());
+            } catch (Exception e) {}
+            if (tex != null) {
+                mat.setTexture("ColorMap", tex);
+            } else {
+                mat.setColor("Color", item.getFallbackColor());
+            }
+        } else {
+            Texture emptyTex = null;
+            try {
+                emptyTex = app.getAssetManager().loadTexture(EMPTY_SLOT_ICONS[slotIndex]);
+            } catch (Exception e) {}
+            if (emptyTex != null) {
+                mat.setTexture("ColorMap", emptyTex);
+            } else {
+                mat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.3f, 0.9f));
+            }
+        }
+
         geo.setMaterial(mat);
 
-        // ===== ОБРАБОТЧИК КЛИКА С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ =====
         final int idx = slotIndex;
         MouseEventControl.addListenersToSpatial(geo, new MouseListener() {
             @Override
             public void mouseButtonEvent(MouseButtonEvent evt, Spatial spatial, Spatial target) {
                 if (evt.isPressed() && evt.getButtonIndex() == 0 && isVisible) {
-                    Vector2f cursorPos = new Vector2f(evt.getX(), evt.getY());
-                    float localX = cursorPos.x - x;
-                    float localY = cursorPos.y - y;
-
-                    System.out.println("[SLOT CLICK] Slot " + idx + " at (" + x + ", " + y + "), size=" + slotSize);
-                    System.out.println("  cursor screen: (" + cursorPos.x + ", " + cursorPos.y + ")");
-                    System.out.println("  local coords: (" + localX + ", " + localY + ")");
-                    System.out.println("  visible area: x=" + x + ".." + (x + slotSize) + ", y=" + y + ".." + (y + slotSize));
-
+                    float localX = evt.getX() - x;
+                    float localY = evt.getY() - y;
                     if (localX >= 0 && localX <= slotSize && localY >= 0 && localY <= slotSize) {
-                        System.out.println("  ✅ Click INSIDE slot area");
+                        System.out.println("[SLOT CLICK] Slot " + idx + " at (" + x + ", " + y + "), size=" + slotSize);
                         handleEquipmentClick(idx);
-                    } else {
-                        System.out.println("  ❌ Click OUTSIDE slot area");
                     }
                 }
             }
@@ -489,7 +481,6 @@ public class InventoryManager {
             @Override public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
         });
 
-        // Тултип
         addTooltipListener(geo, idx, false);
 
         inventoryNode.attachChild(geo);
@@ -497,9 +488,6 @@ public class InventoryManager {
         slotSpaces.add(geo);
     }
 
-    // ================================================================
-    //   УНИВЕРСАЛЬНЫЙ МЕТОД ДОБАВЛЕНИЯ ТУЛТИПА
-    // ================================================================
     private void addTooltipListener(Spatial target, int index, boolean isInventory) {
         MouseEventControl.removeListenersFromSpatial(target);
 
@@ -543,9 +531,6 @@ public class InventoryManager {
                 item.getDescription();
     }
 
-    // ================================================================
-    //   ОБРАБОТЧИКИ КЛИКОВ
-    // ================================================================
     private void handleInventoryClick(int index) {
         if (!isVisible || isProcessing) return;
         if (index < 0 || index >= inventoryItems.length) return;
@@ -563,7 +548,6 @@ public class InventoryManager {
                         uiManager.applyCharacterData(response);
                         updateUI();
                         SoundManager.playSound(SoundManager.SOUND_CLICK);
-
                     } else {
                         System.err.println("[InventoryManager] Equip failed: response is null.");
                         requestInventoryRefresh();
@@ -584,61 +568,54 @@ public class InventoryManager {
     }
 
     private void handleEquipmentClick(int slotIndex) {
-    System.out.println("[InventoryManager] handleEquipmentClick called for slot " + slotIndex);
-    if (!isVisible || isProcessing) {
-        System.out.println("  -> ignored (visible=" + isVisible + ", processing=" + isProcessing + ")");
-        return;
-    }
-    if (equipment[slotIndex] == null) {
-        System.out.println("  -> slot is empty");
-        return;
-    }
-    String slotName = getSlotName(slotIndex);
-    if (slotName == null) {
-        System.err.println("[InventoryManager] Unknown slot name for index: " + slotIndex);
-        return;
-    }
-    System.out.println("[InventoryManager] Trying to unequip " + slotName);
+        System.out.println("[InventoryManager] handleEquipmentClick called for slot " + slotIndex);
+        if (!isVisible || isProcessing) return;
+        if (equipment[slotIndex] == null) return;
+        String slotName = getSlotName(slotIndex);
+        if (slotName == null) return;
 
-    if (networkManager != null) {
-        isProcessing = true;
-        networkManager.unequipItem(slotName).thenAccept(response -> {
-            app.enqueue(() -> {
-                isProcessing = false;
-                if (response != null && uiManager != null) {
-                    System.out.println("[InventoryManager] Unequip success, applying data");
-                    uiManager.applyCharacterData(response);
-                    updateUI();
-                    SoundManager.playSound(SoundManager.SOUND_UNEQUIP);
-                } else {
-                    System.err.println("[InventoryManager] Unequip failed: response null, requesting refresh");
+        if (networkManager != null) {
+            isProcessing = true;
+            networkManager.unequipItem(slotName).thenAccept(response -> {
+                app.enqueue(() -> {
+                    isProcessing = false;
+                    if (response != null && !response.containsKey("error")) {
+                        System.out.println("[InventoryManager] Unequip success, applying data");
+                        uiManager.applyCharacterData(response);
+                        updateUI();
+                        SoundManager.playSound(SoundManager.SOUND_UNEQUIP);
+                    } else {
+                        // Ответ невалидный или сервер вернул ошибку
+                        System.err.println("[InventoryManager] Unequip failed: " + (response != null ? response.get("error") : "Response null"));
+                        // Не делаем локальное снятие, просто обновляем данные с сервера
+                        requestInventoryRefresh();
+                    }
+                });
+            }).exceptionally(ex -> {
+                app.enqueue(() -> {
+                    isProcessing = false;
+                    System.err.println("[InventoryManager] Unequip exception: " + ex.getMessage());
+                    ex.printStackTrace();
+                    // Не делаем локальное снятие, просто обновляем данные
                     requestInventoryRefresh();
-                }
+                });
+                return null;
             });
-        }).exceptionally(ex -> {
-            app.enqueue(() -> {
-                isProcessing = false;
-                System.err.println("[InventoryManager] Unequip exception: " + ex.getMessage());
-                ex.printStackTrace();
-                requestInventoryRefresh();
-            });
-            return null;
-        });
-    } else {
-        // Офлайн режим
-        Item item = equipment[slotIndex];
-        if (item != null) {
-            equipment[slotIndex] = null;
-            for (int i = 0; i < inventoryItems.length; i++) {
-                if (inventoryItems[i] == null) {
-                    inventoryItems[i] = item;
-                    break;
+        } else {
+            // Оффлайн режим
+            Item item = equipment[slotIndex];
+            if (item != null) {
+                equipment[slotIndex] = null;
+                for (int i = 0; i < inventoryItems.length; i++) {
+                    if (inventoryItems[i] == null) {
+                        inventoryItems[i] = item;
+                        break;
+                    }
                 }
+                updateUI();
             }
-            updateUI();
         }
     }
-}
 
     private String getSlotName(int slotIndex) {
         switch (slotIndex) {
@@ -674,17 +651,16 @@ public class InventoryManager {
         }
     }
 
-    // ================================================================
-    //   УПРАВЛЕНИЕ ВИДИМОСТЬЮ (ИСПРАВЛЕНО)
-    // ================================================================
     private void setVisible(boolean visible) {
         isVisible = visible;
 
-        // ===== КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: управляем CullHint у корневого узла =====
+        // Сбрасываем масштаб и позицию узла при любом открытии, чтобы координаты не сбивались
+        inventoryNode.setLocalScale(1f, 1f, 1f);
+        inventoryNode.setLocalTranslation(0, 0, 0);
+
         inventoryNode.setCullHint(visible ? Node.CullHint.Dynamic : Node.CullHint.Always);
 
         if (visible) {
-            // Переподключаем узел, чтобы он оказался поверх всех окон
             if (guiNode.hasChild(inventoryNode)) {
                 guiNode.detachChild(inventoryNode);
             }
@@ -708,7 +684,7 @@ public class InventoryManager {
     public void show() {
         updateUI();
         setVisible(true);
-         SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
     }
 
     public void hide() {
@@ -760,11 +736,11 @@ public class InventoryManager {
         if (slot < 0 || slot >= inventoryItems.length) return null;
         return inventoryItems[slot];
     }
-    
+
     public boolean isFull() {
-    for (Item item : inventoryItems) {
-        if (item == null) return false;
+        for (Item item : inventoryItems) {
+            if (item == null) return false;
+        }
+        return true;
     }
-    return true;
-}
 }

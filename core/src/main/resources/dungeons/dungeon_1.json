@@ -1,10 +1,10 @@
 [
-
+/**
   {
     "className": "com.mygame.monsters.BossMonster",
     "x": 0.0,
     "y": 0.0,
-    "z": -5.0,
+    "z": 0.0,
     "level": 3,
     "health": 50,
     "damage": 25,
@@ -13,7 +13,7 @@
     "isFinalBoss": false,
     "increaseDifficulty": false
   }
-/**
+
   {
     "className": "com.mygame.monsters.SkeletonWarrior",
     "x": 2.0,

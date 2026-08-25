@@ -273,7 +273,7 @@ public class UIManager {
         for (Button btn : hudButtons) {
             hudNode.attachChild(btn);
         }
-        hudNode.attachChild(talentButton);
+        //hudNode.attachChild(talentButton);
         hudNode.attachChild(playerStatsContainer);
 
         loginWindow.setCullHint(Node.CullHint.Always);
@@ -1326,6 +1326,13 @@ private void createLoginScreen() {
         }
         if (data.containsKey("level")) {
             playerManager.setLevel(((Number) data.get("level")).intValue());
+        }
+        // ===== ЗАГРУЗКА ДАНЖА И СЛОЖНОСТИ =====
+        if (data.containsKey("currentDungeon")) {
+            playerManager.setCurrentDungeon((String) data.get("currentDungeon"));
+        }
+        if (data.containsKey("difficulty")) {
+            playerManager.setCurrentDifficulty(((Number) data.get("difficulty")).intValue());
         }
         updatePlayerName(); 
         if (data.containsKey("experience")) {

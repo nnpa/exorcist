@@ -1396,4 +1396,17 @@ if (healParticles != null) {
     public void setCurrentDungeon(String dungeonId) { this.currentDungeonId = dungeonId; }
     public void setUIManager(UIManager ui) { this.uiManager = ui; }
     public void setNetworkManager(NetworkManager nm) { this.networkManager = nm; }
+    public void updateDungeonProgress(String newDungeonId, int newDifficulty) {
+        this.currentDungeonId = newDungeonId;
+        this.currentDifficulty = newDifficulty;
+
+        // Сохраняем на сервер
+        if (networkManager != null) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("currentDungeon", currentDungeonId);
+            data.put("difficulty", currentDifficulty);
+            networkManager.saveCharacter(data);
+        }
+        System.out.println("[PlayerManager] Progress updated: Dungeon=" + currentDungeonId + ", Difficulty=" + currentDifficulty);
+    }
 }

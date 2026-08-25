@@ -11,11 +11,12 @@ import com.jme3.scene.control.AbstractControl;
 public class CameraFollowControl extends AbstractControl {
     private Camera cam;
     private Node target;
-    private float distance = 18f;
-    private float height = 22f;
+    private float distance = 25f;
+    private float height = 20f;
     private float cameraAngle = 0f;
     private float smoothness = 0.15f;
     private Vector3f targetOffset = new Vector3f(0, -0.5f, 0);
+    private boolean enabled = true;
 
     public CameraFollowControl(Camera cam, Node target) {
         this.cam = cam;
@@ -24,8 +25,7 @@ public class CameraFollowControl extends AbstractControl {
 
     @Override
     protected void controlUpdate(float tpf) {
-        if (target == null || cam == null) return;
-if (!enabled) return;
+        if (!enabled || target == null || cam == null) return;
         Vector3f targetPos = target.getWorldTranslation();
         if (targetPos == null) return;
 
@@ -33,7 +33,6 @@ if (!enabled) return;
         float z = FastMath.cos(cameraAngle) * distance;
         Vector3f desiredPos = targetPos.add(new Vector3f(x, height, z));
 
-        // Плавное следование
         Vector3f currentPos = cam.getLocation();
         desiredPos.interpolateLocal(currentPos, smoothness);
 
@@ -44,20 +43,22 @@ if (!enabled) return;
 
     @Override
     protected void controlRender(RenderManager rm, ViewPort vp) {
-        // Не нужен
+        // не используется
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void rotate(float delta) {
+        cameraAngle += delta;
     }
 
     public void setCameraAngle(float angle) {
         this.cameraAngle = angle;
     }
-    
-    private boolean enabled = true;
-
-public void setEnabled(boolean enabled) {
-    this.enabled = enabled;
-}
-
-public boolean isEnabled() {
-    return enabled;
-}
 }

@@ -12,16 +12,11 @@ import com.jme3.input.event.*;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.math.ColorRGBA;
-import com.jme3.math.FastMath;
 import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.collision.CollisionResults;
-import com.jme3.collision.CollisionResult;
-import com.jme3.math.Ray;
 import com.jme3.renderer.RenderManager;
-
 import com.simsilica.lemur.GuiGlobals;
 import com.simsilica.lemur.TextField;
 import com.simsilica.lemur.Insets3f;
@@ -32,12 +27,8 @@ import com.mygame.managers.*;
 import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
 import com.simsilica.lemur.Label;
-import com.simsilica.lemur.Button;
-import com.simsilica.lemur.Panel;
-import com.simsilica.lemur.Container;
 
 import java.util.Map;
-import java.awt.*;
 
 public class Main extends SimpleApplication {
 
@@ -53,12 +44,10 @@ public class Main extends SimpleApplication {
     private boolean worldLoaded = false;
     private BulletAppState bulletAppState;
 
-    // ===== КАМЕРА =====
-    private float cameraAngle = 0f;
-    private boolean isRotatingCamera = false;
-    private float lastMouseX = 0;
-    private float mouseSensitivity = 0.005f;
+    // Камера
     private CameraFollowControl cameraControl;
+    private boolean isRotating = false;
+    private float lastMouseX = 0;
 
     @Override
     public void simpleInitApp() {
@@ -68,34 +57,31 @@ public class Main extends SimpleApplication {
         setDisplayStatView(false);
         viewPort.setBackgroundColor(ColorRGBA.Black);
 
-        // ЗВУК
         SoundManager.initialize(this);
 
-        // ФИЗИКА
         bulletAppState = new BulletAppState();
         bulletAppState.setEnabled(false);
         bulletAppState.setThreadingType(BulletAppState.ThreadingType.SEQUENTIAL);
         stateManager.attach(bulletAppState);
 
-        // ОСВЕЩЕНИЕ
         setupLighting();
 
-        // LEMUR
         GuiGlobals.initialize(this);
         applySkinStyle();
         applyTextFieldStyle();
         GuiGlobals.getInstance().getStyles().setDefaultStyle("glass");
 
-        // КАМЕРА
         flyCam.setEnabled(false);
         inputManager.setCursorVisible(true);
 
-        // ИНИЦИАЛИЗАЦИЯ МЕНЕДЖЕРОВ
         initializeManagers();
 
+        // Настройка камеры
         if (playerManager != null && playerManager.getPlayerNode() != null) {
             cameraControl = new CameraFollowControl(cam, playerManager.getPlayerNode());
             playerManager.getPlayerNode().addControl(cameraControl);
+            // Устанавливаем начальный угол (по желанию)
+            cameraControl.setCameraAngle(0f);
         }
 
         if (playerManager != null) {
@@ -114,20 +100,19 @@ public class Main extends SimpleApplication {
             playerManager.setDropManager(dropManager);
         }
 
-        // УПРАВЛЕНИЕ
         setupInput();
 
         Monster.setApp(this);
         playerManager.setUIManager(uiManager);
         playerManager.setNetworkManager(networkManager);
 
-        // СРАЗУ ПОКАЗЫВАЕМ ЛОГИН (вместо видео)
         if (uiManager != null) {
             uiManager.forceShowLogin();
         }
     }
 
     private void setupInput() {
+        // Левый клик – взаимодействие
         inputManager.addMapping("MouseClick", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -140,35 +125,40 @@ public class Main extends SimpleApplication {
             }
         }, "MouseClick");
 
-        inputManager.addMapping("RightClick", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
+        // Правая кнопка – вращение камеры
+        inputManager.addMapping("RotateCamera", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
         inputManager.addListener(new ActionListener() {
             @Override
             public void onAction(String name, boolean isPressed, float tpf) {
-                if ("RightClick".equals(name)) {
-                    isRotatingCamera = isPressed;
-                    if (cameraControl != null) cameraControl.setEnabled(!isPressed);
-                    if (isPressed) lastMouseX = inputManager.getCursorPosition().x;
+                if ("RotateCamera".equals(name)) {
+                    isRotating = isPressed;
+                    if (isPressed) {
+                        lastMouseX = inputManager.getCursorPosition().x;
+                    }
                 }
             }
-        }, "RightClick");
+        }, "RotateCamera");
 
+        // Слушатель движения мыши
         inputManager.addRawInputListener(new RawInputListener() {
             @Override public void beginInput() {}
             @Override public void endInput() {}
             @Override public void onJoyAxisEvent(JoyAxisEvent evt) {}
             @Override public void onJoyButtonEvent(JoyButtonEvent evt) {}
             @Override public void onMouseMotionEvent(MouseMotionEvent evt) {
-                if (!worldLoaded || !isRotatingCamera) return;
-                float currentX = inputManager.getCursorPosition().x;
-                float deltaX = currentX - lastMouseX;
-                cameraAngle += deltaX * mouseSensitivity;
-                lastMouseX = currentX;
+                if (isRotating && cameraControl != null) {
+                    float currentX = inputManager.getCursorPosition().x;
+                    float deltaX = currentX - lastMouseX;
+                    cameraControl.rotate(deltaX * 0.005f);
+                    lastMouseX = currentX;
+                }
             }
             @Override public void onMouseButtonEvent(MouseButtonEvent evt) {}
             @Override public void onKeyEvent(KeyInputEvent evt) {}
             @Override public void onTouchEvent(TouchEvent evt) {}
         });
 
+        // Клавиша N – возврат в город
         inputManager.addMapping("ReturnToCity", new KeyTrigger(com.jme3.input.KeyInput.KEY_N));
         inputManager.addListener(new ActionListener() {
             @Override
@@ -190,38 +180,7 @@ public class Main extends SimpleApplication {
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);
         if (uiManager != null) uiManager.update(tpf);
-        updateCamera();
-    }
-
-    private void updateCamera() {
-        if (!worldLoaded || gameManager == null) return;
-        GameState state = gameManager.getCurrentState();
-        if (state != GameState.CITY && state != GameState.DUNGEON) return;
-        if (playerManager == null) return;
-
-        Node playerNode = playerManager.getPlayerNode();
-        if (playerNode == null) return;
-        Vector3f playerPos = playerNode.getWorldTranslation();
-        if (playerPos == null) return;
-
-        if (cameraControl != null && cameraControl.isEnabled()) return;
-
-        float distance = 18f;
-        float height = 22f;
-        float x = FastMath.sin(cameraAngle) * distance;
-        float z = FastMath.cos(cameraAngle) * distance;
-        Vector3f camPos = playerPos.add(new Vector3f(x, height, z));
-        Vector3f currentCamPos = cam.getLocation();
-        camPos.interpolateLocal(currentCamPos, 0.15f);
-        cam.setLocation(camPos);
-        Vector3f lookTarget = playerPos.add(new Vector3f(0, -0.5f, 0));
-        cam.lookAt(lookTarget, Vector3f.UNIT_Y);
-    }
-
-    @Override
-    public void simpleRender(RenderManager rm) {
-        super.simpleRender(rm);
-        updateCamera();
+        // Камера обновляется автоматически через controlUpdate
     }
 
     // ============================================================
