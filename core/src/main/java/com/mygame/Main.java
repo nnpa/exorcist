@@ -3,6 +3,7 @@ package com.mygame;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
@@ -171,6 +172,27 @@ public class Main extends SimpleApplication {
                 }
             }
         }, "ReturnToCity");
+        
+        inputManager.addMapping("PrintCoordinates", new KeyTrigger(com.jme3.input.KeyInput.KEY_Z));
+        inputManager.addListener(new ActionListener() {
+            @Override
+            public void onAction(String name, boolean isPressed, float tpf) {
+                if (isPressed && "PrintCoordinates".equals(name) && playerManager != null) {
+                    Vector3f pos = playerManager.getPosition();
+                    System.out.println("[Player] Position: x=" + pos.x + ", y=" + pos.y + ", z=" + pos.z);
+                }
+            }
+        }, "PrintCoordinates");
+        
+        inputManager.addMapping("OpenEditor", new KeyTrigger(KeyInput.KEY_F12));
+inputManager.addListener(new ActionListener() {
+    @Override
+    public void onAction(String name, boolean isPressed, float tpf) {
+        if (isPressed && worldLoaded && worldManager != null) {
+            worldManager.openEditorForCurrentDungeon();
+        }
+    }
+}, "OpenEditor");
     }
 
     @Override
@@ -381,6 +403,7 @@ public class Main extends SimpleApplication {
         gameManager.setPlayerManager(playerManager);
         gameManager.setWorldManager(worldManager);
         gameManager.setUIManager(uiManager);
+worldManager.setUIManager(uiManager);
 
         isInitialized = true;
     }

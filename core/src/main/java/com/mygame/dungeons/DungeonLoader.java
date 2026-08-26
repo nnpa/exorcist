@@ -15,19 +15,27 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
+import com.jme3.scene.shape.Quad;
+import com.jme3.scene.shape.Sphere;
+import com.jme3.texture.Texture;
 import com.mygame.managers.DropManager;
 import com.mygame.managers.PlayerManager;
 import com.mygame.managers.WorldManager;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.monsters.BossMonster;
+import com.mygame.monsters.Demon;
+import com.mygame.monsters.Head;
+import com.mygame.monsters.SpiderBoss;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -62,6 +70,7 @@ public class DungeonLoader {
     }
 
     public Dungeon loadDungeon(String filePath) {
+        
         try {
             InputStream is = getClass().getClassLoader().getResourceAsStream(filePath);
             if (is == null) {
@@ -97,47 +106,60 @@ public class DungeonLoader {
     }
 
     public List<Monster> spawnDungeon(Dungeon dungeon, Node parentNode, int difficulty) {
-        List<Monster> spawned = new ArrayList<>();
+    // Ключевое исправление: сбрасываем трансляцию родителя,
+    // чтобы координаты монстров были мировыми, а не относительными.
+    parentNode.setLocalTranslation(0, 0, 0);
 
-        createDungeonScene(parentNode, dungeon.getId());
+    List<Monster> spawned = new ArrayList<>();
 
-        for (Dungeon.MonsterSpawn spawn : dungeon.getSpawns()) {
-            try {
-                Monster monster = createMonster(spawn, difficulty);
-                if (monster == null) continue;
+    createDungeonScene(parentNode, dungeon.getId());
 
-                Vector3f pos = new Vector3f(spawn.x, spawn.y, spawn.z);
-                monster.setSpawnPosition(pos);
-                monster.setPosition(pos);
-                monster.setPlayerManager(playerManager);
-                monster.setDropManager(dropManager);
-                monster.setWorldManager(worldManager);
+    for (Dungeon.MonsterSpawn spawn : dungeon.getSpawns()) {
+        try {
+            Monster monster = createMonster(spawn, difficulty);
+            if (monster == null) continue;
 
-                // ===== ЗАГРУЖАЕМ МОДЕЛЬ МОНСТРА =====
-                Spatial model = loadMonsterModel(monster);
-                Node modelNode = new Node("MonsterNode");
-                if (model != null) {
-                    modelNode.attachChild(model);
-                } else {
-                    // Если модель не загрузилась – красный куб
-                    Geometry box = new Geometry("Monster", new Box(0.5f, 0.5f, 0.5f));
-                    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-                    mat.setColor("Color", ColorRGBA.Red);
-                    box.setMaterial(mat);
-                    modelNode.attachChild(box);
-                }
-                modelNode.setLocalTranslation(pos);
-                monster.setModelNode(modelNode);
+            Vector3f pos = new Vector3f(spawn.x, spawn.y, spawn.z);
+            monster.setSpawnPosition(pos);
 
-                parentNode.attachChild(modelNode);
-                spawned.add(monster);
-            } catch (Exception e) {
-                LOG.log(Level.SEVERE, "Error creating monster: " + e.getMessage(), e);
+            monster.setPlayerManager(playerManager);
+            monster.setDropManager(dropManager);
+            monster.setWorldManager(worldManager);
+
+            // Загружаем модель
+            Spatial model = loadMonsterModel(monster);
+            Node modelNode = new Node("MonsterNode_" + monster.getClass().getSimpleName());
+            if (model != null) {
+                modelNode.attachChild(model);
+            } else {
+                // Заглушка
+                Geometry box = new Geometry("Monster", new Box(0.5f, 0.5f, 0.5f));
+                Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+                mat.setColor("Color", ColorRGBA.Red);
+                box.setMaterial(mat);
+                modelNode.attachChild(box);
             }
-        }
 
-        return spawned;
+            // Добавляем модель в сцену
+            parentNode.attachChild(modelNode);
+
+            // Сохраняем ссылку на модель в монстре и устанавливаем позицию
+            monster.setModelNode(modelNode);
+            monster.setPosition(pos);
+
+            spawned.add(monster);
+
+            // Отладочный вывод
+            System.out.println("[DungeonLoader] " + monster.getName() + " spawned at " + pos +
+                    ", world pos: " + modelNode.getWorldTranslation());
+
+        } catch (Exception e) {
+            LOG.log(Level.SEVERE, "Error creating monster: " + e.getMessage(), e);
+        }
     }
+
+    return spawned;
+}
 
     private Monster createMonster(Dungeon.MonsterSpawn spawn, int difficulty) {
         try {
@@ -173,7 +195,15 @@ public class DungeonLoader {
             modelPath = "Models/Monsters/skeleton_warrior.gltf";
         } else if (monster instanceof BossMonster) {
             modelPath = "Models/Monsters/boss_monster.gltf"; // если есть такая модель
-        } else {
+        } else if (monster instanceof Demon) {
+            modelPath = "Models/Monsters/Demon.gltf"; // если есть такая модель
+        }
+         else if (monster instanceof Head) {
+            modelPath = "Models/Monsters/Head.gltf"; // если есть такая модель
+        }
+         else if (monster instanceof SpiderBoss) {
+            modelPath = "Models/Monsters/SpiderBoss.gltf"; // если есть такая модель
+        }else {
             // По умолчанию – скелет
             modelPath = "Models/Monsters/skeleton_warrior.gltf";
         }
@@ -182,7 +212,7 @@ public class DungeonLoader {
             Spatial model = app.getAssetManager().loadModel(modelPath);
             if (model != null) {
                 // Применяем трансформации, если нужно
-                model.scale(2.0f);
+                model.scale(2.5f);
                 model.move(0, 0.5f, 0);
                 return model;
             } else {
@@ -240,4 +270,6 @@ public class DungeonLoader {
         boolean isFinalBoss;
         boolean increaseDifficulty;
     }
+    
+    
 }

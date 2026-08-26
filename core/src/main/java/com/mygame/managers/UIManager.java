@@ -26,9 +26,11 @@ import com.simsilica.lemur.event.KeyAction;
 import com.simsilica.lemur.event.KeyActionListener;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 public class UIManager {
     // Поля (без изменений)...
@@ -988,56 +990,56 @@ private void createLoginScreen() {
 }
 
     // ===== ПОКАЗ И СКРЫТИЕ ОКОН =====
-    public void showLoginScreen() {
-        if (loginWindow == null) return;
-        hideRegisterScreen();
-        updateLoginPosition();
-
-        loginWindow.setCullHint(Node.CullHint.Dynamic);
-        loginVisible = true;
-        registerVisible = false;
-        showBackground();
-
-        app.enqueue(() -> {
-            if (loginFields != null && loginFields.length > 0) {
-                GuiGlobals.getInstance().requestFocus(loginFields[0]);
-                System.out.println("[UI] Focus set to login field");
-            }
-        });
-    }
-
-    public void hideLoginScreen() {
-        if (loginVisible) {
-            loginWindow.setCullHint(Node.CullHint.Always);
-            loginVisible = false;
-            GuiGlobals.getInstance().getFocusManagerState().setFocus(null);
+public void showLoginScreen() {
+    if (loginWindow == null) return;
+    hideRegisterScreen();
+    updateLoginPosition();
+    loginWindow.setCullHint(Node.CullHint.Dynamic);
+    loginVisible = true;
+    registerVisible = false;
+    showBackground();
+    attachNode(loginWindow); // если уже откреплено – прикрепляем
+    app.enqueue(() -> {
+        if (loginFields != null && loginFields.length > 0) {
+            GuiGlobals.getInstance().requestFocus(loginFields[0]);
+            System.out.println("[UI] Focus set to login field");
         }
-    }
+    });
+}
 
-    public void showRegisterScreen() {
-        if (registerWindow == null) return;
-        hideLoginScreen();
-        updateRegisterPosition();
-
-        registerWindow.setCullHint(Node.CullHint.Dynamic);
-        registerVisible = true;
+public void hideLoginScreen() {
+    if (loginVisible) {
+        loginWindow.setCullHint(Node.CullHint.Always);
         loginVisible = false;
-
-        app.enqueue(() -> {
-            if (registerFields != null && registerFields.length > 0) {
-                GuiGlobals.getInstance().requestFocus(registerFields[0]);
-                System.out.println("[UI] Focus set to register field");
-            }
-        });
+        GuiGlobals.getInstance().getFocusManagerState().setFocus(null);
+        detachNode(loginWindow); // удаляем из guiNode
     }
+}
 
-    public void hideRegisterScreen() {
-        if (registerVisible) {
-            registerWindow.setCullHint(Node.CullHint.Always);
-            registerVisible = false;
-            GuiGlobals.getInstance().getFocusManagerState().setFocus(null);
+public void showRegisterScreen() {
+    if (registerWindow == null) return;
+    hideLoginScreen();
+    updateRegisterPosition();
+    registerWindow.setCullHint(Node.CullHint.Dynamic);
+    registerVisible = true;
+    loginVisible = false;
+    attachNode(registerWindow); // если уже откреплено – прикрепляем
+    app.enqueue(() -> {
+        if (registerFields != null && registerFields.length > 0) {
+            GuiGlobals.getInstance().requestFocus(registerFields[0]);
+            System.out.println("[UI] Focus set to register field");
         }
+    });
+}
+
+public void hideRegisterScreen() {
+    if (registerVisible) {
+        registerWindow.setCullHint(Node.CullHint.Always);
+        registerVisible = false;
+        GuiGlobals.getInstance().getFocusManagerState().setFocus(null);
+        detachNode(registerWindow); // удаляем из guiNode
     }
+}
 
     // ===== ДИАЛОГ ТЕЛЕПОРТА =====
     private Container teleporterDialog;
@@ -1411,4 +1413,67 @@ public void showToast(String message) {
         int level = playerManager.getLevel();
         playerNameLabel.setText(name + " [" + level + "]");
     }
+    
+    private Node loadingScreenNode;
+private Geometry loadingImage;
+private List<String> loadingImages = Arrays.asList(
+    "Interface/hud/1.png",
+    "Interface/hud/2.png",
+    "Interface/hud/3.png",
+        "Interface/hud/4.png",
+            "Interface/hud/5.png",
+                "Interface/hud/6.png"
+);
+private Random random = new Random();
+
+public void showLoadingScreen() {
+    if (loadingScreenNode == null) {
+        loadingScreenNode = new Node("LoadingScreen");
+        float w = app.getCamera().getWidth();
+        float h = app.getCamera().getHeight();
+        if (w <= 0) w = 1280;
+        if (h <= 0) h = 720;
+        Quad quad = new Quad(w, h);
+        loadingImage = new Geometry("LoadingImage", quad);
+        loadingImage.setLocalTranslation(0, 0, 0);
+        loadingScreenNode.attachChild(loadingImage);
+        // Высокий Z, чтобы быть поверх всех UI
+        loadingScreenNode.setLocalTranslation(0, 0, 100);
+    } else {
+        // Обновляем размеры на случай изменения окна
+        updateLoadingScreenSize();
+    }
+    // Загружаем случайное изображение
+    String path = loadingImages.get(random.nextInt(loadingImages.size()));
+    try {
+        Texture tex = app.getAssetManager().loadTexture(path);
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setTexture("ColorMap", tex);
+        loadingImage.setMaterial(mat);
+    } catch (Exception e) {
+        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setColor("Color", new ColorRGBA(0.2f, 0.2f, 0.3f, 1f));
+        loadingImage.setMaterial(mat);
+    }
+    if (!guiNode.hasChild(loadingScreenNode)) {
+        guiNode.attachChild(loadingScreenNode);
+    }
+}
+
+public void hideLoadingScreen() {
+    if (loadingScreenNode != null && guiNode.hasChild(loadingScreenNode)) {
+        guiNode.detachChild(loadingScreenNode);
+    }
+}
+
+private void updateLoadingScreenSize() {
+    if (loadingImage == null) return;
+    float w = app.getCamera().getWidth();
+    float h = app.getCamera().getHeight();
+    if (w <= 0) w = 1280;
+    if (h <= 0) h = 720;
+    Quad q = (Quad) loadingImage.getMesh();
+    q.updateGeometry(w, h);
+    loadingImage.setLocalTranslation(0, 0, 0);
+}
 }

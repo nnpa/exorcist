@@ -837,7 +837,9 @@ public class PlayerManager {
 
             if (dir.lengthSquared() > 0.0001f) {
                 dir.normalizeLocal();
-                characterControl.setWalkDirection(dir.mult(4f));
+                characterControl.setWalkDirection(dir.mult(15f));
+                //characterControl.setWalkDirection(dir.mult(12f));
+
                 setMoving(true);
                 playBaseAnimation(ANIM_WALK);
             } else {

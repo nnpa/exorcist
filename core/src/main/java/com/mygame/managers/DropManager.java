@@ -182,49 +182,56 @@ public void setUIManager(UIManager ui) {
         private Geometry iconGeom;
         private BitmapText labelText;
 
-        public DropItem(Vector3f position, Item item) {
-            this.item = item;
-            node = new Node("DropNode_" + item.getName());
-            node.setLocalTranslation(position.x, position.y + 0.8f, position.z);
+       public DropItem(Vector3f position, Item item) {
+    this.item = item;
+    node = new Node("DropNode_" + item.getName());
 
-            // Иконка
-            Quad quad = new Quad(ICON_SIZE, ICON_SIZE);
-            iconGeom = new Geometry("DropIcon", quad);
-            Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-            Texture tex = null;
-            try {
-                tex = app.getAssetManager().loadTexture(item.getIconPath());
-            } catch (Exception e) {}
-            if (tex != null) {
-                mat.setTexture("ColorMap", tex);
-                mat.setColor("Color", ColorRGBA.White);
-            } else {
-                mat.setColor("Color", item.getColor());
-            }
-            iconGeom.setMaterial(mat);
-            iconGeom.setLocalTranslation(-ICON_SIZE/2, 0, -ICON_SIZE/2);
-            node.attachChild(iconGeom);
+    // Высота над землёй (поднимаем выше, чтобы было видно)
+    float heightAboveGround = 2.8f;
+    node.setLocalTranslation(position.x, position.y + heightAboveGround, position.z);
 
-            // Рамка
-            Quad borderQuad = new Quad(ICON_SIZE + BORDER_SIZE, ICON_SIZE + BORDER_SIZE);
-            Geometry borderGeom = new Geometry("DropBorder", borderQuad);
-            Material borderMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-            borderMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.1f, 0.8f));
-            borderGeom.setMaterial(borderMat);
-            borderGeom.setLocalTranslation(-(ICON_SIZE + BORDER_SIZE)/2, -BORDER_SIZE/2, -(ICON_SIZE + BORDER_SIZE)/2);
-            node.attachChild(borderGeom);
+    // Иконка – поднимаем вверх относительно узла (было 0, теперь +0.3)
+    Quad quad = new Quad(ICON_SIZE, ICON_SIZE);
+    iconGeom = new Geometry("DropIcon", quad);
+    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    Texture tex = null;
+    try {
+        tex = app.getAssetManager().loadTexture(item.getIconPath());
+    } catch (Exception e) {}
+    if (tex != null) {
+        mat.setTexture("ColorMap", tex);
+        mat.setColor("Color", ColorRGBA.White);
+    } else {
+        mat.setColor("Color", item.getColor());
+    }
+    iconGeom.setMaterial(mat);
+    // Смещаем иконку вверх относительно центра узла
+    float iconYOffset = 0.5f; // поднимаем иконку выше
+    iconGeom.setLocalTranslation(-ICON_SIZE/2, iconYOffset - ICON_SIZE/2, -ICON_SIZE/2);
+    node.attachChild(iconGeom);
 
-            // Текст
-            labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/Default.fnt"));
-            labelText.setText(item.getName());
-            labelText.setSize(0.4f);
-            labelText.setColor(item.getColor());
-            float textWidth = labelText.getLineWidth();
-            labelText.setLocalTranslation(-textWidth/2, ICON_SIZE/2 + TEXT_OFFSET, 0);
-            node.attachChild(labelText);
+    // Рамка (тоже поднимаем)
+    Quad borderQuad = new Quad(ICON_SIZE + BORDER_SIZE, ICON_SIZE + BORDER_SIZE);
+    Geometry borderGeom = new Geometry("DropBorder", borderQuad);
+    Material borderMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    borderMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.1f, 0.8f));
+    borderGeom.setMaterial(borderMat);
+    borderGeom.setLocalTranslation(-(ICON_SIZE + BORDER_SIZE)/2, iconYOffset - BORDER_SIZE/2 - ICON_SIZE/2, -(ICON_SIZE + BORDER_SIZE)/2);
+    node.attachChild(borderGeom);
 
-            BillboardControl billboard = new BillboardControl();
-            node.addControl(billboard);
-        }
+    // Текст – над иконкой с небольшим отступом
+    labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/Default.fnt"));
+    labelText.setText(item.getName());
+    labelText.setSize(0.5f);
+    labelText.setColor(item.getColor());
+    float textWidth = labelText.getLineWidth();
+    // Отступ текста над иконкой
+    float textOffsetY = 0.7f;
+    labelText.setLocalTranslation(-textWidth/2, iconYOffset + ICON_SIZE/2 + textOffsetY, 0);
+    node.attachChild(labelText);
+
+    BillboardControl billboard = new BillboardControl();
+    node.addControl(billboard);
+}
     }
 }

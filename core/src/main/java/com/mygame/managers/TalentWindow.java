@@ -1,12 +1,23 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.input.event.MouseButtonEvent;
+import com.jme3.input.event.MouseMotionEvent;
+import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
+import com.jme3.scene.shape.Quad;
+import com.jme3.texture.Texture;
 import com.simsilica.lemur.*;
+import com.simsilica.lemur.component.IconComponent;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
+import com.simsilica.lemur.component.SpringGridLayout;
+import com.simsilica.lemur.core.GuiComponent;
+import com.simsilica.lemur.event.MouseEventControl;
+import com.simsilica.lemur.event.MouseListener;
 
 import java.util.*;
 
@@ -205,124 +216,636 @@ resetButton.addClickCommands((source) -> {
         this.currentBranch = branch;
         updateUI();
     }
+private List<Node> talentNodes = new ArrayList<>();
 
-    public void updateUI() {
-        for (Button btn : talentButtons) {
-            windowNode.detachChild(btn);
+ public void updateUI() {
+    // Удаляем старые элементы
+    for (Spatial s : talentContainers) {
+        if (s != null && s.getParent() == windowNode) {
+            windowNode.detachChild(s);
         }
-        talentButtons.clear();
-
-        TalentTree tree = talentManager.getTrees().get(currentBranch);
-        if (tree == null) return;
-
-        List<Talent> talents = new ArrayList<>(tree.getTalents());
-        talents.sort((a, b) -> {
-            if (a.getRow() != b.getRow()) return Integer.compare(a.getRow(), b.getRow());
-            return Integer.compare(a.getColumn(), b.getColumn());
-        });
-
-        float totalWidth = 2 * buttonSize + buttonSpacingH;
-        float startX = (currentWidth - totalWidth) / 2;
-        float startY = currentHeight - 120 * (currentHeight / 550f);
-
-        for (int r = 0; r < 5; r++) {
-            for (int c = 0; c < 2; c++) {
-                final int row = r;
-                final int col = c;
-                Talent found = null;
-                for (Talent t : talents) {
-                    if (t.getRow() == row && t.getColumn() == col) {
-                        found = t;
-                        break;
-                    }
-                }
-
-                float x = startX + c * (buttonSize + buttonSpacingH);
-                float y = startY - r * (buttonSize + buttonSpacingV);
-
-                if (found != null) {
-                    final Talent talent = found;
-                    int level = talentManager.getLearned().getOrDefault(talent.getId(), 0);
-                    boolean isAvailable = talentManager.getAvailablePoints() >= talent.getCost() &&
-                            tree.isAvailable(talent, talentManager.getLearned());
-
-                    Button btn = new Button("");
-                    btn.setPreferredSize(new Vector3f(buttonSize, buttonSize, 0));
-                    btn.setLocalTranslation(x, y, 0.1f);
-
-                    if (level >= talent.getMaxLevel()) {
-                        btn.setColor(new ColorRGBA(0.8f, 0.7f, 0.1f, 0.9f));
-                    } else if (isAvailable) {
-                        btn.setColor(new ColorRGBA(0.1f, 0.8f, 0.1f, 0.9f));
-                    } else {
-                        btn.setColor(new ColorRGBA(0.3f, 0.3f, 0.3f, 0.9f));
-                    }
-
-                    String iconName = ICON_MAP.get(talent.getId());
-                    if (iconName != null) {
-                        try {
-                            com.jme3.texture.Texture tex = app.getAssetManager().loadTexture("Interface/Talents/" + iconName);
-                            if (tex != null) {
-                                QuadBackgroundComponent bg = new QuadBackgroundComponent(tex);
-                                btn.setBackground(bg);
-                            }
-                        } catch (Exception e) {
-                            btn.setText(talent.getName());
-                            btn.setFontSize(8);
-                        }
-                    } else {
-                        btn.setText(talent.getName());
-                        btn.setFontSize(8);
-                    }
-
-                    if (level > 0) {
-                        Label levelLabel = new Label(level + "/" + talent.getMaxLevel());
-                        levelLabel.setFontSize(11);
-                        levelLabel.setColor(ColorRGBA.Black);
-                        levelLabel.setBackground(new QuadBackgroundComponent(new ColorRGBA(1f, 1f, 1f, 0.7f)));
-                        levelLabel.setPreferredSize(new Vector3f(40, 14, 0));
-                        float labelX = (buttonSize - 40) / 2;
-                        float labelY = 1;
-                        levelLabel.setLocalTranslation(labelX, labelY, 0.1f);
-                        btn.attachChild(levelLabel);
-                    }
-
-btn.addClickCommands((source) -> {
-    if (!isVisible) return;
-    String id = talent.getId();
-    long now = System.currentTimeMillis();
-    Long last = lastClickTime.get(id);
-    if (last != null && (now - last) < 500) {
-        // Двойной клик – повышаем
-        talentManager.levelUpTalentAsync(id).thenAccept(success -> {
-            app.enqueue(() -> {
-                if (success) {
-                    updateUI();
-                    showTooltip("✓ " + talent.getName() + " upgraded!");
-                } else {
-                    showTooltip("✗ Cannot upgrade " + talent.getName());
-                }
-                return null;
-            });
-        });
-        lastClickTime.remove(id);
-    } else {
-        // Одиночный клик – показываем описание
-        showTooltip(talent.getDescription());
-        lastClickTime.put(id, now);
     }
-});
 
-                    windowNode.attachChild(btn);
-                    talentButtons.add(btn);
+    talentContainers.clear();
+
+    TalentTree tree = talentManager.getTrees().get(currentBranch);
+
+    if (tree == null) {
+        return;
+    }
+
+    List<Talent> talents = new ArrayList<>(tree.getTalents());
+
+    talents.sort((a, b) -> {
+        if (a.getRow() != b.getRow()) {
+            return Integer.compare(a.getRow(), b.getRow());
+        }
+
+        return Integer.compare(a.getColumn(), b.getColumn());
+    });
+
+    // ============================================================
+    // РАЗМЕРЫ СЕТКИ
+    // ============================================================
+
+    float totalWidth =
+            2 * buttonSize
+            + buttonSpacingH;
+
+    float totalHeight =
+            5 * buttonSize
+            + 4 * buttonSpacingV;
+
+    float startX =
+            (currentWidth - totalWidth) / 2;
+
+    float startY =
+            currentHeight
+            - 120 * (currentHeight / 550f)
+            - 100;
+
+    /*
+     * ВАЖНО:
+     *
+     * Здесь ограничение startY оставляем.
+     * Дополнительные -20 пикселей применяются непосредственно
+     * к каждой кнопке ниже.
+     */
+    if (startY - totalHeight < 10) {
+        startY = totalHeight + 10;
+    }
+
+    // ============================================================
+    // ФОН ОКНА
+    // ============================================================
+
+    Node bgNode =
+            new Node("WindowBgNode");
+
+    Geometry windowBg =
+            new Geometry(
+                    "WindowBg",
+                    new Quad(
+                            currentWidth,
+                            currentHeight
+                    )
+            );
+
+    Material bgMat =
+            new Material(
+                    app.getAssetManager(),
+                    "Common/MatDefs/Misc/Unshaded.j3md"
+            );
+
+    bgMat.setColor(
+            "Color",
+            new ColorRGBA(
+                    0.1f,
+                    0.1f,
+                    0.15f,
+                    0.95f
+            )
+    );
+
+    windowBg.setMaterial(bgMat);
+
+    windowBg.setLocalTranslation(
+            0,
+            0,
+            -0.2f
+    );
+
+    bgNode.attachChild(windowBg);
+
+    windowNode.attachChild(bgNode);
+
+    talentContainers.add(bgNode);
+
+    // ============================================================
+    // СЕТКА ТАЛАНТОВ
+    // ============================================================
+
+    for (int r = 0; r < 5; r++) {
+
+        for (int c = 0; c < 2; c++) {
+
+            Talent found = null;
+
+            for (Talent t : talents) {
+
+                if (t.getRow() == r
+                        && t.getColumn() == c) {
+
+                    found = t;
+                    break;
                 }
             }
-        }
 
-        if (pointsLabel != null) {
-            pointsLabel.setText("Points: " + talentManager.getAvailablePoints());
+            // ====================================================
+            // ПОЗИЦИЯ
+            // ====================================================
+
+            float x =
+                    startX
+                    + c * (
+                            buttonSize
+                            + buttonSpacingH
+                    );
+
+            /*
+             * -20 здесь означает:
+             *
+             * ВСЯ сетка талантов опускается вниз на 20 пикселей.
+             *
+             * Ограничение startY выше больше не может отменить
+             * этот сдвиг.
+             */
+            float y =
+                    startY
+                    - r * (
+                            buttonSize
+                            + buttonSpacingV
+                    )
+                    - 20;
+
+            // ====================================================
+            // КОНТЕЙНЕР ЯЧЕЙКИ
+            // ====================================================
+
+            Node cellNode =
+                    new Node(
+                            "TalentCell_"
+                            + r
+                            + "_"
+                            + c
+                    );
+
+            cellNode.setLocalTranslation(
+                    x,
+                    y,
+                    0.1f
+            );
+
+            // ====================================================
+            // ФОН / ИКОНКА ТАЛАНТА
+            // ====================================================
+
+            Geometry bg =
+                    new Geometry(
+                            "TalentCellBg_"
+                            + r
+                            + "_"
+                            + c,
+                            new Quad(
+                                    buttonSize,
+                                    buttonSize
+                            )
+                    );
+
+            bg.setLocalTranslation(
+                    0,
+                    0,
+                    0
+            );
+
+            Material mat =
+                    new Material(
+                            app.getAssetManager(),
+                            "Common/MatDefs/Misc/Unshaded.j3md"
+                    );
+
+            // ====================================================
+            // ЕСЛИ ТАЛАНТ СУЩЕСТВУЕТ
+            // ====================================================
+
+            if (found != null) {
+
+                final Talent talent = found;
+
+                int level =
+                        talentManager
+                                .getLearned()
+                                .getOrDefault(
+                                        talent.getId(),
+                                        0
+                                );
+
+                boolean hasPrereqs =
+                        tree.isAvailable(
+                                talent,
+                                talentManager.getLearned()
+                        );
+
+                boolean hasPoints =
+                        talentManager.getAvailablePoints()
+                        >= talent.getCost();
+
+                boolean isAvailable =
+                        hasPoints
+                        && hasPrereqs;
+
+                boolean isMaxLevel =
+                        level >= talent.getMaxLevel();
+
+                // =================================================
+                // ЗАГРУЗКА ИКОНКИ
+                // =================================================
+
+                String iconName =
+                        ICON_MAP.get(
+                                talent.getId()
+                        );
+
+                Texture tex = null;
+
+                if (iconName != null) {
+
+                    try {
+
+                        tex =
+                                app.getAssetManager()
+                                        .loadTexture(
+                                                "Interface/Talents/"
+                                                + iconName
+                                        );
+
+                    } catch (Exception e) {
+                        // Если иконка не загрузилась,
+                        // будет использован цветной фон.
+                    }
+                }
+
+                // =================================================
+                // МАТЕРИАЛ
+                // =================================================
+
+                if (tex != null) {
+
+                    mat.setTexture(
+                            "ColorMap",
+                            tex
+                    );
+
+                } else {
+
+                    ColorRGBA color;
+
+                    if (isMaxLevel) {
+
+                        color =
+                                new ColorRGBA(
+                                        0.8f,
+                                        0.7f,
+                                        0.1f,
+                                        0.9f
+                                );
+
+                    } else if (isAvailable) {
+
+                        color =
+                                new ColorRGBA(
+                                        0.1f,
+                                        0.8f,
+                                        0.1f,
+                                        0.9f
+                                );
+
+                    } else {
+
+                        color =
+                                new ColorRGBA(
+                                        0.3f,
+                                        0.3f,
+                                        0.3f,
+                                        0.9f
+                                );
+                    }
+
+                    mat.setColor(
+                            "Color",
+                            color
+                    );
+                }
+
+                bg.setMaterial(mat);
+
+                cellNode.attachChild(bg);
+
+                // =================================================
+                // ТЕКСТ
+                // =================================================
+
+                String displayText =
+                        talent.getName();
+
+                if (level > 0) {
+
+                    displayText +=
+                            " "
+                            + level
+                            + "/"
+                            + talent.getMaxLevel();
+                }
+
+                Label textLabel =
+                        new Label(
+                                displayText
+                        );
+
+                textLabel.setFontSize(10);
+
+                if (isMaxLevel
+                        || isAvailable) {
+
+                    textLabel.setColor(
+                            ColorRGBA.Black
+                    );
+
+                } else {
+
+                    textLabel.setColor(
+                            ColorRGBA.DarkGray
+                    );
+                }
+
+                float tw =
+                        textLabel
+                                .getPreferredSize()
+                                .x;
+
+                float th =
+                        textLabel
+                                .getPreferredSize()
+                                .y;
+
+                textLabel.setLocalTranslation(
+                        (buttonSize - tw) / 2,
+                        (buttonSize - th) / 2,
+                        0.1f
+                );
+
+                cellNode.attachChild(
+                        textLabel
+                );
+
+                // =================================================
+                // ОБРАБОТЧИК КЛИКА
+                // =================================================
+
+                MouseListener talentListener =
+                        new MouseListener() {
+
+                    @Override
+                    public void mouseButtonEvent(
+                            MouseButtonEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+
+                        if (!evt.isPressed()) {
+                            return;
+                        }
+
+                        if (evt.getButtonIndex() != 0) {
+                            return;
+                        }
+
+                        if (!isVisible) {
+                            return;
+                        }
+
+                        // =========================================
+                        // МАКСИМАЛЬНЫЙ УРОВЕНЬ
+                        // =========================================
+
+                        if (isMaxLevel) {
+
+                            showTooltip(
+                                    talent.getName()
+                                    + " already at max level!"
+                            );
+
+                            return;
+                        }
+
+                        // =========================================
+                        // НЕДОСТУПЕН
+                        // =========================================
+
+                        if (!isAvailable) {
+
+                            StringBuilder msg =
+                                    new StringBuilder(
+                                            "Not available: "
+                                    );
+
+                            if (!hasPrereqs) {
+
+                                msg.append(
+                                        "Prerequisites missing: "
+                                );
+
+                                for (
+                                        String prereqId
+                                        : talent.getPrerequisites()
+                                ) {
+
+                                    if (
+                                            !talentManager
+                                                    .getLearned()
+                                                    .containsKey(
+                                                            prereqId
+                                                    )
+                                            ||
+                                            talentManager
+                                                    .getLearned()
+                                                    .get(
+                                                            prereqId
+                                                    )
+                                                    == 0
+                                    ) {
+
+                                        Talent prereqTalent =
+                                                tree.getTalentById(
+                                                        prereqId
+                                                );
+
+                                        msg.append(
+                                                prereqTalent != null
+                                                ? prereqTalent.getName()
+                                                : prereqId
+                                        );
+
+                                        msg.append(" ");
+                                    }
+                                }
+
+                            } else if (!hasPoints) {
+
+                                msg.append(
+                                        "Not enough points!"
+                                );
+                            }
+
+                            showTooltip(
+                                    msg.toString()
+                            );
+
+                            return;
+                        }
+
+                        // =========================================
+                        // ЗВУК
+                        // =========================================
+
+                        SoundManager.playSound(
+                                SoundManager.SOUND_CLICK
+                        );
+
+                        // =========================================
+                        // ПОВЫШЕНИЕ ТАЛАНТА
+                        // =========================================
+
+                        talentManager
+                                .levelUpTalentAsync(
+                                        talent.getId()
+                                )
+                                .thenAccept(
+                                        success -> {
+
+                                            app.enqueue(
+                                                    () -> {
+
+                                                        if (success) {
+
+                                                            updateUI();
+
+                                                            showTooltip(
+                                                                    "✓ "
+                                                                    + talent.getName()
+                                                                    + " upgraded!"
+                                                            );
+
+                                                        } else {
+
+                                                            showTooltip(
+                                                                    "✗ Cannot upgrade "
+                                                                    + talent.getName()
+                                                            );
+                                                        }
+
+                                                        return null;
+                                                    }
+                                            );
+                                        }
+                                );
+                    }
+
+                    @Override
+                    public void mouseEntered(
+                            MouseMotionEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+                    }
+
+                    @Override
+                    public void mouseExited(
+                            MouseMotionEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+                    }
+
+                    @Override
+                    public void mouseMoved(
+                            MouseMotionEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+                    }
+                };
+
+                // =================================================
+                // LISTENER НА ФОН
+                // =================================================
+
+                MouseEventControl
+                        .removeListenersFromSpatial(
+                                bg
+                        );
+
+                MouseEventControl
+                        .addListenersToSpatial(
+                                bg,
+                                talentListener
+                        );
+
+                // =================================================
+                // LISTENER НА ТЕКСТ
+                //
+                // Это устраняет "мёртвые" области,
+                // которые возникали из-за Label поверх Geometry.
+                // =================================================
+
+                MouseEventControl
+                        .removeListenersFromSpatial(
+                                textLabel
+                        );
+
+                MouseEventControl
+                        .addListenersToSpatial(
+                                textLabel,
+                                talentListener
+                        );
+
+            } else {
+
+                // =================================================
+                // ПУСТАЯ ЯЧЕЙКА
+                // =================================================
+
+                mat.setColor(
+                        "Color",
+                        new ColorRGBA(
+                                0.15f,
+                                0.15f,
+                                0.15f,
+                                0.9f
+                        )
+                );
+
+                bg.setMaterial(mat);
+
+                cellNode.attachChild(
+                        bg
+                );
+            }
+
+            // ====================================================
+            // ДОБАВЛЯЕМ ЯЧЕЙКУ В ОКНО
+            // ====================================================
+
+            windowNode.attachChild(
+                    cellNode
+            );
+
+            talentContainers.add(
+                    cellNode
+            );
         }
     }
+
+    // ============================================================
+    // ОЧКИ ТАЛАНТОВ
+    // ============================================================
+
+    if (pointsLabel != null) {
+
+        pointsLabel.setText(
+                "Points: "
+                + talentManager.getAvailablePoints()
+        );
+    }
+}
+private List<Spatial> talentContainers = new ArrayList<>();
+
 
     private void showTooltip(String text) {
         if (tooltipLabel == null || !isVisible) return;

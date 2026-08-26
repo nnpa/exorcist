@@ -1,5 +1,6 @@
 package com.mygame.managers;
 
+import com.google.gson.Gson;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.collision.shapes.CollisionShape;
@@ -22,12 +23,26 @@ import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.dungeons.Dungeon;
 import com.mygame.dungeons.DungeonLoader;
 import com.mygame.dungeons.DungeonManager;
+import com.mygame.monsters.Demon;
+import com.mygame.monsters.Head;
+import com.mygame.monsters.SpiderBoss;
+import editor.DungeonEditor;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.logging.Level;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
+import java.io.*;
 public class WorldManager {
 
     private SimpleApplication app;
@@ -84,7 +99,7 @@ public class WorldManager {
         dungeonLoader = new DungeonLoader(app);
         dungeonManager = new DungeonManager();
         dungeonLoader.setWorldManager(this);
-
+        initEditor();
         System.out.println("[WorldManager] Initialization complete");
     }
 
@@ -318,7 +333,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             return;
         }
 
-        Monster skeleton = new SkeletonWarrior();
+        Monster skeleton = new SpiderBoss();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
@@ -327,8 +342,8 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
 
         Spatial model = null;
         try {
-            System.out.println("[WorldManager] Loading model: Models/Monsters/skeleton_warrior.gltf");
-            model = app.getAssetManager().loadModel("Models/Monsters/skeleton_warrior.gltf");
+            System.out.println("[WorldManager] Loading model: Models/Monsters/SpirderBoss.gltf");
+            model = app.getAssetManager().loadModel("Models/Monsters/SpiderBoss.gltf");
         } catch (Exception e) {
             System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
             e.printStackTrace();
@@ -441,7 +456,16 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
         currentState = GameState.CITY;
         System.out.println("[WorldManager] Switched to City");
     }
-
+private static class MonsterSpawnData {
+    String className;
+    float x, y, z;
+    int level;
+    float health, damage;
+    String nextDungeon;
+    boolean isBoss;
+    boolean isFinalBoss;
+    boolean increaseDifficulty;
+}
     public void switchToDungeon() {
         if (cityNode != null) {
             removePhysicsFromNode(cityNode);
@@ -460,7 +484,81 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
     // ============================================================
     //   ЗАГРУЗКА ДАНЖА
     // ============================================================
-    public void loadDungeon(String dungeonId, int difficulty) {
+    public Dungeon loadDungeon(String filePath) {
+        
+    try {
+        // 1. Извлекаем ID данжа из пути
+        String id = filePath.substring(filePath.lastIndexOf('/') + 1, filePath.lastIndexOf('.'));
+        
+        // 2. Пытаемся загрузить сохранённый файл из папки пользователя
+        String savePath = System.getProperty("user.home") + "/Exorcist/dungeons/" + id + ".json";
+        File saveFile = new File(savePath);
+        if (saveFile.exists()) {
+            try (FileReader reader = new FileReader(saveFile)) {
+                Gson gson = new Gson();
+                Type listType = new TypeToken<List<MonsterSpawnData>>(){}.getType();
+                List<MonsterSpawnData> list = gson.fromJson(reader, listType);
+                Dungeon dungeon = new Dungeon(id);
+                for (MonsterSpawnData data : list) {
+                    dungeon.addSpawn(new Dungeon.MonsterSpawn(
+                        data.className,
+                        data.x, data.y, data.z,
+                        data.level,
+                        data.health,
+                        data.damage,
+                        data.nextDungeon,
+                        data.isBoss,
+                        data.isFinalBoss,
+                        data.increaseDifficulty
+                    ));
+                }
+                System.out.println("[DungeonLoader] Loaded saved dungeon from " + savePath);
+                return dungeon;
+            } catch (IOException e) {
+                System.err.println("[DungeonLoader] Error reading saved file: " + e.getMessage());
+                // если файл повреждён, игнорируем и загружаем из ресурсов
+            }
+        }
+
+        // 3. Если сохранённого файла нет – загружаем из ресурсов
+        InputStream is = getClass().getClassLoader().getResourceAsStream(filePath);
+        if (is == null) {
+            return null;
+        }
+        InputStreamReader reader = new InputStreamReader(is);
+        Gson gson = new Gson();
+        Type listType = new TypeToken<List<MonsterSpawnData>>(){}.getType();
+        List<MonsterSpawnData> spawnDataList = gson.fromJson(reader, listType);
+        reader.close();
+
+        Dungeon dungeon = new Dungeon(id);
+        for (MonsterSpawnData data : spawnDataList) {
+            dungeon.addSpawn(new Dungeon.MonsterSpawn(
+                data.className,
+                data.x, data.y, data.z,
+                data.level,
+                data.health,
+                data.damage,
+                data.nextDungeon,
+                data.isBoss,
+                data.isFinalBoss,
+                data.increaseDifficulty
+            ));
+        }
+        return dungeon;
+    } catch (Exception e) {
+        return null;
+    }
+}
+public void loadDungeon(String dungeonId, int difficulty) {
+    // 1. Показываем экран загрузки (синхронно, прямо сейчас)
+    if (uiManager != null) {
+        uiManager.showLoadingScreen();
+    }
+
+    // 2. Откладываем основную загрузку на следующий кадр
+    app.enqueue(() -> {
+        // Собственно загрузка
         if (dungeonNode != null) {
             removePhysicsFromNode(dungeonNode);
             worldNode.detachChild(dungeonNode);
@@ -477,6 +575,8 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
 
         Dungeon dungeon = dungeonLoader.loadDungeon("dungeons/" + dungeonId + ".json");
         if (dungeon != null) {
+            this.currentDungeon = dungeon;
+            this.currentDungeonId = dungeonId;
             dungeonLoader.setPlayerManager(playerManager);
             dungeonLoader.setDropManager(dropManager);
             List<Monster> newMonsters = dungeonLoader.spawnDungeon(dungeon, dungeonNode, difficulty);
@@ -494,7 +594,13 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             Main.getInstance().getGameManager().setState(GameState.DUNGEON);
         }
         SoundManager.playMusic(SoundManager.MUSIC_DUNGEON);
-    }
+
+        // 3. Скрываем экран загрузки после завершения
+        if (uiManager != null) {
+            uiManager.hideLoadingScreen();
+        }
+    });
+}
 
     public void returnToCity() {
         if (playerManager == null) return;
@@ -550,7 +656,36 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             }
         }
     }
+private DungeonEditor editor;
 
+public void initEditor() {
+    editor = new DungeonEditor((Main) app);
+}
+
+public void openEditorForCurrentDungeon() {
+    System.out.println("[WorldManager] openEditorForCurrentDungeon() called");
+    System.out.println("  dungeonNode=" + dungeonNode);
+    System.out.println("  currentDungeon=" + currentDungeon);
+    System.out.println("  currentDungeonId=" + currentDungeonId);
+    if (dungeonNode == null || currentDungeon == null || currentDungeonId == null) {
+        System.err.println("[WorldManager] No dungeon loaded to edit.");
+        return;
+    }
+    List<Dungeon.MonsterSpawn> spawns = currentDungeon.getSpawns();
+    if (editor == null) {
+        initEditor();
+    }
+    editor.open(currentDungeonId, spawns, () -> {
+        // После сохранения перезагружаем данж
+        changeDungeon(currentDungeonId, false);
+    });
+}
+
+private UIManager uiManager;
+
+public void setUIManager(UIManager ui) {
+    this.uiManager = ui;
+}
     // ============================================================
     //   СМЕНА ДАНЖА ПОСЛЕ БОССА
     // ============================================================
@@ -703,4 +838,7 @@ auctioneer.setLocalTranslation(5f, -1.3f, 5f);
             System.err.println("[WorldManager] Error loading auction house: " + e.getMessage());
         }
     }
+    
+    private Dungeon currentDungeon;      // текущий объект данжа
+private String currentDungeonId;     // ID текущего данжа
 }

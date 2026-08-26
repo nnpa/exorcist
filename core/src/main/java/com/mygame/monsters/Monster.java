@@ -101,7 +101,7 @@ public class Monster {
 
     private static final float HP_BAR_WIDTH = 1.2f;
     private static final float HP_BAR_HEIGHT = 0.08f;
-    private static final float HP_BAR_HEIGHT_OFFSET = 2.0f;
+    private static final float HP_BAR_HEIGHT_OFFSET = 3.0f;
     private static final float HP_BAR_LEFT_OFFSET = 0.6f;
     private static final float HP_BAR_Z_OFFSET = 0.01f;
 
@@ -197,11 +197,15 @@ public class Monster {
         if (modelNode != null) { modelNode.setLocalTranslation(spawnPosition); }
     }
     public Vector3f getPosition() { return currentPosition; }
-    public void setPosition(Vector3f position) {
-        if (position == null) return;
-        this.currentPosition = position.clone();
-        if (modelNode != null) { modelNode.setLocalTranslation(position); }
+public void setPosition(Vector3f position) {
+    if (position == null) return;
+    System.out.println("[Monster] setPosition called for " + name + " -> " + position);
+    this.currentPosition = position.clone();
+    if (modelNode != null) {
+        modelNode.setLocalTranslation(position);
+        System.out.println("[Monster] Model moved to " + modelNode.getLocalTranslation());
     }
+}
 
     // ============================================================
     // SYSTEMS
@@ -247,7 +251,7 @@ public class Monster {
             isAlive = false;
             onDeath();
         } else {
-            playAnimation("GetHit");
+            //playAnimation("GetHit");
         }
     }
 
