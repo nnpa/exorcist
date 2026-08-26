@@ -1220,6 +1220,7 @@ if (healParticles != null) {
                 if (ui != null) {
                     ui.updatePotionCounts();
                     ui.updatePlayerStats();
+                    savePotionsToServer();
                 }
             }
         } else {
@@ -1237,13 +1238,29 @@ if (healParticles != null) {
                 if (ui != null) {
                     ui.updatePotionCounts();
                     ui.updatePlayerStats();
+                    savePotionsToServer();
                 }
             }
         } else {
             System.out.println("[Player] No mana potions!");
         }
     }
-
+private void savePotionsToServer() {
+    if (networkManager == null) return;
+    Map<String, Object> data = new HashMap<>();
+    data.put("healthPotions", healthPotions);
+    data.put("manaPotions", manaPotions);
+    networkManager.saveCharacter(data).thenAccept(success -> {
+        if (success) {
+            System.out.println("[PlayerManager] Potions saved to server.");
+        } else {
+            System.err.println("[PlayerManager] Failed to save potions!");
+        }
+    }).exceptionally(ex -> {
+        System.err.println("[PlayerManager] Error saving potions: " + ex.getMessage());
+        return null;
+    });
+}
     // ============================================================
     // LOAD PLAYER DATA
     // ============================================================

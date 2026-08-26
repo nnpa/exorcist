@@ -193,6 +193,9 @@ inputManager.addListener(new ActionListener() {
         }
     }
 }, "OpenEditor");
+
+
+
     }
 
     @Override
@@ -201,7 +204,10 @@ inputManager.addListener(new ActionListener() {
         if (gameManager != null) gameManager.update(tpf);
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);
-        if (uiManager != null) uiManager.update(tpf);
+        if (uiManager != null) {
+            uiManager.update(tpf);
+            uiManager.updateMap(tpf); // только если окно открыто
+         }
         // Камера обновляется автоматически через controlUpdate
     }
 
@@ -261,6 +267,9 @@ inputManager.addListener(new ActionListener() {
         worldLoaded = true;
         System.out.println("[Main] ===== МИР ЗАГРУЖЕН =====");
         loadTalentsFromServer();
+        if (worldManager != null && worldManager.getDungeonNode() != null) {
+        uiManager.initMap(worldManager.getDungeonNode(), playerManager);
+    }
     }
 
     private void handleClick(float screenX, float screenY) {
@@ -404,6 +413,7 @@ inputManager.addListener(new ActionListener() {
         gameManager.setWorldManager(worldManager);
         gameManager.setUIManager(uiManager);
 worldManager.setUIManager(uiManager);
+uiManager.setWorldManager(worldManager);
 
         isInitialized = true;
     }

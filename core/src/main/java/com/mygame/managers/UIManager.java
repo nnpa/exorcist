@@ -33,6 +33,10 @@ import java.util.Map;
 import java.util.Random;
 
 public class UIManager {
+    private WorldManager worldManager;
+public void setWorldManager(WorldManager wm) {
+    this.worldManager = wm;
+}
     // Поля (без изменений)...
     private Node backgroundNode;
     private Geometry backgroundGeom;
@@ -127,6 +131,9 @@ public class UIManager {
         }
         if (!"trader".equals(keepOpen) && traderWindow != null && traderWindow.isVisible()) {
             traderWindow.hide();
+        }
+        if (!"map".equals(keepOpen) && mapWindow != null && mapWindow.isVisible()) {
+        mapWindow.hide();
         }
     }
 
@@ -1220,6 +1227,8 @@ public void hideRegisterScreen() {
         if (talentWindow != null) talentWindow.hide();
         if (traderWindow != null) traderWindow.hide();
         if (auctionWindow != null) auctionWindow.hide();
+        if (mapRenderer != null) mapRenderer.cleanup();
+        if (mapWindow != null) mapWindow.cleanup();
     }
 
     public Node getGuiNode() { return guiNode; }
@@ -1476,4 +1485,55 @@ private void updateLoadingScreenSize() {
     q.updateGeometry(w, h);
     loadingImage.setLocalTranslation(0, 0, 0);
 }
+
+// В UIManager добавьте поля
+private MapRenderer mapRenderer;
+private MapWindow mapWindow;
+
+// Метод инициализации карты (вызывается после загрузки мира)
+public void initMap(Node sceneNode, PlayerManager pm) {
+    if (mapRenderer == null) {
+        mapRenderer = new MapRenderer(app);
+        mapRenderer.initialize();
+    }
+    if (mapWindow == null) {
+        mapWindow = new MapWindow(app, mapRenderer, pm);
+        mapWindow.show();
+    }
+}
+
+public void toggleMap() {
+    if (mapWindow == null) return;
+    if (mapWindow.isVisible()) {
+        mapWindow.hide();
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_CLOSE);
+    } else {
+        closeAllWindowsExcept("map");
+        mapWindow.show();
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
+    }
+}
+public void updateMap(float tpf) {
+    if (mapRenderer == null || playerManager == null || mapWindow == null) {
+        return;
+    }
+
+    if (!mapWindow.isVisible()) {
+        return;
+    }
+
+    // Обновляем только положение камеры карты.
+    // НЕ вызываем updateLogicalState() / updateGeometricState()
+    // у DungeonNode.
+    Vector3f pos = playerManager.getPosition();
+
+    if (pos != null) {
+        mapRenderer.update(pos);
+    }
+
+    // Обновляем GUI карты.
+    // Это должно происходить в обычном update-потоке приложения.
+    mapWindow.update();
+}
+
 }

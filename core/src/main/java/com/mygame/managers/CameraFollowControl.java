@@ -12,7 +12,7 @@ public class CameraFollowControl extends AbstractControl {
     private Camera cam;
     private Node target;
     private float distance = 25f;
-    private float height = 90f;
+    private float height = 20f;
     private float cameraAngle = 0f;
     private float smoothness = 0.15f;
     private Vector3f targetOffset = new Vector3f(0, -0.5f, 0);

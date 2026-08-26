@@ -601,6 +601,7 @@ public void loadDungeon(String dungeonId, int difficulty) {
         }
     });
 }
+public Node getDungeonNode() { return dungeonNode; }
 
     public void returnToCity() {
         if (playerManager == null) return;
@@ -795,7 +796,6 @@ public void setUIManager(UIManager ui) {
     // ============================================================
     public Node getWorldNode() { return worldNode; }
     public Node getCityNode() { return cityNode; }
-    public Node getDungeonNode() { return dungeonNode; }
     public Node getInteractableNode() { return interactableNode; }
     public Node getNpcNode() { return npcNode; }
     public List<Monster> getActiveMonsters() { return activeMonsters; }
