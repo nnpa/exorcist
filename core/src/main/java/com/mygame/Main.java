@@ -1,5 +1,10 @@
 package com.mygame;
 
+import com.atr.jme.font.TrueTypeFont;
+import com.atr.jme.font.asset.TrueTypeKey;
+import com.atr.jme.font.asset.TrueTypeKeyBMP;
+import com.atr.jme.font.asset.TrueTypeLoader;
+import com.atr.jme.font.util.Style;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
@@ -53,7 +58,6 @@ public class Main extends SimpleApplication {
     @Override
     public void simpleInitApp() {
         instance = this;
-
         setDisplayFps(false);
         setDisplayStatView(false);
         viewPort.setBackgroundColor(ColorRGBA.Black);
@@ -195,7 +199,6 @@ inputManager.addListener(new ActionListener() {
 }, "OpenEditor");
 
 
-
     }
 
     @Override
@@ -210,6 +213,7 @@ inputManager.addListener(new ActionListener() {
          }
         // Камера обновляется автоматически через controlUpdate
     }
+    private TrueTypeFont ttfFont;
 
     // ============================================================
     //                    МИР, КЛИКИ, ТАЛАНТЫ

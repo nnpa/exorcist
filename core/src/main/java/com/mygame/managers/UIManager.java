@@ -1,6 +1,7 @@
 package com.mygame.managers;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.font.BitmapFont;
 import com.jme3.input.KeyInput;
 import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.KeyTrigger;
@@ -24,6 +25,7 @@ import com.mygame.managers.GameManager.GameState;
 import com.simsilica.lemur.component.TextEntryComponent;
 import com.simsilica.lemur.event.KeyAction;
 import com.simsilica.lemur.event.KeyActionListener;
+import com.simsilica.lemur.style.Styles;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -267,6 +269,8 @@ public void setWorldManager(WorldManager wm) {
 
     // ===== ИНИЦИАЛИЗАЦИЯ =====
     public void initialize() {
+
+
         // Отключаем навигацию Lemur (Tab)
         GuiGlobals.getInstance().getFocusNavigationState().setEnabled(false);
         GuiGlobals.getInstance().getInputMapper().deactivateGroup(FocusNavigationFunctions.UI_NAV);

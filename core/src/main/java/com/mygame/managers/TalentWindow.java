@@ -535,58 +535,44 @@ private List<Node> talentNodes = new ArrayList<>();
                 // ТЕКСТ
                 // =================================================
 
-                String displayText =
-                        talent.getName();
+                // =================================================
 
-                if (level > 0) {
+String displayText = talent.getName();
+if (level > 0) {
+    displayText += " " + level + "/" + talent.getMaxLevel();
+}
 
-                    displayText +=
-                            " "
-                            + level
-                            + "/"
-                            + talent.getMaxLevel();
-                }
+// Размер шрифта (можно увеличить до 16, если нужно)
+float fontSize = 15;
 
-                Label textLabel =
-                        new Label(
-                                displayText
-                        );
+// Вычисляем центр для позиционирования
+Label temp = new Label(displayText);
+temp.setFontSize(fontSize);
+float tw = temp.getPreferredSize().x;
+float th = temp.getPreferredSize().y;
+float posX = (buttonSize - tw) / 2;
+float posY = (buttonSize - th) / 2;
 
-                textLabel.setFontSize(10);
+// ---- ТЕНЬ 1 (смещение вправо-вверх) ----
+Label shadow1 = new Label(displayText);
+shadow1.setFontSize(fontSize);
+shadow1.setColor(new ColorRGBA(0, 0, 0, 0.95f));
+shadow1.setLocalTranslation(posX + 1, posY + 1, 0.1f);
+cellNode.attachChild(shadow1);
 
-                if (isMaxLevel
-                        || isAvailable) {
+// ---- ТЕНЬ 2 (смещение ещё дальше, для жирности) ----
+Label shadow2 = new Label(displayText);
+shadow2.setFontSize(fontSize);
+shadow2.setColor(new ColorRGBA(0, 0, 0, 0.8f));
+shadow2.setLocalTranslation(posX + 2, posY + 2, 0.1f);
+cellNode.attachChild(shadow2);
 
-                    textLabel.setColor(
-                            ColorRGBA.Black
-                    );
-
-                } else {
-
-                    textLabel.setColor(
-                            ColorRGBA.DarkGray
-                    );
-                }
-
-                float tw =
-                        textLabel
-                                .getPreferredSize()
-                                .x;
-
-                float th =
-                        textLabel
-                                .getPreferredSize()
-                                .y;
-
-                textLabel.setLocalTranslation(
-                        (buttonSize - tw) / 2,
-                        (buttonSize - th) / 2,
-                        0.1f
-                );
-
-                cellNode.attachChild(
-                        textLabel
-                );
+// ---- ОСНОВНОЙ ТЕКСТ (белый) ----
+Label textLabel = new Label(displayText);
+textLabel.setFontSize(fontSize);
+textLabel.setColor(ColorRGBA.White);
+textLabel.setLocalTranslation(posX, posY, 0.2f);
+cellNode.attachChild(textLabel);
 
                 // =================================================
                 // ОБРАБОТЧИК КЛИКА
@@ -739,20 +725,22 @@ private List<Node> talentNodes = new ArrayList<>();
                                         }
                                 );
                     }
+@Override
+public void mouseEntered(MouseMotionEvent evt, Spatial spatial, Spatial target) {
+    if (talent != null) {
+        String desc = talent.getDescription();
+        if (desc == null || desc.isEmpty()) {
+            desc = talent.getName();
+        }
+        showTooltipPersistent(desc);
+    }
+}
 
-                    @Override
-                    public void mouseEntered(
-                            MouseMotionEvent evt,
-                            Spatial spatial,
-                            Spatial target) {
-                    }
+@Override
+public void mouseExited(MouseMotionEvent evt, Spatial spatial, Spatial target) {
+    hideTooltipPersistent();
+}
 
-                    @Override
-                    public void mouseExited(
-                            MouseMotionEvent evt,
-                            Spatial spatial,
-                            Spatial target) {
-                    }
 
                     @Override
                     public void mouseMoved(
@@ -862,14 +850,27 @@ private List<Spatial> talentContainers = new ArrayList<>();
         tooltipTimer = 0f;
     }
 
-    public void update(float tpf) {
-        if (tooltipVisible && isVisible) {
-            tooltipTimer -= tpf;
-            if (tooltipTimer <= 0) {
-                hideTooltip();
-            }
+public void update(float tpf) {
+    if (tooltipVisible && isVisible && !tooltipPersistent) {
+        tooltipTimer -= tpf;
+        if (tooltipTimer <= 0) {
+            hideTooltip();
         }
     }
+}
+
+private void showTooltipPersistent(String text) {
+    if (tooltipLabel == null) return;
+    tooltipLabel.setText(text);
+    tooltipLabel.setCullHint(Node.CullHint.Dynamic);
+    tooltipPersistent = true;
+    tooltipVisible = true;
+}
+
+private void hideTooltipPersistent() {
+    tooltipPersistent = false;
+    hideTooltip();
+}
 
     public void updateLayout(int screenWidth, int screenHeight) {
         if (isVisible) {
@@ -907,4 +908,6 @@ private List<Spatial> talentContainers = new ArrayList<>();
     public void toggle() {
         if (isVisible) hide(); else show();
     }
+    private boolean tooltipPersistent = false;
+
 }
