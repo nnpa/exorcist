@@ -46,6 +46,10 @@ public static AudioNode getSoundNode(String key) {
     public static final String SOUND_WINDOW_TALENTS = "ui_window_open_talents_inventory";
     public static final String SOUND_WINDOW_TRADER = "ui_window_open_trader_auction";
     public static final String SOUND_WINDOW_CLOSE = "ui_window_close";
+
+    static void setMasterVolume(float vol) {
+        
+    }
 private AudioNode footstepNode;
 private float footstepTimer = 0f;
 private static final float FOOTSTEP_INTERVAL = 0.45f;

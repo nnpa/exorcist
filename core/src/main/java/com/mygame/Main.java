@@ -8,6 +8,7 @@ import com.atr.jme.font.util.Style;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.font.BitmapFont;
 import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.RawInputListener;
@@ -23,6 +24,7 @@ import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.renderer.RenderManager;
+import com.jme3.system.AppSettings;
 import com.simsilica.lemur.GuiGlobals;
 import com.simsilica.lemur.TextField;
 import com.simsilica.lemur.Insets3f;
@@ -275,7 +277,13 @@ inputManager.addListener(new ActionListener() {
         uiManager.initMap(worldManager.getDungeonNode(), playerManager);
     }
     }
-
+public void applyResolution(int width, int height) {
+    AppSettings settings = new AppSettings(true);
+    settings.setWidth(width);
+    settings.setHeight(height);
+    setSettings(settings);
+    restart(); // перезапускает дисплей
+}
     private void handleClick(float screenX, float screenY) {
         if (!worldLoaded || playerManager == null) return;
         DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);

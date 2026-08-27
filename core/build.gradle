@@ -40,6 +40,8 @@ implementation 'net.java.dev.jna:jna:5.16.0'
 implementation 'net.java.dev.jna:jna-platform:5.16.0'
 implementation 'org.lwjgl:lwjgl-glfw:3.3.6'
 implementation 'com.github.stephengold:jme-ttf:3.0.1'
+    implementation 'com.google.guava:guava:32.1.3-jre'
+
 }
 
 application {
