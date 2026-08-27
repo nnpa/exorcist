@@ -43,8 +43,10 @@ public class TraderWindow {
         positionWindow();
     }
 
-    public Node getNode() {
-        return windowNode;
+    public Node getNode() { return windowNode; }
+
+    private String getLocalized(String key) {
+        return LocalizationManager.getInstance().get(key);
     }
 
     private void updateScale() {
@@ -67,16 +69,13 @@ public class TraderWindow {
             screenHeight = 720;
         }
 
-        leftShift = 30 * scale; // ← сдвиг вправо
-
-        // Увеличиваем ширину на leftShift, чтобы кнопка закрытия не выходила за рамки
-        windowWidth = (420 + 30) * scale; // ← было 420, теперь +30 пикселей
+        leftShift = 30 * scale;
+        windowWidth = (420 + 30) * scale;
         windowHeight = 380 * scale;
 
         windowNode = new Node("TraderWindowNode");
         windowNode.setName("TraderWindowNode");
 
-        // Фон (увеличиваем ширину)
         if (uiManager != null) {
             Geometry bgGeom = uiManager.createBackgroundGeometry(windowWidth, windowHeight);
             bgGeom.setLocalTranslation(0, 0, -0.1f);
@@ -91,45 +90,40 @@ public class TraderWindow {
             windowNode.attachChild(bgGeom);
         }
 
-        // Заголовок (сдвинут)
-        Label title = new Label("Trader");
+        Label title = new Label(getLocalized("trader.title"));
         title.setFontSize(20 * scale);
         title.setColor(ColorRGBA.White);
         title.setLocalTranslation(windowWidth / 2 - 40 * scale + leftShift, windowHeight - 30 * scale, 0.1f);
         windowNode.attachChild(title);
 
-        // Золото (сдвинуто)
-        goldLabel = new Label("Gold: 0");
+        goldLabel = new Label(getLocalized("gold.label") + "0");
         goldLabel.setFontSize(14 * scale);
         goldLabel.setColor(ColorRGBA.Yellow);
         goldLabel.setLocalTranslation(15 * scale + leftShift, windowHeight - 60 * scale, 0.1f);
         windowNode.attachChild(goldLabel);
 
-        // Вкладки (сдвинуты)
-        Button buyTab = new Button("Buy");
+        Button buyTab = new Button(getLocalized("trader.tab.buy"));
         buyTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
         buyTab.setFontSize(12 * scale);
         buyTab.setLocalTranslation(15 * scale + leftShift, windowHeight - 95 * scale, 0.1f);
         buyTab.addClickCommands((source) -> showBuyTab());
         windowNode.attachChild(buyTab);
 
-        Button sellTab = new Button("Sell");
+        Button sellTab = new Button(getLocalized("trader.tab.sell"));
         sellTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
         sellTab.setFontSize(12 * scale);
         sellTab.setLocalTranslation(95 * scale + leftShift, windowHeight - 95 * scale, 0.1f);
         sellTab.addClickCommands((source) -> showSellTab());
         windowNode.attachChild(sellTab);
 
-        // Контейнер контента (сдвинут)
         contentNode = new Node("ContentNode");
         contentNode.setLocalTranslation(15 * scale + leftShift, 20 * scale, 0.1f);
         windowNode.attachChild(contentNode);
 
-        // Кнопка закрытия (НЕ сдвигаем вправо, чтобы она оставалась у правого края)
-        Button closeButton = new Button("X");
+        Button closeButton = new Button(getLocalized("trader.close"));
         closeButton.setPreferredSize(new Vector3f(25 * scale, 25 * scale, 0));
         closeButton.setFontSize(14 * scale);
-        closeButton.setLocalTranslation(windowWidth - 35 * scale, windowHeight - 30 * scale, 0.1f); // ← без leftShift
+        closeButton.setLocalTranslation(windowWidth - 35 * scale, windowHeight - 30 * scale, 0.1f);
         closeButton.addClickCommands((source) -> hide());
         windowNode.attachChild(closeButton);
 
@@ -149,12 +143,9 @@ public class TraderWindow {
 
     private void clearContent() {
         List<Spatial> children = new ArrayList<>(contentNode.getChildren());
-        for (Spatial s : children) {
-            contentNode.detachChild(s);
-        }
+        for (Spatial s : children) contentNode.detachChild(s);
     }
 
-    // ========== СОХРАНЕНИЕ НА СЕРВЕР ==========
     private void saveToServer() {
         if (networkManager == null || playerManager == null) return;
         Map<String, Object> data = new HashMap<>();
@@ -163,32 +154,26 @@ public class TraderWindow {
         data.put("manaPotions", playerManager.getManaPotions());
         networkManager.saveCharacter(data).thenAccept(success -> {
             app.enqueue(() -> {
-                if (success) {
-                    System.out.println("[TraderWindow] Data saved to server.");
-                } else {
-                    System.err.println("[TraderWindow] Failed to save data!");
-                }
+                if (!success) System.err.println("[TraderWindow] Failed to save data!");
             });
         });
     }
 
-    // ========== ПОКУПКА ==========
     private void showBuyTab() {
         clearContent();
-        Label header = new Label("Buy items:");
+        Label header = new Label(getLocalized("trader.buy.header"));
         header.setFontSize(14 * scale);
         header.setColor(ColorRGBA.White);
         header.setLocalTranslation(0, 200 * scale, 0.1f);
         contentNode.attachChild(header);
 
-        // Health Potion
-        Label hpLabel = new Label("Health Potion (50 HP) - 10g");
+        Label hpLabel = new Label(getLocalized("trader.buy.hp"));
         hpLabel.setFontSize(12 * scale);
         hpLabel.setColor(ColorRGBA.White);
         hpLabel.setLocalTranslation(0, 170 * scale, 0.1f);
         contentNode.attachChild(hpLabel);
 
-        Button hpBuy = new Button("Buy");
+        Button hpBuy = new Button(getLocalized("trader.buy.button"));
         hpBuy.setPreferredSize(new Vector3f(50 * scale, 20 * scale, 0));
         hpBuy.setFontSize(11 * scale);
         hpBuy.setLocalTranslation(240 * scale, 170 * scale, 0.1f);
@@ -204,14 +189,13 @@ public class TraderWindow {
         });
         contentNode.attachChild(hpBuy);
 
-        // Mana Potion
-        Label mpLabel = new Label("Mana Potion (30 MP) - 10g");
+        Label mpLabel = new Label(getLocalized("trader.buy.mp"));
         mpLabel.setFontSize(12 * scale);
         mpLabel.setColor(ColorRGBA.White);
         mpLabel.setLocalTranslation(0, 140 * scale, 0.1f);
         contentNode.attachChild(mpLabel);
 
-        Button mpBuy = new Button("Buy");
+        Button mpBuy = new Button(getLocalized("trader.buy.button"));
         mpBuy.setPreferredSize(new Vector3f(50 * scale, 20 * scale, 0));
         mpBuy.setFontSize(11 * scale);
         mpBuy.setLocalTranslation(240 * scale, 140 * scale, 0.1f);
@@ -228,10 +212,9 @@ public class TraderWindow {
         contentNode.attachChild(mpBuy);
     }
 
-    // ========== ПРОДАЖА ==========
     private void showSellTab() {
         clearContent();
-        Label header = new Label("Sell items (click to sell):");
+        Label header = new Label(getLocalized("trader.sell.header"));
         header.setFontSize(14 * scale);
         header.setColor(ColorRGBA.White);
         header.setLocalTranslation(0, 200 * scale, 0.1f);
@@ -239,7 +222,7 @@ public class TraderWindow {
 
         List<Item> items = inventoryManager.getItems();
         if (items.isEmpty()) {
-            Label empty = new Label("Inventory is empty.");
+            Label empty = new Label(getLocalized("trader.sell.empty"));
             empty.setFontSize(12 * scale);
             empty.setColor(ColorRGBA.Gray);
             empty.setLocalTranslation(0, 170 * scale, 0.1f);
@@ -247,14 +230,14 @@ public class TraderWindow {
         } else {
             float yPos = 170 * scale;
             for (Item item : items) {
-                Label nameLabel = new Label(item.getName() + " (" + item.getType() + ")");
+                Label nameLabel = new Label(item.getName() + " (" + item.getLocalizedType() + ")");
                 nameLabel.setFontSize(11 * scale);
                 nameLabel.setColor(ColorRGBA.White);
                 nameLabel.setLocalTranslation(0, yPos, 0.1f);
                 contentNode.attachChild(nameLabel);
 
                 int price = Math.max(1, item.getLevel() * 5);
-                Button sellBtn = new Button("Sell " + price + "g");
+                Button sellBtn = new Button(getLocalized("trader.sell.button") + price + "g");
                 sellBtn.setPreferredSize(new Vector3f(60 * scale, 20 * scale, 0));
                 sellBtn.setFontSize(10 * scale);
                 sellBtn.setLocalTranslation(250 * scale, yPos, 0.1f);
@@ -264,19 +247,16 @@ public class TraderWindow {
                         System.err.println("[TraderWindow] Item not found in inventory!");
                         return;
                     }
-
                     if (networkManager != null) {
                         networkManager.dropItem(slotIndex).thenAccept(response -> {
                             app.enqueue(() -> {
-                                if (response != null) {
-                                    if (uiManager != null) {
-                                        uiManager.applyCharacterData(response);
-                                    }
+                                if (response != null && uiManager != null) {
+                                    uiManager.applyCharacterData(response);
                                     updateGold();
                                     if (uiManager != null) uiManager.updatePotionCounts();
                                     showSellTab();
                                 } else {
-                                    System.err.println("[TraderWindow] Server rejected drop. Refreshing inventory...");
+                                    System.err.println("[TraderWindow] Server rejected drop. Refreshing...");
                                     if (networkManager != null) {
                                         networkManager.loadCharacterData().thenAccept(data -> {
                                             app.enqueue(() -> {
@@ -310,19 +290,14 @@ public class TraderWindow {
 
     private void updateGold() {
         if (goldLabel != null) {
-            goldLabel.setText("Gold: " + playerManager.getGold());
+            goldLabel.setText(getLocalized("gold.label") + playerManager.getGold());
         }
     }
 
     public void show() {
         isVisible = true;
-        if (uiManager != null) {
-            uiManager.onTraderOpened(windowNode);
-        } else {
-            if (!app.getGuiNode().hasChild(windowNode)) {
-                app.getGuiNode().attachChild(windowNode);
-            }
-        }
+        if (uiManager != null) uiManager.onTraderOpened(windowNode);
+        else if (!app.getGuiNode().hasChild(windowNode)) app.getGuiNode().attachChild(windowNode);
         positionWindow();
         updateGold();
         showBuyTab();
@@ -330,33 +305,19 @@ public class TraderWindow {
 
     public void hide() {
         isVisible = false;
-        if (uiManager != null) {
-            uiManager.onTraderClosed(windowNode);
-        } else {
-            if (app.getGuiNode().hasChild(windowNode)) {
-                app.getGuiNode().detachChild(windowNode);
-            }
-        }
+        if (uiManager != null) uiManager.onTraderClosed(windowNode);
+        else if (app.getGuiNode().hasChild(windowNode)) app.getGuiNode().detachChild(windowNode);
     }
 
-    public void toggle() {
-        if (isVisible) hide(); else show();
-    }
-
-    public boolean isVisible() {
-        return isVisible;
-    }
+    public void toggle() { if (isVisible) hide(); else show(); }
+    public boolean isVisible() { return isVisible; }
 
     public void updateLayout(int screenWidth, int screenHeight) {
         if (isVisible) {
-            if (uiManager != null) {
-                uiManager.onTraderClosed(windowNode);
-            }
+            if (uiManager != null) uiManager.onTraderClosed(windowNode);
             windowNode.detachAllChildren();
             createWindow();
-            if (uiManager != null) {
-                uiManager.onTraderOpened(windowNode);
-            }
+            if (uiManager != null) uiManager.onTraderOpened(windowNode);
         }
     }
 }

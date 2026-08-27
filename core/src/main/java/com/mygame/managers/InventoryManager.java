@@ -523,14 +523,22 @@ public class InventoryManager {
         MouseEventControl.addListenersToSpatial(target, listener);
     }
 
-    private String buildTooltip(Item item) {
-        if (item == null) return "";
-        return item.getName() + "\n" +
-                item.getRarity().getDisplayName() + " (Lv." + item.getLevel() + ")\n" +
-                "Damage: " + item.getDamage() + ", Defense: " + item.getDefense() + "\n" +
-                item.getDescription();
-    }
-
+private String buildTooltip(Item item) {
+    if (item == null) return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append(item.getName()).append("\n");
+    sb.append(getLocalized("stat.level")).append(": ").append(item.getLevel()).append("\n");
+    sb.append(getLocalized("stat.rarity")).append(": ").append(getLocalized("rarity." + item.getRarity().name().toLowerCase())).append("\n");
+    if (item.getDamage() > 0) sb.append(getLocalized("stat.damage")).append(": +").append(item.getDamage()).append("\n");
+    if (item.getDefense() > 0) sb.append(getLocalized("stat.defense")).append(": +").append(item.getDefense()).append("\n");
+    if (item.getHealthBonus() > 0) sb.append(getLocalized("stat.health")).append(": +").append(item.getHealthBonus()).append("\n");
+    if (item.getManaBonus() > 0) sb.append(getLocalized("stat.mana")).append(": +").append(item.getManaBonus()).append("\n");
+    sb.append(getLocalized("stat.type")).append(": ").append(item.getLocalizedType());
+    return sb.toString();
+}
+private String getLocalized(String key) {
+    return LocalizationManager.getInstance().get(key);
+}
     private void handleInventoryClick(int index) {
         if (!isVisible || isProcessing) return;
         if (index < 0 || index >= inventoryItems.length) return;

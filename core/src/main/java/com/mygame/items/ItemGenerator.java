@@ -1,12 +1,32 @@
 package com.mygame.items;
 
+import com.mygame.managers.LocalizationManager;
+
 import java.util.*;
 
 public class ItemGenerator {
     private static final Random random = new Random();
 
-    private static final String[] PREFIXES = {"Old", "Rusty", "Sharp", "Heavy", "Light", "Sturdy", "Magic", "Enchanted", "Ancient", "Dark"};
-    private static final String[] WEAPON_SUFFIXES = {"Sword", "Blade", "Sabre", "Rapier", "Claymore", "Katana", "Scimitar", "Falchion", "Longsword", "Shortsword"};
+    private static final String[] PREFIX_KEYS = {
+        "item.prefix.0", "item.prefix.1", "item.prefix.2",
+        "item.prefix.3", "item.prefix.4", "item.prefix.5",
+        "item.prefix.6", "item.prefix.7", "item.prefix.8", "item.prefix.9"
+    };
+    private static final String[] WEAPON_SUFFIX_KEYS = {
+        "item.suffix.weapon.0", "item.suffix.weapon.1", "item.suffix.weapon.2",
+        "item.suffix.weapon.3", "item.suffix.weapon.4", "item.suffix.weapon.5",
+        "item.suffix.weapon.6", "item.suffix.weapon.7", "item.suffix.weapon.8", "item.suffix.weapon.9"
+    };
+    private static final Map<String, String[]> SUFFIX_KEYS_BY_TYPE = new HashMap<>();
+    static {
+        SUFFIX_KEYS_BY_TYPE.put("Weapon", WEAPON_SUFFIX_KEYS);
+        SUFFIX_KEYS_BY_TYPE.put("Helmet", new String[]{"item.suffix.helmet.0", "item.suffix.helmet.1", "item.suffix.helmet.2"});
+        SUFFIX_KEYS_BY_TYPE.put("Chest", new String[]{"item.suffix.chest.0", "item.suffix.chest.1", "item.suffix.chest.2"});
+        SUFFIX_KEYS_BY_TYPE.put("Shield", new String[]{"item.suffix.shield.0", "item.suffix.shield.1", "item.suffix.shield.2"});
+        SUFFIX_KEYS_BY_TYPE.put("Legs", new String[]{"item.suffix.legs.0", "item.suffix.legs.1", "item.suffix.legs.2"});
+        SUFFIX_KEYS_BY_TYPE.put("Boots", new String[]{"item.suffix.boots.0", "item.suffix.boots.1", "item.suffix.boots.2"});
+        SUFFIX_KEYS_BY_TYPE.put("Gloves", new String[]{"item.suffix.gloves.0", "item.suffix.gloves.1", "item.suffix.gloves.2"});
+    }
 
     private static final List<String> VALID_TYPES = Arrays.asList(
         "Weapon", "Helmet", "Chest", "Shield", "Legs", "Boots", "Gloves"
@@ -21,6 +41,14 @@ public class ItemGenerator {
             }
             ICONS_BY_TYPE.put(type, icons);
         }
+    }
+
+    private static String getLocalizedOrFallback(String key, String fallback) {
+        String value = LocalizationManager.getInstance().get(key);
+        if (value == null || value.startsWith("???")) {
+            return fallback;
+        }
+        return value;
     }
 
     public static Item generateItem(int playerLevel, String type, int difficulty) {
@@ -84,10 +112,9 @@ public class ItemGenerator {
         baseHealthBonus *= effectiveDifficulty;
         baseManaBonus *= effectiveDifficulty;
 
-        String name = generateName(type);
+        String name = generateLocalizedName(type);
         String iconPath = selectIcon(type);
-        String desc = String.format("Level %d, Damage: %d, Defense: %d, HP: %d, MP: %d",
-                level, finalDamage, finalDefense, baseHealthBonus, baseManaBonus);
+        String desc = "";
         String id = UUID.randomUUID().toString();
 
         Item item = new Item(id, name, type, level, rarity, desc, finalDamage, finalDefense, iconPath);
@@ -99,19 +126,20 @@ public class ItemGenerator {
         return item;
     }
 
-    private static String generateName(String type) {
-        String prefix = PREFIXES[random.nextInt(PREFIXES.length)];
-        String suffix;
-        switch (type) {
-            case "Weapon": suffix = WEAPON_SUFFIXES[random.nextInt(WEAPON_SUFFIXES.length)]; break;
-            case "Helmet": suffix = "Helmet"; break;
-            case "Chest": suffix = "Chestplate"; break;
-            case "Shield": suffix = "Shield"; break;
-            case "Legs": suffix = "Leggings"; break;
-            case "Boots": suffix = "Boots"; break;
-            case "Gloves": suffix = "Gloves"; break;
-            default: suffix = "Item";
+    private static String generateLocalizedName(String type) {
+        // Выбираем случайный префикс
+        String prefixKey = PREFIX_KEYS[random.nextInt(PREFIX_KEYS.length)];
+        // Если ключ отсутствует в словаре, используем "Old" как fallback
+        String prefix = getLocalizedOrFallback(prefixKey, "Old");
+
+        // Суффикс зависит от типа
+        String[] suffixKeys = SUFFIX_KEYS_BY_TYPE.get(type);
+        if (suffixKeys == null) {
+            suffixKeys = new String[]{"item.suffix.default.0", "item.suffix.default.1", "item.suffix.default.2"};
         }
+        String suffixKey = suffixKeys[random.nextInt(suffixKeys.length)];
+        String suffix = getLocalizedOrFallback(suffixKey, "Item");
+
         return prefix + " " + suffix;
     }
 

@@ -55,7 +55,10 @@ public void load() {
     public int getScreenHeight() { return screenHeight; }
     public void setScreenHeight(int h) { screenHeight = h; save(); }
     public float getSoundVolume() { return soundVolume; }
-    public void setSoundVolume(float v) { soundVolume = v; save(); }
+    public void setSoundVolume(float v) { 
+        soundVolume = v; save(); 
+        
+    }
     public String getLanguage() { return language; }
     public void setLanguage(String lang) { language = lang; save(); }
 }

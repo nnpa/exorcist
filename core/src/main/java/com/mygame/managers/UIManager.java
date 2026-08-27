@@ -365,54 +365,18 @@ public class UIManager {
         return bgGeom;
     }
 
-    private void applyStoredLanguage() {
-
-        String lang = SettingsManager.getInstance().getLanguage();
-
-        LocalizationManager.getInstance()
-                .init(app.getAssetManager());
-
-        LocalizationManager.getInstance()
-                .loadLanguage(lang);
-
-        if (lang.equals("ru")) {
-
-            try {
-
-                BitmapFont customFont =
-                        app.getAssetManager()
-                                .loadFont("Interface/Fonts/ru.fnt");
-
-                GuiGlobals.getInstance()
-                        .getStyles()
-                        .setDefault(customFont);
-
-            } catch (Exception e) {
-
-                System.err.println(
-                        "Failed to load Russian font"
-                );
-            }
-
-        } else {
-
-            try {
-
-                BitmapFont defaultFont =
-                        app.getAssetManager()
-                                .loadFont("Interface/Fonts/en.fnt");
-
-                GuiGlobals.getInstance()
-                        .getStyles()
-                        .setDefault(defaultFont);
-
-            } catch (Exception e) {
-
-                // Оставляем стандартный шрифт Lemur
-            }
-        }
+private void applyStoredLanguage() {
+    String lang = SettingsManager.getInstance().getLanguage();
+    LocalizationManager.getInstance().init(app.getAssetManager());
+    LocalizationManager.getInstance().loadLanguage(lang);
+    // Всегда загружаем ru.fnt, так как он содержит и русские, и английские символы
+    try {
+        BitmapFont customFont = app.getAssetManager().loadFont("Interface/Fonts/ru.fnt");
+        GuiGlobals.getInstance().getStyles().setDefault(customFont);
+    } catch (Exception e) {
+        System.err.println("Failed to load ru.fnt, using default Lemur font.");
     }
-
+}
     private void setupSettingsKey() {
 
         app.getInputManager().addMapping(
@@ -2137,863 +2101,294 @@ public class UIManager {
     // LOGIN
     // ============================================================
 
-    private void createLoginScreen() {
+private void createLoginScreen() {
+    updateScale();
 
-        updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
 
-        float screenWidth =
-                app.getCamera().getWidth();
+    float winW = 450 * scale;
+    float winH = 300 * scale;
 
-        float screenHeight =
-                app.getCamera().getHeight();
+    loginWindow = new Container();
+    loginWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+    loginWindow.setLayout(null);
+    loginWindow.setName("LoginWindow");
 
-        float winW =
-                450 * scale;
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    loginWindow.setLocalTranslation(x, y, 0);
 
-        float winH =
-                300 * scale;
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    loginWindow.attachChild(bgGeom);
 
-        loginWindow =
-                new Container();
+    Label title = new Label(getLocalized("login.title"));
+    title.setFontSize(30 * scale);
+    title.setColor(ColorRGBA.White);
+    title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+    loginWindow.attachChild(title);
 
-        loginWindow.setPreferredSize(
-                new Vector3f(
-                        winW,
-                        winH,
-                        0
-                )
-        );
+    float labelY1 = winH - 85 * scale;
+    Label loginLabel = new Label(getLocalized("login.label.login"));
+    loginLabel.setFontSize(18 * scale);
+    loginLabel.setColor(ColorRGBA.White);
+    loginLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+    loginWindow.attachChild(loginLabel);
 
-        loginWindow.setLayout(null);
-        loginWindow.setName("LoginWindow");
+    loginField = new TextField("");
+    loginField.setPreferredSize(new Vector3f(220 * scale, 26 * scale, 0));
+    loginField.setColor(ColorRGBA.Black);
+    loginField.setFontSize(18 * scale);
+    loginField.setLocalTranslation(130 * scale, labelY1 - 8 * scale, 0.1f);
+    loginField.setSize(loginField.getPreferredSize());
+    loginWindow.attachChild(loginField);
 
-        float x =
-                (screenWidth - winW) / 2;
+    float labelY2 = winH - 140 * scale;
+    Label passLabel = new Label(getLocalized("login.label.password"));
+    passLabel.setFontSize(18 * scale);
+    passLabel.setColor(ColorRGBA.White);
+    passLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+    loginWindow.attachChild(passLabel);
 
-        float y =
-                (screenHeight - winH) / 2;
+    passwordField = new TextField("");
+    passwordField.setPreferredSize(new Vector3f(220 * scale, 26 * scale, 0));
+    passwordField.setColor(ColorRGBA.Black);
+    passwordField.setFontSize(18 * scale);
+    passwordField.setLocalTranslation(130 * scale, labelY2 - 8 * scale, 0.1f);
+    passwordField.setSize(passwordField.getPreferredSize());
+    loginWindow.attachChild(passwordField);
 
-        if (y < 0) {
-            y = 0;
+    Button loginButton = new Button(getLocalized("login.button.login"));
+    loginButton.setPreferredSize(new Vector3f(110 * scale, 30 * scale, 0));
+    loginButton.setColor(ColorRGBA.White);
+    loginButton.setFontSize(18 * scale);
+    loginButton.setLocalTranslation(85 * scale, 45 * scale, 0.1f);
+    loginButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
+        if (loginVisible) {
+            String login = loginField.getText();
+            String pass = passwordField.getText();
+            if (!login.isEmpty() && !pass.isEmpty()) {
+                handleLogin(login, pass);
+            } else {
+                showLoginError(getLocalized("login.error.fillfields"));
+            }
         }
+    });
+    loginWindow.attachChild(loginButton);
 
-        loginWindow.setLocalTranslation(
-                x,
-                y,
-                0
-        );
+    Button registerButton = new Button(getLocalized("login.button.register"));
+    registerButton.setPreferredSize(new Vector3f(110 * scale, 30 * scale, 0));
+    registerButton.setColor(ColorRGBA.White);
+    registerButton.setFontSize(18 * scale);
+    registerButton.setLocalTranslation(220 * scale, 45 * scale, 0.1f);
+    registerButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
+        if (loginVisible) {
+            showRegisterScreen();
+        }
+    });
+    loginWindow.attachChild(registerButton);
 
-        Geometry bgGeom =
-                createBackgroundGeometry(
-                        winW,
-                        winH
-                );
+    loginFields = new TextField[]{loginField, passwordField};
 
-        loginWindow.attachChild(bgGeom);
-
-        Label title =
-                new Label("Login");
-
-        title.setFontSize(
-                30 * scale
-        );
-
-        title.setColor(
-                ColorRGBA.White
-        );
-
-        title.setLocalTranslation(
-                20 * scale,
-                winH - 35 * scale,
-                0.1f
-        );
-
-        loginWindow.attachChild(title);
-
-        float labelY1 =
-                winH - 85 * scale;
-
-        Label loginLabel =
-                new Label("Login:");
-
-        loginLabel.setFontSize(
-                18 * scale
-        );
-
-        loginLabel.setColor(
-                ColorRGBA.White
-        );
-
-        loginLabel.setLocalTranslation(
-                20 * scale,
-                labelY1,
-                0.1f
-        );
-
-        loginWindow.attachChild(loginLabel);
-
-        loginField =
-                new TextField("");
-
-        loginField.setPreferredSize(
-                new Vector3f(
-                        220 * scale,
-                        26 * scale,
-                        0
-                )
-        );
-
-        loginField.setColor(
-                ColorRGBA.Black
-        );
-
-        loginField.setFontSize(
-                18 * scale
-        );
-
-        loginField.setLocalTranslation(
-                130 * scale,
-                labelY1 - 8 * scale,
-                0.1f
-        );
-
-        loginField.setSize(
-                loginField.getPreferredSize()
-        );
-
-        loginWindow.attachChild(loginField);
-
-        float labelY2 =
-                winH - 140 * scale;
-
-        Label passLabel =
-                new Label("Password:");
-
-        passLabel.setFontSize(
-                18 * scale
-        );
-
-        passLabel.setColor(
-                ColorRGBA.White
-        );
-
-        passLabel.setLocalTranslation(
-                20 * scale,
-                labelY2,
-                0.1f
-        );
-
-        loginWindow.attachChild(passLabel);
-
-        passwordField =
-                new TextField("");
-
-        passwordField.setPreferredSize(
-                new Vector3f(
-                        220 * scale,
-                        26 * scale,
-                        0
-                )
-        );
-
-        passwordField.setColor(
-                ColorRGBA.Black
-        );
-
-        passwordField.setFontSize(
-                18 * scale
-        );
-
-        passwordField.setLocalTranslation(
-                130 * scale,
-                labelY2 - 8 * scale,
-                0.1f
-        );
-
-        passwordField.setSize(
-                passwordField.getPreferredSize()
-        );
-
-        loginWindow.attachChild(
-                passwordField
-        );
-
-        Button loginButton =
-                new Button("Login");
-
-        loginButton.setPreferredSize(
-                new Vector3f(
-                        110 * scale,
-                        30 * scale,
-                        0
-                )
-        );
-
-        loginButton.setColor(
-                ColorRGBA.White
-        );
-
-        loginButton.setFontSize(
-                18 * scale
-        );
-
-        loginButton.setLocalTranslation(
-                85 * scale,
-                45 * scale,
-                0.1f
-        );
-
-        loginButton.addClickCommands(
-                (source) -> {
-
-                    SoundManager.playSound(
-                            SoundManager.SOUND_CLICK
-                    );
-
-                    if (loginVisible) {
-
-                        String login =
-                                loginField.getText();
-
-                        String pass =
-                                passwordField.getText();
-
-                        if (!login.isEmpty()
-                                && !pass.isEmpty()) {
-
-                            handleLogin(
-                                    login,
-                                    pass
-                            );
-                        }
-                    }
+    // ENTER LOGIN
+    loginField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (loginVisible) {
+                String login = loginField.getText();
+                String pass = passwordField.getText();
+                if (!login.isEmpty() && !pass.isEmpty()) {
+                    handleLogin(login, pass);
+                } else {
+                    showLoginError(getLocalized("login.error.fillfields"));
                 }
-        );
+            }
+        }
+    });
 
-        loginWindow.attachChild(
-                loginButton
-        );
-
-        Button registerButton =
-                new Button("Register");
-
-        registerButton.setPreferredSize(
-                new Vector3f(
-                        110 * scale,
-                        30 * scale,
-                        0
-                )
-        );
-
-        registerButton.setColor(
-                ColorRGBA.White
-        );
-
-        registerButton.setFontSize(
-                18 * scale
-        );
-
-        registerButton.setLocalTranslation(
-                220 * scale,
-                45 * scale,
-                0.1f
-        );
-
-        registerButton.addClickCommands(
-                (source) -> {
-
-                    SoundManager.playSound(
-                            SoundManager.SOUND_CLICK
-                    );
-
-                    if (loginVisible) {
-                        showRegisterScreen();
-                    }
+    // ENTER PASSWORD
+    passwordField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (loginVisible) {
+                String login = loginField.getText();
+                String pass = passwordField.getText();
+                if (!login.isEmpty() && !pass.isEmpty()) {
+                    handleLogin(login, pass);
+                } else {
+                    showLoginError(getLocalized("login.error.fillfields"));
                 }
-        );
+            }
+        }
+    });
 
-        loginWindow.attachChild(
-                registerButton
-        );
-
-        loginFields =
-                new TextField[]{
-                        loginField,
-                        passwordField
-                };
-
-        // ENTER LOGIN
-        loginField.getActionMap().put(
-                new KeyAction(KeyInput.KEY_RETURN),
-                new KeyActionListener() {
-
-                    @Override
-                    public void keyAction(
-                            TextEntryComponent source,
-                            KeyAction action) {
-
-                        if (loginVisible) {
-
-                            String login =
-                                    loginField.getText();
-
-                            String pass =
-                                    passwordField.getText();
-
-                            if (!login.isEmpty()
-                                    && !pass.isEmpty()) {
-
-                                handleLogin(
-                                        login,
-                                        pass
-                                );
-
-                            } else {
-
-                                showLoginError(
-                                        "Please fill in all fields."
-                                );
-                            }
-                        }
-                    }
-                }
-        );
-
-        // ENTER PASSWORD
-        passwordField.getActionMap().put(
-                new KeyAction(KeyInput.KEY_RETURN),
-                new KeyActionListener() {
-
-                    @Override
-                    public void keyAction(
-                            TextEntryComponent source,
-                            KeyAction action) {
-
-                        if (loginVisible) {
-
-                            String login =
-                                    loginField.getText();
-
-                            String pass =
-                                    passwordField.getText();
-
-                            if (!login.isEmpty()
-                                    && !pass.isEmpty()) {
-
-                                handleLogin(
-                                        login,
-                                        pass
-                                );
-
-                            } else {
-
-                                showLoginError(
-                                        "Please fill in all fields."
-                                );
-                            }
-                        }
-                    }
-                }
-        );
-
-        guiNode.attachChild(
-                loginWindow
-        );
-
-        loginWindow.setCullHint(
-                Node.CullHint.Always
-        );
-    }
-
+    guiNode.attachChild(loginWindow);
+    loginWindow.setCullHint(Node.CullHint.Always);
+}
     // ============================================================
     // REGISTER
     // ============================================================
 
-    private void createRegisterScreen() {
+private void createRegisterScreen() {
+    updateScale();
 
-        updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
 
-        float screenWidth =
-                app.getCamera().getWidth();
+    float winW = 480 * scale;
+    float winH = 420 * scale;
 
-        float screenHeight =
-                app.getCamera().getHeight();
+    registerWindow = new Container();
+    registerWindow.setPreferredSize(new Vector3f(winW, winH, 0));
+    registerWindow.setLayout(null);
+    registerWindow.setName("RegisterWindow");
 
-        float winW =
-                480 * scale;
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    registerWindow.setLocalTranslation(x, y, 0);
 
-        float winH =
-                420 * scale;
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    registerWindow.attachChild(bgGeom);
 
-        registerWindow =
-                new Container();
+    Label title = new Label(getLocalized("register.title"));
+    title.setFontSize(30 * scale);
+    title.setColor(ColorRGBA.White);
+    title.setLocalTranslation(20 * scale, winH - 35 * scale, 0.1f);
+    registerWindow.attachChild(title);
 
-        registerWindow.setPreferredSize(
-                new Vector3f(
-                        winW,
-                        winH,
-                        0
-                )
-        );
+    float labelY1 = winH - 85 * scale;
+    Label emailLabel = new Label(getLocalized("register.label.email"));
+    emailLabel.setFontSize(18 * scale);
+    emailLabel.setColor(ColorRGBA.White);
+    emailLabel.setLocalTranslation(20 * scale, labelY1, 0.1f);
+    registerWindow.attachChild(emailLabel);
 
-        registerWindow.setLayout(null);
-        registerWindow.setName(
-                "RegisterWindow"
-        );
+    emailField = new TextField("");
+    emailField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
+    emailField.setColor(ColorRGBA.Black);
+    emailField.setFontSize(18 * scale);
+    emailField.setLocalTranslation(150 * scale, labelY1 - 8 * scale, 0.1f);
+    emailField.setSize(emailField.getPreferredSize());
+    registerWindow.attachChild(emailField);
 
-        float x =
-                (screenWidth - winW) / 2;
+    float labelY2 = winH - 140 * scale;
+    Label regLoginLabel = new Label(getLocalized("register.label.login"));
+    regLoginLabel.setFontSize(18 * scale);
+    regLoginLabel.setColor(ColorRGBA.White);
+    regLoginLabel.setLocalTranslation(20 * scale, labelY2, 0.1f);
+    registerWindow.attachChild(regLoginLabel);
 
-        float y =
-                (screenHeight - winH) / 2;
+    regLoginField = new TextField("");
+    regLoginField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
+    regLoginField.setColor(ColorRGBA.Black);
+    regLoginField.setFontSize(18 * scale);
+    regLoginField.setLocalTranslation(150 * scale, labelY2 - 8 * scale, 0.1f);
+    regLoginField.setSize(regLoginField.getPreferredSize());
+    registerWindow.attachChild(regLoginField);
 
-        if (y < 0) {
-            y = 0;
+    float labelY3 = winH - 195 * scale;
+    Label regPassLabel = new Label(getLocalized("register.label.password"));
+    regPassLabel.setFontSize(18 * scale);
+    regPassLabel.setColor(ColorRGBA.White);
+    regPassLabel.setLocalTranslation(20 * scale, labelY3, 0.1f);
+    registerWindow.attachChild(regPassLabel);
+
+    regPasswordField = new TextField("");
+    regPasswordField.setPreferredSize(new Vector3f(240 * scale, 26 * scale, 0));
+    regPasswordField.setColor(ColorRGBA.Black);
+    regPasswordField.setFontSize(18 * scale);
+    regPasswordField.setLocalTranslation(150 * scale, labelY3 - 8 * scale, 0.1f);
+    regPasswordField.setSize(regPasswordField.getPreferredSize());
+    registerWindow.attachChild(regPasswordField);
+
+    Button registerButton = new Button(getLocalized("register.button.register"));
+    registerButton.setPreferredSize(new Vector3f(130 * scale, 30 * scale, 0));
+    registerButton.setColor(ColorRGBA.White);
+    registerButton.setFontSize(18 * scale);
+    registerButton.setLocalTranslation(100 * scale, 70 * scale, 0.1f);
+    registerButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
+        if (registerVisible) {
+            String email = emailField.getText();
+            String login = regLoginField.getText();
+            String pass = regPasswordField.getText();
+            if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                handleRegister(email, login, pass);
+            } else {
+                showLoginError(getLocalized("register.error.fillfields"));
+            }
         }
+    });
+    registerWindow.attachChild(registerButton);
 
-        registerWindow.setLocalTranslation(
-                x,
-                y,
-                0
-        );
+    Button backButton = new Button(getLocalized("register.button.back"));
+    backButton.setPreferredSize(new Vector3f(110 * scale, 30 * scale, 0));
+    backButton.setColor(ColorRGBA.White);
+    backButton.setFontSize(18 * scale);
+    backButton.setLocalTranslation(260 * scale, 70 * scale, 0.1f);
+    backButton.addClickCommands((source) -> showLoginScreen());
+    registerWindow.attachChild(backButton);
 
-        Geometry bgGeom =
-                createBackgroundGeometry(
-                        winW,
-                        winH
-                );
+    registerFields = new TextField[]{emailField, regLoginField, regPasswordField};
 
-        registerWindow.attachChild(
-                bgGeom
-        );
-
-        Label title =
-                new Label("Registration");
-
-        title.setFontSize(
-                30 * scale
-        );
-
-        title.setColor(
-                ColorRGBA.White
-        );
-
-        title.setLocalTranslation(
-                20 * scale,
-                winH - 35 * scale,
-                0.1f
-        );
-
-        registerWindow.attachChild(title);
-
-        float labelY1 =
-                winH - 85 * scale;
-
-        Label emailLabel =
-                new Label("Email:");
-
-        emailLabel.setFontSize(
-                18 * scale
-        );
-
-        emailLabel.setColor(
-                ColorRGBA.White
-        );
-
-        emailLabel.setLocalTranslation(
-                20 * scale,
-                labelY1,
-                0.1f
-        );
-
-        registerWindow.attachChild(
-                emailLabel
-        );
-
-        emailField =
-                new TextField("");
-
-        emailField.setPreferredSize(
-                new Vector3f(
-                        240 * scale,
-                        26 * scale,
-                        0
-                )
-        );
-
-        emailField.setColor(
-                ColorRGBA.Black
-        );
-
-        emailField.setFontSize(
-                18 * scale
-        );
-
-        emailField.setLocalTranslation(
-                150 * scale,
-                labelY1 - 8 * scale,
-                0.1f
-        );
-
-        emailField.setSize(
-                emailField.getPreferredSize()
-        );
-
-        registerWindow.attachChild(
-                emailField
-        );
-
-        float labelY2 =
-                winH - 140 * scale;
-
-        Label regLoginLabel =
-                new Label("Login:");
-
-        regLoginLabel.setFontSize(
-                18 * scale
-        );
-
-        regLoginLabel.setColor(
-                ColorRGBA.White
-        );
-
-        regLoginLabel.setLocalTranslation(
-                20 * scale,
-                labelY2,
-                0.1f
-        );
-
-        registerWindow.attachChild(
-                regLoginLabel
-        );
-
-        regLoginField =
-                new TextField("");
-
-        regLoginField.setPreferredSize(
-                new Vector3f(
-                        240 * scale,
-                        26 * scale,
-                        0
-                )
-        );
-
-        regLoginField.setColor(
-                ColorRGBA.Black
-        );
-
-        regLoginField.setFontSize(
-                18 * scale
-        );
-
-        regLoginField.setLocalTranslation(
-                150 * scale,
-                labelY2 - 8 * scale,
-                0.1f
-        );
-
-        regLoginField.setSize(
-                regLoginField.getPreferredSize()
-        );
-
-        registerWindow.attachChild(
-                regLoginField
-        );
-
-        float labelY3 =
-                winH - 195 * scale;
-
-        Label regPassLabel =
-                new Label("Password:");
-
-        regPassLabel.setFontSize(
-                18 * scale
-        );
-
-        regPassLabel.setColor(
-                ColorRGBA.White
-        );
-
-        regPassLabel.setLocalTranslation(
-                20 * scale,
-                labelY3,
-                0.1f
-        );
-
-        registerWindow.attachChild(
-                regPassLabel
-        );
-
-        regPasswordField =
-                new TextField("");
-
-        regPasswordField.setPreferredSize(
-                new Vector3f(
-                        240 * scale,
-                        26 * scale,
-                        0
-                )
-        );
-
-        regPasswordField.setColor(
-                ColorRGBA.Black
-        );
-
-        regPasswordField.setFontSize(
-                18 * scale
-        );
-
-        regPasswordField.setLocalTranslation(
-                150 * scale,
-                labelY3 - 8 * scale,
-                0.1f
-        );
-
-        regPasswordField.setSize(
-                regPasswordField.getPreferredSize()
-        );
-
-        registerWindow.attachChild(
-                regPasswordField
-        );
-
-        Button registerButton =
-                new Button("Register");
-
-        registerButton.setPreferredSize(
-                new Vector3f(
-                        130 * scale,
-                        30 * scale,
-                        0
-                )
-        );
-
-        registerButton.setColor(
-                ColorRGBA.White
-        );
-
-        registerButton.setFontSize(
-                18 * scale
-        );
-
-        registerButton.setLocalTranslation(
-                100 * scale,
-                70 * scale,
-                0.1f
-        );
-
-        registerButton.addClickCommands(
-                (source) -> {
-
-                    SoundManager.playSound(
-                            SoundManager.SOUND_CLICK
-                    );
-
-                    if (registerVisible) {
-
-                        String email =
-                                emailField.getText();
-
-                        String login =
-                                regLoginField.getText();
-
-                        String pass =
-                                regPasswordField.getText();
-
-                        if (!email.isEmpty()
-                                && !login.isEmpty()
-                                && !pass.isEmpty()) {
-
-                            handleRegister(
-                                    email,
-                                    login,
-                                    pass
-                            );
-                        }
-                    }
+    // ENTER EMAIL
+    emailField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                } else {
+                    showLoginError(getLocalized("register.error.fillfields"));
                 }
-        );
+            }
+        }
+    });
 
-        registerWindow.attachChild(
-                registerButton
-        );
-
-        Button backButton =
-                new Button("Back");
-
-        backButton.setPreferredSize(
-                new Vector3f(
-                        110 * scale,
-                        30 * scale,
-                        0
-                )
-        );
-
-        backButton.setColor(
-                ColorRGBA.White
-        );
-
-        backButton.setFontSize(
-                18 * scale
-        );
-
-        backButton.setLocalTranslation(
-                260 * scale,
-                70 * scale,
-                0.1f
-        );
-
-        backButton.addClickCommands(
-                (source) ->
-                        showLoginScreen()
-        );
-
-        registerWindow.attachChild(
-                backButton
-        );
-
-        registerFields =
-                new TextField[]{
-                        emailField,
-                        regLoginField,
-                        regPasswordField
-                };
-
-        // ENTER EMAIL
-        emailField.getActionMap().put(
-                new KeyAction(KeyInput.KEY_RETURN),
-                new KeyActionListener() {
-
-                    @Override
-                    public void keyAction(
-                            TextEntryComponent source,
-                            KeyAction action) {
-
-                        if (registerVisible) {
-
-                            String email =
-                                    emailField.getText();
-
-                            String login =
-                                    regLoginField.getText();
-
-                            String pass =
-                                    regPasswordField.getText();
-
-                            if (!email.isEmpty()
-                                    && !login.isEmpty()
-                                    && !pass.isEmpty()) {
-
-                                handleRegister(
-                                        email,
-                                        login,
-                                        pass
-                                );
-
-                            } else {
-
-                                showLoginError(
-                                        "Please fill in all fields."
-                                );
-                            }
-                        }
-                    }
+    // ENTER LOGIN
+    regLoginField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                } else {
+                    showLoginError(getLocalized("register.error.fillfields"));
                 }
-        );
+            }
+        }
+    });
 
-        // ENTER LOGIN
-        regLoginField.getActionMap().put(
-                new KeyAction(KeyInput.KEY_RETURN),
-                new KeyActionListener() {
-
-                    @Override
-                    public void keyAction(
-                            TextEntryComponent source,
-                            KeyAction action) {
-
-                        if (registerVisible) {
-
-                            String email =
-                                    emailField.getText();
-
-                            String login =
-                                    regLoginField.getText();
-
-                            String pass =
-                                    regPasswordField.getText();
-
-                            if (!email.isEmpty()
-                                    && !login.isEmpty()
-                                    && !pass.isEmpty()) {
-
-                                handleRegister(
-                                        email,
-                                        login,
-                                        pass
-                                );
-
-                            } else {
-
-                                showLoginError(
-                                        "Please fill in all fields."
-                                );
-                            }
-                        }
-                    }
+    // ENTER PASSWORD
+    regPasswordField.getActionMap().put(new KeyAction(KeyInput.KEY_RETURN), new KeyActionListener() {
+        @Override
+        public void keyAction(TextEntryComponent source, KeyAction action) {
+            if (registerVisible) {
+                String email = emailField.getText();
+                String login = regLoginField.getText();
+                String pass = regPasswordField.getText();
+                if (!email.isEmpty() && !login.isEmpty() && !pass.isEmpty()) {
+                    handleRegister(email, login, pass);
+                } else {
+                    showLoginError(getLocalized("register.error.fillfields"));
                 }
-        );
+            }
+        }
+    });
 
-        // ENTER PASSWORD
-        regPasswordField.getActionMap().put(
-                new KeyAction(KeyInput.KEY_RETURN),
-                new KeyActionListener() {
-
-                    @Override
-                    public void keyAction(
-                            TextEntryComponent source,
-                            KeyAction action) {
-
-                        if (registerVisible) {
-
-                            String email =
-                                    emailField.getText();
-
-                            String login =
-                                    regLoginField.getText();
-
-                            String pass =
-                                    regPasswordField.getText();
-
-                            if (!email.isEmpty()
-                                    && !login.isEmpty()
-                                    && !pass.isEmpty()) {
-
-                                handleRegister(
-                                        email,
-                                        login,
-                                        pass
-                                );
-
-                            } else {
-
-                                showLoginError(
-                                        "Please fill in all fields."
-                                );
-                            }
-                        }
-                    }
-                }
-        );
-
-        guiNode.attachChild(
-                registerWindow
-        );
-
-        registerWindow.setCullHint(
-                Node.CullHint.Always
-        );
-    }
-
+    guiNode.attachChild(registerWindow);
+    registerWindow.setCullHint(Node.CullHint.Always);
+}
     // ============================================================
     // SHOW / HIDE LOGIN
     // ============================================================
@@ -3141,176 +2536,58 @@ public class UIManager {
         }
     }
 
-    private void createTeleporterDialog() {
+private void createTeleporterDialog() {
+    updateScale();
 
-        updateScale();
+    float screenWidth = app.getCamera().getWidth();
+    float screenHeight = app.getCamera().getHeight();
 
-        float screenWidth =
-                app.getCamera().getWidth();
+    float winW = 350 * scale;
+    float winH = 160 * scale;
 
-        float screenHeight =
-                app.getCamera().getHeight();
+    teleporterDialog = new Container();
+    teleporterDialog.setPreferredSize(new Vector3f(winW, winH, 0));
+    teleporterDialog.setLayout(null);
+    teleporterDialog.setName("TeleporterDialog");
 
-        float winW =
-                350 * scale;
+    float x = (screenWidth - winW) / 2;
+    float y = (screenHeight - winH) / 2;
+    if (y < 0) y = 0;
+    teleporterDialog.setLocalTranslation(x, y, 0);
 
-        float winH =
-                160 * scale;
+    Geometry bgGeom = createBackgroundGeometry(winW, winH);
+    teleporterDialog.attachChild(bgGeom);
 
-        teleporterDialog =
-                new Container();
+    Label question = new Label(getLocalized("teleporter.question"));
+    question.setFontSize(22 * scale);
+    question.setColor(ColorRGBA.White);
+    question.setLocalTranslation(winW / 2 - 120 * scale, winH - 40 * scale, 0.1f);
+    teleporterDialog.attachChild(question);
 
-        teleporterDialog.setPreferredSize(
-                new Vector3f(
-                        winW,
-                        winH,
-                        0
-                )
-        );
-
-        teleporterDialog.setLayout(null);
-
-        teleporterDialog.setName(
-                "TeleporterDialog"
-        );
-
-        float x =
-                (screenWidth - winW) / 2;
-
-        float y =
-                (screenHeight - winH) / 2;
-
-        if (y < 0) {
-            y = 0;
+    Button yesButton = new Button(getLocalized("teleporter.yes"));
+    yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+    yesButton.setFontSize(18 * scale);
+    yesButton.setColor(ColorRGBA.White);
+    yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
+    yesButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
+        hideTeleporterDialog();
+        Main main = (Main) app;
+        if (main != null) {
+            WorldManager wm = main.getWorldManager();
+            if (wm != null) wm.teleportToDungeon();
         }
+    });
+    teleporterDialog.attachChild(yesButton);
 
-        teleporterDialog.setLocalTranslation(
-                x,
-                y,
-                0
-        );
-
-        Geometry bgGeom =
-                createBackgroundGeometry(
-                        winW,
-                        winH
-                );
-
-        teleporterDialog.attachChild(
-                bgGeom
-        );
-
-        Label question =
-                new Label(
-                        "Teleport to dungeon?"
-                );
-
-        question.setFontSize(
-                22 * scale
-        );
-
-        question.setColor(
-                ColorRGBA.White
-        );
-
-        question.setLocalTranslation(
-                winW / 2 - 120 * scale,
-                winH - 40 * scale,
-                0.1f
-        );
-
-        teleporterDialog.attachChild(
-                question
-        );
-
-        Button yesButton =
-                new Button("Yes");
-
-        yesButton.setPreferredSize(
-                new Vector3f(
-                        80 * scale,
-                        30 * scale,
-                        0
-                )
-        );
-
-        yesButton.setFontSize(
-                18 * scale
-        );
-
-        yesButton.setColor(
-                ColorRGBA.White
-        );
-
-        yesButton.setLocalTranslation(
-                60 * scale,
-                30 * scale,
-                0.1f
-        );
-
-        yesButton.addClickCommands(
-                (source) -> {
-
-                    SoundManager.playSound(
-                            SoundManager.SOUND_CLICK
-                    );
-
-                    hideTeleporterDialog();
-
-                    Main main =
-                            (Main) app;
-
-                    if (main != null) {
-
-                        WorldManager wm =
-                                main.getWorldManager();
-
-                        if (wm != null) {
-                            wm.teleportToDungeon();
-                        }
-                    }
-                }
-        );
-
-        teleporterDialog.attachChild(
-                yesButton
-        );
-
-        Button noButton =
-                new Button("No");
-
-        noButton.setPreferredSize(
-                new Vector3f(
-                        80 * scale,
-                        30 * scale,
-                        0
-                )
-        );
-
-        noButton.setFontSize(
-                18 * scale
-        );
-
-        noButton.setColor(
-                ColorRGBA.White
-        );
-
-        noButton.setLocalTranslation(
-                180 * scale,
-                30 * scale,
-                0.1f
-        );
-
-        noButton.addClickCommands(
-                (source) ->
-                        hideTeleporterDialog()
-        );
-
-        teleporterDialog.attachChild(
-                noButton
-        );
-    }
-
+    Button noButton = new Button(getLocalized("teleporter.no"));
+    noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+    noButton.setFontSize(18 * scale);
+    noButton.setColor(ColorRGBA.White);
+    noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
+    noButton.addClickCommands((source) -> hideTeleporterDialog());
+    teleporterDialog.attachChild(noButton);
+}
     // ============================================================
     // ПОЗИЦИИ
     // ============================================================
@@ -4464,4 +3741,7 @@ public class UIManager {
 
         mapWindow.update();
     }
+    private String getLocalized(String key) {
+    return LocalizationManager.getInstance().get(key);
+}
 }

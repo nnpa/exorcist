@@ -220,7 +220,7 @@ public void setUIManager(UIManager ui) {
     node.attachChild(borderGeom);
 
     // Текст – над иконкой с небольшим отступом
-    labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/Default.fnt"));
+    labelText = new BitmapText(app.getAssetManager().loadFont("Interface/Fonts/ru.fnt"));
     labelText.setText(item.getName());
     labelText.setSize(0.5f);
     labelText.setColor(item.getColor());

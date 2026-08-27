@@ -29,13 +29,16 @@ public class SoundManager {
     private static AudioNode currentMusic = null;
     private static String currentMusicKey = null;
 
-    // Громкость
-    private static float musicVolume = 0.2f;
-    private static float sfxVolume = 0.3f;
-public static AudioNode getSoundNode(String key) {
-    return soundEffects.get(key);
-}
+    // Базовые значения громкости (без учёта masterVolume)
+    private static float baseMusicVolume = 0.2f;
+    private static float baseSfxVolume = 0.3f;
 
+    // Общий множитель громкости (0..1)
+    private static float masterVolume = 1.0f;
+
+    public static AudioNode getSoundNode(String key) {
+        return soundEffects.get(key);
+    }
 
     // ===================== КОНСТАНТЫ =====================
     // UI
@@ -47,12 +50,6 @@ public static AudioNode getSoundNode(String key) {
     public static final String SOUND_WINDOW_TRADER = "ui_window_open_trader_auction";
     public static final String SOUND_WINDOW_CLOSE = "ui_window_close";
 
-    static void setMasterVolume(float vol) {
-        
-    }
-private AudioNode footstepNode;
-private float footstepTimer = 0f;
-private static final float FOOTSTEP_INTERVAL = 0.45f;
     // Skills
     public static final String SOUND_HEAL = "skill_heal";
     public static final String SOUND_SHIELD_BASH = "skill_shield_bash";
@@ -72,9 +69,6 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
 
     // ===================== ИНИЦИАЛИЗАЦИЯ =====================
 
-    /**
-     * Вызывается один раз в simpleInitApp().
-     */
     public static void initialize(SimpleApplication application) {
         app = application;
         rootNode = app.getRootNode();
@@ -83,9 +77,6 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
         System.out.println("[SoundManager] Ready. Loaded " + soundEffects.size() + " sounds.");
     }
 
-    /**
-     * Загрузка всех звуковых файлов из папки resources/sounds/
-     */
     private static void loadAllSounds() {
         // UI
         loadSound(SOUND_CLICK, "sounds/ui/ui_button_click.ogg");
@@ -118,17 +109,13 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
 
     // ===================== ЗАГРУЗКА ЗВУКОВ =====================
 
-    /**
-     * Загрузка короткого звукового эффекта.
-     * Используем конструктор AudioNode(AssetManager, String) — буферизация по умолчанию.
-     */
     private static void loadSound(String key, String path) {
         try {
             AudioNode node = new AudioNode(app.getAssetManager(), path);
             node.setPositional(false);
             node.setLooping(false);
-            node.setVolume(sfxVolume);
-            // Важно: узел должен быть прикреплён к сцене, чтобы звук воспроизводился
+            // Устанавливаем базовую громкость SFX, умноженную на masterVolume
+            node.setVolume(baseSfxVolume * masterVolume);
             rootNode.attachChild(node);
             soundEffects.put(key, node);
             System.out.println("[SoundManager] Loaded sound: " + key);
@@ -138,16 +125,12 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
         }
     }
 
-    /**
-     * Загрузка музыки.
-     * Используем тот же конструктор — буферизация, чтобы работало зацикливание.
-     */
     private static void loadMusic(String key, String path) {
         try {
             AudioNode node = new AudioNode(app.getAssetManager(), path);
             node.setPositional(false);
-            node.setLooping(true);   // Зацикливание работает только для буферизированных звуков
-            node.setVolume(musicVolume);
+            node.setLooping(true);
+            node.setVolume(baseMusicVolume * masterVolume);
             rootNode.attachChild(node);
             soundEffects.put(key, node);
             System.out.println("[SoundManager] Loaded music: " + key);
@@ -159,10 +142,6 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
 
     // ===================== ВОСПРОИЗВЕДЕНИЕ =====================
 
-    /**
-     * Проигрывает звуковой эффект один раз.
-     * Использует playInstance() — позволяет накладывать несколько копий.
-     */
     public static void playSound(String key) {
         AudioNode node = soundEffects.get(key);
         if (node == null) {
@@ -172,9 +151,6 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
         node.playInstance();
     }
 
-    /**
-     * Проигрывает звук с задержкой (для синхронизации с анимацией).
-     */
     public static void playSoundDelayed(String key, float delaySec) {
         if (delaySec <= 0) {
             playSound(key);
@@ -192,12 +168,7 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
 
     // ===================== УПРАВЛЕНИЕ МУЗЫКОЙ =====================
 
-    /**
-     * Включает фоновую музыку.
-     * Предыдущая останавливается.
-     */
     public static void playMusic(String key) {
-        // Если уже играет эта же музыка — ничего не делаем
         if (currentMusic != null && currentMusicKey != null && currentMusicKey.equals(key)) {
             return;
         }
@@ -209,15 +180,12 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
             return;
         }
         currentMusic = node;
-        currentMusic.setVolume(musicVolume);
-        currentMusic.play();   // управляемый источник (не playInstance)
+        currentMusic.setVolume(baseMusicVolume * masterVolume);
+        currentMusic.play();
         currentMusicKey = key;
         System.out.println("[SoundManager] Playing music: " + key);
     }
 
-    /**
-     * Останавливает текущую музыку.
-     */
     public static void stopMusic() {
         if (currentMusic != null) {
             currentMusic.stop();
@@ -228,22 +196,66 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
 
     // ===================== УПРАВЛЕНИЕ ГРОМКОСТЬЮ =====================
 
+    /**
+     * Устанавливает базовую громкость музыки (без учёта masterVolume).
+     * Результирующая громкость = baseMusicVolume * masterVolume.
+     */
     public static void setMusicVolume(float volume) {
-        musicVolume = Math.max(0, Math.min(1, volume));
-        if (currentMusic != null) {
-            currentMusic.setVolume(musicVolume);
-        }
+        baseMusicVolume = Math.max(0, Math.min(1, volume));
+        applyMasterVolumeToMusic();
     }
 
+    /**
+     * Устанавливает базовую громкость звуковых эффектов (без учёта masterVolume).
+     * Результирующая громкость = baseSfxVolume * masterVolume.
+     */
     public static void setSfxVolume(float volume) {
-        sfxVolume = Math.max(0, Math.min(1, volume));
+        baseSfxVolume = Math.max(0, Math.min(1, volume));
+        applyMasterVolumeToSfx();
+    }
+
+    /**
+     * Устанавливает общий множитель громкости (0..1).
+     * Применяется ко всем звукам и музыке.
+     */
+    public static void setMasterVolume(float volume) {
+        masterVolume = Math.max(0, Math.min(1, volume));
+        // Обновляем громкость для всех уже загруженных звуков
+        applyMasterVolumeToSfx();
+        applyMasterVolumeToMusic();
+    }
+
+    // Вспомогательные методы для применения masterVolume
+
+    private static void applyMasterVolumeToSfx() {
         for (Map.Entry<String, AudioNode> entry : soundEffects.entrySet()) {
-            entry.getValue().setVolume(sfxVolume);
+            AudioNode node = entry.getValue();
+            // Проверяем, не является ли узел музыкой (у музыки looping = true)
+            // Но проще обновлять громкость для всех, кроме текущей музыки,
+            // чтобы не перебивать её громкость при переключении.
+            if (node != currentMusic) {
+                node.setVolume(baseSfxVolume * masterVolume);
+            }
         }
     }
 
-    public static float getMusicVolume() { return musicVolume; }
-    public static float getSfxVolume() { return sfxVolume; }
+    private static void applyMasterVolumeToMusic() {
+        if (currentMusic != null) {
+            currentMusic.setVolume(baseMusicVolume * masterVolume);
+        }
+        // Также обновляем громкость у всех загруженных музыкальных узлов,
+        // чтобы при старте они уже имели правильную громкость.
+        for (Map.Entry<String, AudioNode> entry : soundEffects.entrySet()) {
+            AudioNode node = entry.getValue();
+            if (node.isLooping()) { // если зациклен, считаем музыкой
+                node.setVolume(baseMusicVolume * masterVolume);
+            }
+        }
+    }
+
+    public static float getMusicVolume() { return baseMusicVolume; }
+    public static float getSfxVolume() { return baseSfxVolume; }
+    public static float getMasterVolume() { return masterVolume; }
 
     // ===================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====================
 
@@ -251,9 +263,6 @@ private static final float FOOTSTEP_INTERVAL = 0.45f;
         return soundEffects.containsKey(key);
     }
 
-    /**
-     * Освобождение ресурсов при завершении игры.
-     */
     public static void cleanup() {
         stopMusic();
         for (AudioNode node : soundEffects.values()) {

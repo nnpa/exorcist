@@ -17,8 +17,6 @@ public class Talent {
     private List<String> prerequisites = new ArrayList<>();
     private List<TalentEffect> effects = new ArrayList<>();
 
-    public Talent() {}
-
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -48,6 +46,15 @@ public class Talent {
 
     public List<TalentEffect> getEffects() { return effects; }
     public void setEffects(List<TalentEffect> effects) { this.effects = effects; }
+
+    // ---- ЛОКАЛИЗОВАННЫЕ ГЕТТЕРЫ ----
+    public String getLocalizedName() {
+        return LocalizationManager.getInstance().get("talent." + id + ".name");
+    }
+
+    public String getLocalizedDescription() {
+        return LocalizationManager.getInstance().get("talent." + id + ".desc");
+    }
 
     public static class TalentEffect {
         public String stat;

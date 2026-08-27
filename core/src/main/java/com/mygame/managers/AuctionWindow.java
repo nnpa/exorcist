@@ -16,7 +16,6 @@ import com.simsilica.lemur.event.MouseEventControl;
 import com.simsilica.lemur.event.MouseListener;
 import com.mygame.Main;
 import com.mygame.items.Item;
-import com.mygame.items.ItemRarity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,7 +56,7 @@ public class AuctionWindow {
 
     private float scale = 1f;
     private float winW, winH;
-    private float leftShift = 0f; // ← новое поле
+    private float leftShift = 0f;
 
     private final float ROW_HEIGHT = 26f;
     private final float GAP = 10f;
@@ -70,6 +69,10 @@ public class AuctionWindow {
         this.playerManager = pm;
         this.networkManager = Main.getInstance().getNetworkManager();
         createWindow();
+    }
+
+    private String getLocalized(String key) {
+        return LocalizationManager.getInstance().get(key);
     }
 
     private void updateScale() {
@@ -87,40 +90,41 @@ public class AuctionWindow {
         updateScale();
         windowNode = new Node("AuctionWindowNode");
 
-        // Увеличиваем ширину на 10 пикселей и задаём смещение вправо
-        winW = (700 + 25) * scale;  // +10
+        winW = (700 + 25) * scale;
         winH = 500 * scale;
-        leftShift = 19 * scale;     // смещение вправо
+        leftShift = 19 * scale;
 
         Geometry bg = uiManager.createBackgroundGeometry(winW, winH);
         bg.setLocalTranslation(0, 0, -0.1f);
         windowNode.attachChild(bg);
 
-        Label title = new Label("Auction House");
+        Label title = new Label(getLocalized("auction.title"));
         title.setFontSize(20 * scale);
         title.setColor(ColorRGBA.White);
         title.setLocalTranslation(winW / 2 - 80 * scale + leftShift, winH - 30 * scale, 0.1f);
         windowNode.attachChild(title);
 
-        Button closeBtn = new Button("X");
+        Button closeBtn = new Button(getLocalized("close.button"));
         closeBtn.setPreferredSize(new Vector3f(25 * scale, 25 * scale, 0));
         closeBtn.setLocalTranslation(winW - 35 * scale + leftShift, winH - 30 * scale, 0.1f);
         closeBtn.addClickCommands(s -> hide());
         windowNode.attachChild(closeBtn);
 
-        Button buyTab = new Button("Browse");
-        buyTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
-        buyTab.setLocalTranslation(15 * scale + leftShift, winH - 95 * scale, 0.1f);
-        buyTab.addClickCommands(s -> showBrowseTab());
-        windowNode.attachChild(buyTab);
+Button buyTab = new Button(getLocalized("auction.tab.browse"));
+buyTab.setPreferredSize(new Vector3f(80 * scale, 24 * scale, 0));
+buyTab.setFontSize(13 * scale);   // было 12, можно оставить
+buyTab.setLocalTranslation(15 * scale + leftShift, winH - 95 * scale, 0.1f);
+buyTab.addClickCommands(s -> showBrowseTab());
+windowNode.attachChild(buyTab);
 
-        Button sellTab = new Button("Sell");
-        sellTab.setPreferredSize(new Vector3f(70 * scale, 22 * scale, 0));
-        sellTab.setLocalTranslation(95 * scale + leftShift, winH - 95 * scale, 0.1f);
-        sellTab.addClickCommands(s -> showSellTab());
-        windowNode.attachChild(sellTab);
+Button sellTab = new Button(getLocalized("auction.tab.sell"));
+sellTab.setPreferredSize(new Vector3f(80 * scale, 24 * scale, 0));
+sellTab.setFontSize(13 * scale);
+sellTab.setLocalTranslation(105 * scale + leftShift, winH - 95 * scale, 0.1f);
+sellTab.addClickCommands(s -> showSellTab());
+windowNode.attachChild(sellTab);
 
-        goldLabel = new Label("Gold: " + playerManager.getGold());
+        goldLabel = new Label(getLocalized("gold.label") + playerManager.getGold());
         goldLabel.setFontSize(14 * scale);
         goldLabel.setColor(ColorRGBA.Yellow);
         goldLabel.setLocalTranslation(15 * scale + leftShift, winH - 65 * scale, 0.1f);
@@ -152,158 +156,152 @@ public class AuctionWindow {
         dynamicParts.clear();
     }
 
-    private void showBrowseTab() {
-        clearDynamicParts();
-        selectedSlot = -1;
-        currentLots.clear();
+private void showBrowseTab() {
+    clearDynamicParts();
+    selectedSlot = -1;
+    currentLots.clear();
 
-        float y = winH - 110 * scale;
+    float y = winH - 110 * scale;
 
-        goldLabel.setText("Gold: " + playerManager.getGold());
-        goldLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 30 * scale, 0));
-        goldLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
-        windowNode.attachChild(goldLabel);
-        dynamicParts.add(goldLabel);
-        y -= 35 * scale;
+    goldLabel.setText(getLocalized("gold.label") + playerManager.getGold());
+    goldLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 30 * scale, 0));
+    goldLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
+    windowNode.attachChild(goldLabel);
+    dynamicParts.add(goldLabel);
+    y -= 35 * scale;
 
-        // Фильтр типа
-        Label typeLabel = new Label("Type:");
-        typeLabel.setFontSize(12 * scale);
-        typeLabel.setColor(ColorRGBA.White);
-        typeLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 20 * scale, 0));
-        typeLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
-        windowNode.attachChild(typeLabel);
-        dynamicParts.add(typeLabel);
-        y -= 25 * scale;
+    Label typeLabel = new Label(getLocalized("auction.filter.type"));
+    typeLabel.setFontSize(12 * scale);
+    typeLabel.setColor(ColorRGBA.White);
+    typeLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 20 * scale, 0));
+    typeLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
+    windowNode.attachChild(typeLabel);
+    dynamicParts.add(typeLabel);
+    y -= 25 * scale;
 
-        String[] typeOptions = {"All", "Weapon", "Helmet", "Chest", "Shield", "Legs", "Boots", "Gloves"};
-        Container typeContainer = new Container();
-        typeContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
-        typeContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
-        typeContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
-        for (String opt : typeOptions) {
-            Button btn = new Button(opt);
-            btn.setFontSize(11 * scale);
-            btn.setPreferredSize(new Vector3f(70 * scale, 20 * scale, 0));
-            if (filterType.isEmpty() && opt.equals("All")) btn.setColor(ColorRGBA.Yellow);
-            else if (opt.equals(filterType)) btn.setColor(ColorRGBA.Yellow);
-            else btn.setColor(ColorRGBA.White);
-            btn.addClickCommands((source) -> {
-                filterType = opt.equals("All") ? "" : opt;
-                loadLots(1);
-            });
-            typeContainer.addChild(btn);
-        }
-        windowNode.attachChild(typeContainer);
-        dynamicParts.add(typeContainer);
-        y -= 35 * scale;
-
-        // Фильтр редкости
-        Label rarityLabel = new Label("Rarity:");
-        rarityLabel.setFontSize(12 * scale);
-        rarityLabel.setColor(ColorRGBA.White);
-        rarityLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 20 * scale, 0));
-        rarityLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
-        windowNode.attachChild(rarityLabel);
-        dynamicParts.add(rarityLabel);
-        y -= 25 * scale;
-
-        String[] rarityOptions = {"All", "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"};
-        Container rarityContainer = new Container();
-        rarityContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
-        rarityContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
-        rarityContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
-        for (String opt : rarityOptions) {
-            Button btn = new Button(opt);
-            btn.setFontSize(11 * scale);
-            btn.setPreferredSize(new Vector3f(80 * scale, 20 * scale, 0));
-            if (filterRarity.isEmpty() && opt.equals("All")) btn.setColor(ColorRGBA.Yellow);
-            else if (opt.equals(filterRarity)) btn.setColor(ColorRGBA.Yellow);
-            else btn.setColor(ColorRGBA.White);
-            btn.addClickCommands((source) -> {
-                filterRarity = opt.equals("All") ? "" : opt;
-                loadLots(1);
-            });
-            rarityContainer.addChild(btn);
-        }
-        windowNode.attachChild(rarityContainer);
-        dynamicParts.add(rarityContainer);
-        y -= 35 * scale;
-
-        // Фильтр уровня
-        Container lvlContainer = new Container();
-        lvlContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
-        lvlContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
-        lvlContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
-
-        Label lvlLabel = new Label("Min Lvl:");
-        lvlLabel.setFontSize(12 * scale);
-        lvlLabel.setColor(ColorRGBA.White);
-        lvlContainer.addChild(lvlLabel);
-
-        TextField levelField = new TextField("1");
-        levelField.setFontSize(12 * scale);
-        levelField.setPreferredSize(new Vector3f(40 * scale, 20 * scale, 0));
-        lvlContainer.addChild(levelField);
-
-        Button lvlApplyBtn = new Button("Go");
-        lvlApplyBtn.setFontSize(12 * scale);
-        lvlApplyBtn.setPreferredSize(new Vector3f(30 * scale, 20 * scale, 0));
-        lvlApplyBtn.addClickCommands((source) -> {
-            try {
-                filterMinLevel = Math.max(1, Integer.parseInt(levelField.getText()));
-                loadLots(1);
-            } catch (Exception ignored) {}
+    String[] typeOptions = {"All", "Weapon", "Helmet", "Chest", "Shield", "Legs", "Boots", "Gloves"};
+    Container typeContainer = new Container();
+    typeContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
+    typeContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
+    typeContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
+    for (String opt : typeOptions) {
+        String displayText = opt.equals("All") ? getLocalized("auction.filter.all") : getLocalized("item.type." + opt);
+        Button btn = new Button(displayText);
+        btn.setFontSize(11 * scale);
+        btn.setPreferredSize(new Vector3f(70 * scale, 20 * scale, 0));
+        if (filterType.isEmpty() && opt.equals("All")) btn.setColor(ColorRGBA.Yellow);
+        else if (opt.equals(filterType)) btn.setColor(ColorRGBA.Yellow);
+        else btn.setColor(ColorRGBA.White);
+        btn.addClickCommands((source) -> {
+            filterType = opt.equals("All") ? "" : opt;
+            loadLots(1);
         });
-        lvlContainer.addChild(lvlApplyBtn);
-
-        windowNode.attachChild(lvlContainer);
-        dynamicParts.add(lvlContainer);
-        y -= 40 * scale;
-
-        float listStartY = y;
-
-        // Контейнер списка + пагинации
-        listAndPaginationContainer = new Container();
-        listAndPaginationContainer.setLayout(new SpringGridLayout(Axis.Y, Axis.X));
-        float containerWidth = winW - 40 * scale;
-        listAndPaginationContainer.setPreferredSize(new Vector3f(containerWidth, 100 * scale, 0));
-        listAndPaginationContainer.setLocalTranslation(15 * scale + leftShift, listStartY, 0.1f);
-        windowNode.attachChild(listAndPaginationContainer);
-        dynamicParts.add(listAndPaginationContainer);
-
-        paginationContainer = new Container();
-        paginationContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
-        paginationContainer.setPreferredSize(new Vector3f(containerWidth, PAGINATION_HEIGHT * scale, 0));
-
-        // Тултип
-        tooltipContainer = new Container();
-        float tooltipWidth = 200 * scale;
-        float tooltipHeight = 150 * scale;
-        tooltipContainer.setPreferredSize(new Vector3f(tooltipWidth, tooltipHeight, 0));
-        tooltipContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.05f, 0.05f, 0.1f, 0.95f)));
-        // Позиционируем: отступ от правого края 10 пикселей, по вертикали центрируем
-        float tooltipX = winW + 30 * scale + leftShift; // сдвиг вправо
-        float tooltipY = winH / 2 - tooltipHeight / 2;
-        tooltipContainer.setLocalTranslation(tooltipX, tooltipY, 0.1f);
-        tooltipContainer.setCullHint(Node.CullHint.Always);
-        windowNode.attachChild(tooltipContainer);
-        dynamicParts.add(tooltipContainer);
-
-        tooltipLabel = new Label("");
-        tooltipLabel.setFontSize(12 * scale);
-        tooltipLabel.setColor(ColorRGBA.White);
-        tooltipLabel.setPreferredSize(new Vector3f(tooltipWidth - 10 * scale, tooltipHeight - 10 * scale, 0));
-        tooltipLabel.setInsets(new Insets3f(5 * scale, 5 * scale, 5 * scale, 5 * scale));
-        tooltipContainer.addChild(tooltipLabel);
-
-        loadLots(1);
+        typeContainer.addChild(btn);
     }
+    windowNode.attachChild(typeContainer);
+    dynamicParts.add(typeContainer);
+    y -= 35 * scale;
 
+    Label rarityLabel = new Label(getLocalized("auction.filter.rarity"));
+    rarityLabel.setFontSize(12 * scale);
+    rarityLabel.setColor(ColorRGBA.White);
+    rarityLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 20 * scale, 0));
+    rarityLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
+    windowNode.attachChild(rarityLabel);
+    dynamicParts.add(rarityLabel);
+    y -= 25 * scale;
+
+    String[] rarityOptions = {"All", "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"};
+    Container rarityContainer = new Container();
+    rarityContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
+    rarityContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
+    rarityContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
+    for (String opt : rarityOptions) {
+        String displayText = opt.equals("All") ? getLocalized("auction.filter.all") : getLocalized("rarity." + opt.toLowerCase());
+        Button btn = new Button(displayText);
+        btn.setFontSize(11 * scale);
+        btn.setPreferredSize(new Vector3f(80 * scale, 20 * scale, 0));
+        if (filterRarity.isEmpty() && opt.equals("All")) btn.setColor(ColorRGBA.Yellow);
+        else if (opt.equals(filterRarity)) btn.setColor(ColorRGBA.Yellow);
+        else btn.setColor(ColorRGBA.White);
+        btn.addClickCommands((source) -> {
+            filterRarity = opt.equals("All") ? "" : opt;
+            loadLots(1);
+        });
+        rarityContainer.addChild(btn);
+    }
+    windowNode.attachChild(rarityContainer);
+    dynamicParts.add(rarityContainer);
+    y -= 35 * scale;
+
+    Container lvlContainer = new Container();
+    lvlContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
+    lvlContainer.setPreferredSize(new Vector3f(winW - 30 * scale, 25 * scale, 0));
+    lvlContainer.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
+
+    Label lvlLabel = new Label(getLocalized("auction.filter.minlevel"));
+    lvlLabel.setFontSize(12 * scale);
+    lvlLabel.setColor(ColorRGBA.White);
+    lvlContainer.addChild(lvlLabel);
+
+    TextField levelField = new TextField("1");
+    levelField.setFontSize(12 * scale);
+    levelField.setPreferredSize(new Vector3f(40 * scale, 20 * scale, 0));
+    lvlContainer.addChild(levelField);
+
+    Button lvlApplyBtn = new Button(getLocalized("auction.filter.go"));
+    lvlApplyBtn.setFontSize(12 * scale);
+    lvlApplyBtn.setPreferredSize(new Vector3f(30 * scale, 20 * scale, 0));
+    lvlApplyBtn.addClickCommands((source) -> {
+        try {
+            filterMinLevel = Math.max(1, Integer.parseInt(levelField.getText()));
+            loadLots(1);
+        } catch (Exception ignored) {}
+    });
+    lvlContainer.addChild(lvlApplyBtn);
+
+    windowNode.attachChild(lvlContainer);
+    dynamicParts.add(lvlContainer);
+    y -= 40 * scale;
+
+    float listStartY = y;
+    listAndPaginationContainer = new Container();
+    listAndPaginationContainer.setLayout(new SpringGridLayout(Axis.Y, Axis.X));
+    float containerWidth = winW - 40 * scale;
+    listAndPaginationContainer.setPreferredSize(new Vector3f(containerWidth, 100 * scale, 0));
+    listAndPaginationContainer.setLocalTranslation(15 * scale + leftShift, listStartY, 0.1f);
+    windowNode.attachChild(listAndPaginationContainer);
+    dynamicParts.add(listAndPaginationContainer);
+
+    paginationContainer = new Container();
+    paginationContainer.setLayout(new SpringGridLayout(Axis.X, Axis.Y));
+    paginationContainer.setPreferredSize(new Vector3f(containerWidth, PAGINATION_HEIGHT * scale, 0));
+
+    tooltipContainer = new Container();
+    float tooltipWidth = 200 * scale;
+    float tooltipHeight = 150 * scale;
+    tooltipContainer.setPreferredSize(new Vector3f(tooltipWidth, tooltipHeight, 0));
+    tooltipContainer.setBackground(new QuadBackgroundComponent(new ColorRGBA(0.05f, 0.05f, 0.1f, 0.95f)));
+    float tooltipX = winW + 30 * scale + leftShift;
+    float tooltipY = winH / 2 - tooltipHeight / 2;
+    tooltipContainer.setLocalTranslation(tooltipX, tooltipY, 0.1f);
+    tooltipContainer.setCullHint(Node.CullHint.Always);
+    windowNode.attachChild(tooltipContainer);
+    dynamicParts.add(tooltipContainer);
+
+    tooltipLabel = new Label("");
+    tooltipLabel.setFontSize(12 * scale);
+    tooltipLabel.setColor(ColorRGBA.White);
+    tooltipLabel.setPreferredSize(new Vector3f(tooltipWidth - 10 * scale, tooltipHeight - 10 * scale, 0));
+    tooltipLabel.setInsets(new Insets3f(5 * scale, 5 * scale, 5 * scale, 5 * scale));
+    tooltipContainer.addChild(tooltipLabel);
+
+    loadLots(1);
+}
     private void loadLots(int page) {
         this.currentPage = page;
         if (networkManager == null) {
-            updateStatus("No network connection");
+            updateStatus(getLocalized("error.no_network"));
             return;
         }
 
@@ -311,7 +309,7 @@ public class AuctionWindow {
             .thenAccept(response -> {
                 app.enqueue(() -> {
                     if (response == null) {
-                        updateStatus("Failed to load auctions.");
+                        updateStatus(getLocalized("error.load_failed"));
                         return null;
                     }
                     this.currentLots = response.getLots();
@@ -333,7 +331,7 @@ public class AuctionWindow {
         int displayCount = Math.min(currentLots.size(), 5);
 
         if (displayCount == 0) {
-            Label empty = new Label("No auction lots found.");
+            Label empty = new Label(getLocalized("auction.empty"));
             empty.setFontSize(12 * scale);
             empty.setColor(ColorRGBA.Gray);
             listAndPaginationContainer.addChild(empty);
@@ -353,13 +351,13 @@ public class AuctionWindow {
                 row.addChild(infoLabel);
 
                 if (lot.getSellerName().equals(playerManager.getPlayerName())) {
-                    Label ownerLabel = new Label(" (Yours)");
+                    Label ownerLabel = new Label(getLocalized("auction.yours"));
                     ownerLabel.setFontSize(12 * scale);
                     ownerLabel.setColor(ColorRGBA.Gray);
                     ownerLabel.setPreferredSize(new Vector3f(80 * scale, rowHeightScaled - 4 * scale, 0));
                     row.addChild(ownerLabel);
                 } else {
-                    Button buyBtn = new Button("Buy");
+                    Button buyBtn = new Button(getLocalized("auction.buy"));
                     buyBtn.setFontSize(11 * scale);
                     buyBtn.setPreferredSize(new Vector3f(60 * scale, rowHeightScaled - 4 * scale, 0));
                     buyBtn.setColor(ColorRGBA.Green);
@@ -368,7 +366,6 @@ public class AuctionWindow {
                     row.addChild(buyBtn);
                 }
 
-                // MouseListener для тултипа
                 MouseEventControl.removeListenersFromSpatial(row);
                 MouseEventControl.addListenersToSpatial(row, new MouseListener() {
                     @Override
@@ -378,27 +375,16 @@ public class AuctionWindow {
                             String tooltipText = buildTooltipText(item);
                             tooltipLabel.setText(tooltipText);
                             ColorRGBA rarityColor = item.getColor();
-                            if (rarityColor != null) {
-                                tooltipLabel.setColor(rarityColor);
-                            } else {
-                                tooltipLabel.setColor(ColorRGBA.White);
-                            }
+                            if (rarityColor != null) tooltipLabel.setColor(rarityColor);
+                            else tooltipLabel.setColor(ColorRGBA.White);
                             tooltipContainer.setCullHint(Node.CullHint.Never);
                         }
                     }
-
-                    @Override
-                    public void mouseExited(MouseMotionEvent evt, Spatial spatial, Spatial target) {
+                    @Override public void mouseExited(MouseMotionEvent evt, Spatial spatial, Spatial target) {
                         tooltipContainer.setCullHint(Node.CullHint.Always);
                     }
-
-                    @Override
-                    public void mouseButtonEvent(MouseButtonEvent evt, Spatial spatial, Spatial target) {
-                        // не потребляем
-                    }
-
-                    @Override
-                    public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
+                    @Override public void mouseButtonEvent(MouseButtonEvent evt, Spatial spatial, Spatial target) {}
+                    @Override public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
                 });
 
                 listAndPaginationContainer.addChild(row);
@@ -412,35 +398,21 @@ public class AuctionWindow {
         float totalHeight = childCount * (rowHeightScaled + 2 * scale) + PAGINATION_HEIGHT * scale;
         totalHeight = Math.max(totalHeight, 80 * scale);
         listAndPaginationContainer.setPreferredSize(new Vector3f(
-            listAndPaginationContainer.getPreferredSize().x,
-            totalHeight,
-            0
-        ));
+            listAndPaginationContainer.getPreferredSize().x, totalHeight, 0));
     }
 
     private String buildTooltipText(Item item) {
+        // Можно тоже локализовать, но это дольше; пока оставим как есть, используя готовые строки.
         StringBuilder sb = new StringBuilder();
         sb.append(item.getName()).append("\n");
         sb.append("Level: ").append(item.getLevel()).append("\n");
         sb.append("Rarity: ").append(item.getRarity()).append("\n");
-        if (item.getDamage() > 0) {
-            sb.append("Damage: +").append(item.getDamage()).append("\n");
-        }
-        if (item.getDefense() > 0) {
-            sb.append("Defense: +").append(item.getDefense()).append("\n");
-        }
-        if (item.getHealthBonus() > 0) {
-            sb.append("Health: +").append(item.getHealthBonus()).append("\n");
-        }
-        if (item.getManaBonus() > 0) {
-            sb.append("Mana: +").append(item.getManaBonus()).append("\n");
-        }
-        if (item.getSocketCount() > 0) {
-            sb.append("Sockets: ").append(item.getSocketCount()).append("\n");
-        }
-        if (!item.getRunes().isEmpty()) {
-            sb.append("Runes: ").append(item.getRunes().size()).append("\n");
-        }
+        if (item.getDamage() > 0) sb.append("Damage: +").append(item.getDamage()).append("\n");
+        if (item.getDefense() > 0) sb.append("Defense: +").append(item.getDefense()).append("\n");
+        if (item.getHealthBonus() > 0) sb.append("Health: +").append(item.getHealthBonus()).append("\n");
+        if (item.getManaBonus() > 0) sb.append("Mana: +").append(item.getManaBonus()).append("\n");
+        if (item.getSocketCount() > 0) sb.append("Sockets: ").append(item.getSocketCount()).append("\n");
+        if (!item.getRunes().isEmpty()) sb.append("Runes: ").append(item.getRunes().size()).append("\n");
         sb.append("Type: ").append(item.getType());
         return sb.toString();
     }
@@ -455,7 +427,7 @@ public class AuctionWindow {
         prevBtn.addClickCommands(s -> { if (currentPage > 1) loadLots(currentPage - 1); });
         paginationContainer.addChild(prevBtn);
 
-        Label pageNum = new Label("Page " + currentPage + " / " + totalPages);
+        Label pageNum = new Label(getLocalized("auction.page") + " " + currentPage + " / " + totalPages);
         pageNum.setFontSize(12 * scale);
         pageNum.setPreferredSize(new Vector3f(150 * scale, 22 * scale, 0));
         pageNum.setColor(ColorRGBA.White);
@@ -468,7 +440,6 @@ public class AuctionWindow {
         paginationContainer.addChild(nextBtn);
     }
 
-    // ---------- Вкладка продажи ----------
     private void showSellTab() {
         clearDynamicParts();
 
@@ -477,7 +448,7 @@ public class AuctionWindow {
         float padding = 4f;
         float borderSize = 2f * scale;
 
-        Label header = new Label("Select ONE item to sell, then click \"List for Auction\":");
+        Label header = new Label(getLocalized("auction.sell.header"));
         header.setFontSize(14 * scale);
         header.setColor(ColorRGBA.White);
         header.setPreferredSize(new Vector3f(winW - 30 * scale, 30 * scale, 0));
@@ -529,10 +500,7 @@ public class AuctionWindow {
 
                 if (item != null) {
                     Texture tex = null;
-                    try {
-                        tex = app.getAssetManager().loadTexture(item.getIconPath());
-                    } catch (Exception ignored) {}
-
+                    try { tex = app.getAssetManager().loadTexture(item.getIconPath()); } catch (Exception ignored) {}
                     if (tex != null) {
                         slotLabel.setBackground(new QuadBackgroundComponent(tex));
                         slotLabel.setText("");
@@ -556,11 +524,8 @@ public class AuctionWindow {
                         public void mouseButtonEvent(MouseButtonEvent evt, Spatial spatial, Spatial target) {
                             if (evt.isPressed() && evt.getButtonIndex() == 0) {
                                 evt.setConsumed();
-                                if (selectedSlot == slot) {
-                                    selectedSlot = -1;
-                                } else {
-                                    selectedSlot = slot;
-                                }
+                                if (selectedSlot == slot) selectedSlot = -1;
+                                else selectedSlot = slot;
                                 showSellTab();
                             }
                         }
@@ -593,7 +558,7 @@ public class AuctionWindow {
         windowNode.attachChild(priceContainer);
         dynamicParts.add(priceContainer);
 
-        Label priceLabel = new Label("Price (Gold):");
+        Label priceLabel = new Label(getLocalized("auction.sell.price"));
         priceLabel.setFontSize(14 * scale);
         priceContainer.addChild(priceLabel);
 
@@ -602,18 +567,18 @@ public class AuctionWindow {
         priceInput.setFontSize(14 * scale);
         priceContainer.addChild(priceInput);
 
-        Button sellNowBtn = new Button("List for Auction");
+        Button sellNowBtn = new Button(getLocalized("auction.sell.list"));
         sellNowBtn.setFontSize(14 * scale);
         sellNowBtn.setPreferredSize(new Vector3f(150 * scale, 25 * scale, 0));
         sellNowBtn.setColor(ColorRGBA.Green);
         sellNowBtn.addClickCommands(s -> {
             if (selectedSlot == -1) {
-                updateStatus("Please select an item first.");
+                updateStatus(getLocalized("auction.sell.select"));
                 return;
             }
             Item selectedItem = inventoryManager.getItemAtSlot(selectedSlot);
             if (selectedItem == null) {
-                updateStatus("Selected slot is empty.");
+                updateStatus(getLocalized("auction.sell.empty"));
                 return;
             }
             int price = 100;
@@ -623,28 +588,23 @@ public class AuctionWindow {
         priceContainer.addChild(sellNowBtn);
     }
 
-    // ============================================================
-    //   ОБРАБОТЧИКИ ПОКУПКИ / ПРОДАЖИ
-    // ============================================================
     private void handleBuyLot(int lotId) {
         System.out.println("[AuctionWindow] Attempting to buy lot " + lotId);
         networkManager.buyAuctionLot(lotId).thenAccept(response -> {
             if (response != null) {
                 app.enqueue(() -> {
-                    System.out.println("[AuctionWindow] Buy successful! Removing lot " + lotId);
                     boolean removed = currentLots.removeIf(lot -> lot.getId() == lotId);
-                    System.out.println("[AuctionWindow] Removed: " + removed + ", remaining: " + currentLots.size());
                     updateLotList();
-                    updateStatus("Lot purchased successfully!");
+                    updateStatus(getLocalized("auction.status.buy.success"));
                     uiManager.applyCharacterData(response);
                 });
             } else {
-                app.enqueue(() -> updateStatus("Failed to buy lot: server returned null."));
+                app.enqueue(() -> updateStatus(getLocalized("auction.status.buy.fail")));
             }
         }).exceptionally(ex -> {
             app.enqueue(() -> {
                 System.err.println("[AuctionWindow] Exception: " + ex.getMessage());
-                updateStatus("Network error: " + ex.getMessage());
+                updateStatus(getLocalized("error.network") + ex.getMessage());
             });
             return null;
         });
@@ -655,24 +615,22 @@ public class AuctionWindow {
         networkManager.createAuctionLot(slotIndices, price).thenAccept(response -> {
             app.enqueue(() -> {
                 if (response == null) {
-                    updateStatus("Failed to create lot: server returned null.");
+                    updateStatus(getLocalized("auction.status.create.fail"));
                     return;
                 }
                 if (response.containsKey("error")) {
-                    String errorMsg = (String) response.get("error");
-                    updateStatus("Error: " + errorMsg);
+                    updateStatus(getLocalized("auction.status.create.fail") + " " + response.get("error"));
                     return;
                 }
-                System.out.println("[AuctionWindow] Received characterData, applying...");
                 uiManager.applyCharacterData(response);
-                updateStatus("Lot successfully listed for " + price + "g!");
+                updateStatus(getLocalized("auction.status.create.success") + " " + price + "g!");
                 selectedSlot = -1;
                 showSellTab();
             });
         }).exceptionally(ex -> {
             app.enqueue(() -> {
                 System.err.println("[AuctionWindow] Exception: " + ex.getMessage());
-                updateStatus("Network error: " + ex.getMessage());
+                updateStatus(getLocalized("error.network") + ex.getMessage());
             });
             return null;
         });
@@ -691,16 +649,11 @@ public class AuctionWindow {
         }
     }
 
-    // ============================================================
-    //   УПРАВЛЕНИЕ ВИДИМОСТЬЮ
-    // ============================================================
     public void show() {
         if (isVisible) return;
         isVisible = true;
         updateGold();
-        if (windowNode.getParent() == null) {
-            uiManager.getGuiNode().attachChild(windowNode);
-        }
+        if (windowNode.getParent() == null) uiManager.getGuiNode().attachChild(windowNode);
         uiManager.onTraderOpened(windowNode);
     }
 
@@ -708,28 +661,15 @@ public class AuctionWindow {
         if (!isVisible) return;
         isVisible = false;
         selectedSlot = -1;
-        if (windowNode.getParent() != null) {
-            uiManager.getGuiNode().detachChild(windowNode);
-        }
-        if (statusLabel != null) {
-            statusLabel.setText("");
-            statusLabel.setCullHint(Node.CullHint.Always);
-        }
-        if (tooltipContainer != null) {
-            tooltipContainer.setCullHint(Node.CullHint.Always);
-        }
+        if (windowNode.getParent() != null) uiManager.getGuiNode().detachChild(windowNode);
+        if (statusLabel != null) { statusLabel.setText(""); statusLabel.setCullHint(Node.CullHint.Always); }
+        if (tooltipContainer != null) tooltipContainer.setCullHint(Node.CullHint.Always);
         uiManager.onTraderClosed(windowNode);
     }
 
-    public void toggle() {
-        if (isVisible) hide(); else show();
-    }
-
-    public void updateGold() {
-        if (goldLabel != null) {
-            goldLabel.setText("Gold: " + playerManager.getGold());
-        }
-    }
+    public void toggle() { if (isVisible) hide(); else show(); }
+    public void updateGold() { if (goldLabel != null) goldLabel.setText(getLocalized("gold.label") + playerManager.getGold()); }
+    public boolean isVisible() { return isVisible; }
 
     public void updateLayout(int screenWidth, int screenHeight) {
         if (isVisible) {
@@ -737,9 +677,5 @@ public class AuctionWindow {
             createWindow();
             uiManager.getGuiNode().attachChild(windowNode);
         }
-    }
-
-    public boolean isVisible() {
-        return isVisible;
     }
 }

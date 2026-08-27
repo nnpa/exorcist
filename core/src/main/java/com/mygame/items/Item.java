@@ -1,11 +1,15 @@
 package com.mygame.items;
 
 import com.jme3.math.ColorRGBA;
+import com.mygame.managers.LocalizationManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class Item {
+    public String getLocalizedType() {
+    return LocalizationManager.getInstance().get("item.type." + type);
+}
     private int difficulty;
 
     private String id;
