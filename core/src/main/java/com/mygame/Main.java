@@ -13,7 +13,9 @@ import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.RawInputListener;
 import com.jme3.input.controls.ActionListener;
+import com.jme3.input.controls.AnalogListener;
 import com.jme3.input.controls.KeyTrigger;
+import com.jme3.input.controls.MouseAxisTrigger;
 import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.input.event.*;
 import com.jme3.light.AmbientLight;
@@ -200,6 +202,23 @@ inputManager.addListener(new ActionListener() {
     }
 }, "OpenEditor");
 
+ inputManager.addMapping("ZoomIn", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
+    inputManager.addMapping("ZoomOut", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
+
+    AnalogListener wheelListener = new AnalogListener() {
+        @Override
+        public void onAnalog(String name, float value, float tpf) {
+            if (uiManager != null && uiManager.isAnyWindowOpen()) return;
+            if (cameraControl == null) return;
+
+            if ("ZoomIn".equals(name)) {
+                cameraControl.zoom(-1.5f);
+            } else if ("ZoomOut".equals(name)) {
+                cameraControl.zoom(1.5f);
+            }
+        }
+    };
+    inputManager.addListener(wheelListener, "ZoomIn", "ZoomOut");
 
     }
 

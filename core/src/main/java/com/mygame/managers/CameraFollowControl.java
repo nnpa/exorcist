@@ -18,6 +18,10 @@ public class CameraFollowControl extends AbstractControl {
     private Vector3f targetOffset = new Vector3f(0, -0.5f, 0);
     private boolean enabled = true;
 
+    // Минимальное и максимальное расстояние для зума
+    private static final float MIN_DISTANCE = 20f;
+    private static final float MAX_DISTANCE = 28f;
+
     public CameraFollowControl(Camera cam, Node target) {
         this.cam = cam;
         this.target = target;
@@ -60,5 +64,20 @@ public class CameraFollowControl extends AbstractControl {
 
     public void setCameraAngle(float angle) {
         this.cameraAngle = angle;
+    }
+
+    /**
+     * Изменяет расстояние камеры с ограничением MIN_DISTANCE .. MAX_DISTANCE.
+     * @param delta положительное – отдаление, отрицательное – приближение.
+     */
+    public void zoom(float delta) {
+        distance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, distance + delta));
+    }
+
+    /**
+     * Возвращает текущее расстояние камеры.
+     */
+    public float getDistance() {
+        return distance;
     }
 }

@@ -167,11 +167,7 @@ public class UIManager {
             traderWindow.hide();
         }
 
-        if (!"map".equals(keepOpen)
-                && mapWindow != null
-                && mapWindow.isVisible()) {
-            mapWindow.hide();
-        }
+
 
         if (!"settings".equals(keepOpen)
                 && settingsWindow != null
