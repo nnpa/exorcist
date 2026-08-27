@@ -7,9 +7,7 @@ import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Quad;
-import com.jme3.scene.shape.Sphere;
 import com.jme3.texture.Texture2D;
-import com.simsilica.lemur.Button;
 
 /**
  * Окно мини-карты.
@@ -27,17 +25,7 @@ public class MapWindow {
 
     private boolean isVisible = false;
 
-    /**
-     * Размер карты на экране.
-     */
     private final float mapSize = 400f;
-
-    /**
-     * Размер области мира, отображаемой камерой.
-     *
-     * Должен совпадать с MapRenderer.viewSize.
-     */
-    private final float mapViewSize = 40f;
 
     public MapWindow(
             SimpleApplication app,
@@ -52,9 +40,6 @@ public class MapWindow {
         createWindow();
     }
 
-    /**
-     * Создание GUI окна карты.
-     */
     private void createWindow() {
 
         windowNode = new Node(
@@ -62,9 +47,9 @@ public class MapWindow {
         );
 
         /*
-         * ---------------------------------------------------------
-         * ПОЛОЖЕНИЕ ОКНА
-         * ---------------------------------------------------------
+         * =========================================================
+         * ПОЗИЦИЯ
+         * =========================================================
          */
 
         float screenWidth =
@@ -73,19 +58,27 @@ public class MapWindow {
         float screenHeight =
                 app.getCamera().getHeight();
 
-float x = screenWidth - mapSize - 20f;
-float y = screenHeight - mapSize - 20f;
+        float x =
+                screenWidth
+                - mapSize
+                - 20f;
+
+        float y =
+                screenHeight
+                - mapSize
+                - 20f;
 
         /*
-         * ---------------------------------------------------------
-         * MAP TEXTURE
-         * ---------------------------------------------------------
+         * =========================================================
+         * MAP
+         * =========================================================
          */
 
-        Quad quad = new Quad(
-                mapSize,
-                mapSize
-        );
+        Quad quad =
+                new Quad(
+                        mapSize,
+                        mapSize
+                );
 
         mapTextureGeometry =
                 new Geometry(
@@ -100,8 +93,8 @@ float y = screenHeight - mapSize - 20f;
                 );
 
         /*
-         * Пока текстура не появилась,
-         * показываем тёмный фон.
+         * Это резервный фон,
+         * пока framebuffer ещё ничего не нарисовал.
          */
         mapMaterial.setColor(
                 "Color",
@@ -128,56 +121,9 @@ float y = screenHeight - mapSize - 20f;
         );
 
         /*
-         * ---------------------------------------------------------
-         * PLAYER MARKER
-         * ---------------------------------------------------------
-         */
-
-        Sphere sphere =
-                new Sphere(
-                        8,
-                        8,
-                        6f
-                );
-
-        playerMarker =
-                new Geometry(
-                        "PlayerMarker",
-                        sphere
-                );
-
-        Material markerMaterial =
-                new Material(
-                        app.getAssetManager(),
-                        "Common/MatDefs/Misc/Unshaded.j3md"
-                );
-
-        markerMaterial.setColor(
-                "Color",
-                ColorRGBA.Red
-        );
-
-        playerMarker.setMaterial(
-                markerMaterial
-        );
-
-        /*
-         * Игрок изначально в центре.
-         */
-        playerMarker.setLocalTranslation(
-                mapSize / 2f,
-                mapSize / 2f,
-                0.1f
-        );
-
-        windowNode.attachChild(
-                playerMarker
-        );
-
-        /*
-         * ---------------------------------------------------------
+         * =========================================================
          * BORDER
-         * ---------------------------------------------------------
+         * =========================================================
          */
 
         Geometry border =
@@ -209,13 +155,10 @@ float y = screenHeight - mapSize - 20f;
                 borderMaterial
         );
 
-        /*
-         * Border должен быть ПОД картой.
-         */
         border.setLocalTranslation(
                 -2f,
                 -2f,
-                -0.1f
+                -0.01f
         );
 
         windowNode.attachChild(
@@ -223,17 +166,55 @@ float y = screenHeight - mapSize - 20f;
         );
 
         /*
-         * ---------------------------------------------------------
-         * CLOSE BUTTON
-         * ---------------------------------------------------------
+         * =========================================================
+         * PLAYER MARKER
+         * =========================================================
          */
 
-        
+        Quad markerQuad =
+                new Quad(
+                        10f,
+                        10f
+                );
+
+        playerMarker =
+                new Geometry(
+                        "PlayerMarker",
+                        markerQuad
+                );
+
+        Material markerMaterial =
+                new Material(
+                        app.getAssetManager(),
+                        "Common/MatDefs/Misc/Unshaded.j3md"
+                );
+
+        markerMaterial.setColor(
+                "Color",
+                ColorRGBA.Red
+        );
+
+        playerMarker.setMaterial(
+                markerMaterial
+        );
 
         /*
-         * ---------------------------------------------------------
+         * Центр карты.
+         */
+        playerMarker.setLocalTranslation(
+                mapSize / 2f - 5f,
+                mapSize / 2f - 5f,
+                0.1f
+        );
+
+        windowNode.attachChild(
+                playerMarker
+        );
+
+        /*
+         * =========================================================
          * POSITION
-         * ---------------------------------------------------------
+         * =========================================================
          */
 
         windowNode.setLocalTranslation(
@@ -243,15 +224,15 @@ float y = screenHeight - mapSize - 20f;
         );
 
         /*
-         * Сначала скрываем окно.
+         * =========================================================
+         * HIDE
+         * =========================================================
          */
+
         windowNode.setCullHint(
                 Node.CullHint.Always
         );
 
-        /*
-         * Добавляем в GUI.
-         */
         app.getGuiNode().attachChild(
                 windowNode
         );
@@ -262,7 +243,9 @@ float y = screenHeight - mapSize - 20f;
     }
 
     /**
-     * Обновление карты.
+     * Обновляет отображение текстуры карты.
+     *
+     * Вызывается из игрового jME потока.
      */
     public void update() {
 
@@ -273,12 +256,6 @@ float y = screenHeight - mapSize - 20f;
         if (mapRenderer == null) {
             return;
         }
-
-        /*
-         * ---------------------------------------------------------
-         * ТЕКСТУРА
-         * ---------------------------------------------------------
-         */
 
         Texture2D texture =
                 mapRenderer.getTexture();
@@ -299,41 +276,17 @@ float y = screenHeight - mapSize - 20f;
         }
 
         /*
-         * ---------------------------------------------------------
-         * PLAYER MARKER
-         * ---------------------------------------------------------
+         * Игрок всегда в центре,
+         * потому что камера карты следует за ним.
          */
+        if (playerMarker != null) {
 
-        if (playerManager == null
-                || playerMarker == null) {
-
-            return;
+            playerMarker.setLocalTranslation(
+                    mapSize / 2f - 5f,
+                    mapSize / 2f - 5f,
+                    0.1f
+            );
         }
-
-        Vector3f playerPos =
-                playerManager.getPosition();
-
-        if (playerPos == null) {
-            return;
-        }
-
-        /*
-         * Камера карты центрирована на игроке.
-         *
-         * Поэтому игрок всегда находится
-         * примерно в центре карты.
-         */
-        float pixelX =
-                mapSize / 2f;
-
-        float pixelY =
-                mapSize / 2f;
-
-        playerMarker.setLocalTranslation(
-                pixelX,
-                pixelY,
-                0.1f
-        );
     }
 
     /**
@@ -351,39 +304,34 @@ float y = screenHeight - mapSize - 20f;
 
         isVisible = true;
 
-        /*
-         * Показываем GUI.
-         */
         windowNode.setCullHint(
                 Node.CullHint.Dynamic
         );
 
         /*
-         * Включаем viewport.
-         *
-         * Это выполняется в основном jME-потоке,
-         * поскольку show() вызывается из игрового update/input.
-         */
-        mapRenderer.setEnabled(
-                true
-        );
-
-        /*
-         * Сразу обновляем положение камеры.
+         * Сначала ставим камеру карты
+         * в позицию игрока.
          */
         if (playerManager != null) {
 
-            Vector3f playerPos =
+            Vector3f pos =
                     playerManager.getPosition();
 
-            if (playerPos != null) {
+            if (pos != null) {
 
-                mapRenderer.update(
-                        playerPos
-                );
+                mapRenderer.update(pos);
             }
         }
 
+        /*
+         * Только после этого включаем viewport.
+         */
+        mapRenderer.setEnabled(true);
+
+        /*
+         * Привязываем framebuffer texture
+         * к GUI.
+         */
         update();
     }
 
@@ -402,24 +350,13 @@ float y = screenHeight - mapSize - 20f;
 
         isVisible = false;
 
-        /*
-         * Сначала выключаем viewport.
-         */
-        mapRenderer.setEnabled(
-                false
-        );
+        mapRenderer.setEnabled(false);
 
-        /*
-         * Затем скрываем GUI.
-         */
         windowNode.setCullHint(
                 Node.CullHint.Always
         );
     }
 
-    /**
-     * Переключение карты.
-     */
     public void toggle() {
 
         if (isVisible) {
@@ -430,21 +367,37 @@ float y = screenHeight - mapSize - 20f;
     }
 
     public boolean isVisible() {
-
         return isVisible;
     }
 
-    /**
-     * Получить GUI Node карты.
-     */
     public Node getWindowNode() {
-
         return windowNode;
     }
 
     /**
-     * Очистка.
+     * Метод, который можно вызывать после загрузки данжа.
      */
+    public void refresh() {
+
+        if (!isVisible) {
+            return;
+        }
+
+        if (playerManager == null) {
+            return;
+        }
+
+        Vector3f pos =
+                playerManager.getPosition();
+
+        if (pos != null) {
+
+            mapRenderer.update(pos);
+        }
+
+        update();
+    }
+
     public void cleanup() {
 
         System.out.println(
@@ -452,10 +405,7 @@ float y = screenHeight - mapSize - 20f;
         );
 
         if (mapRenderer != null) {
-
-            mapRenderer.setEnabled(
-                    false
-            );
+            mapRenderer.setEnabled(false);
         }
 
         if (windowNode != null) {

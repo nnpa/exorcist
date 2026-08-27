@@ -376,47 +376,226 @@ inputManager.addListener(new ActionListener() {
     // ============================================================
     //                    МЕНЕДЖЕРЫ
     // ============================================================
-
+private MapRenderer mapRenderer;
+private MapWindow mapWindow;
     private void initializeManagers() {
-        if (isInitialized) return;
 
-        networkManager = new NetworkManager(this);
-        networkManager.initialize();
-
-        gameManager = new GameManager(this);
-        gameManager.initialize();
-        playerManager = new PlayerManager(this);
-        playerManager.initialize();
-        worldManager = new WorldManager(this);
-        worldManager.initialize();
-        uiManager = new UIManager(this);
-        uiManager.initialize();
-        inventoryManager = new InventoryManager(this, guiNode);
-        dropManager = new DropManager(this, guiNode);
-
-        uiManager.setPlayerManager(playerManager);
-        uiManager.setInventoryManager(inventoryManager);
-
-        TalentManager talentManager = new TalentManager(playerManager, networkManager);
-        uiManager.setTalentManager(talentManager);
-        playerManager.setTalentManager(talentManager);
-
-        worldManager.setNetworkManager(networkManager);
-        worldManager.setPlayerManager(playerManager);
-        worldManager.setDropManager(dropManager);
-        playerManager.setWorldManager(worldManager);
-        playerManager.setDropManager(dropManager);
-        dropManager.setInventoryManager(inventoryManager);
-
-        gameManager.setNetworkManager(networkManager);
-        gameManager.setPlayerManager(playerManager);
-        gameManager.setWorldManager(worldManager);
-        gameManager.setUIManager(uiManager);
-worldManager.setUIManager(uiManager);
-uiManager.setWorldManager(worldManager);
-
-        isInitialized = true;
+    if (isInitialized) {
+        return;
     }
+
+    System.out.println("[Main] ===== INITIALIZING MANAGERS =====");
+
+    // ============================================================
+    // NETWORK
+    // ============================================================
+
+    networkManager = new NetworkManager(this);
+    networkManager.initialize();
+
+
+    // ============================================================
+    // GAME MANAGER
+    // ============================================================
+
+    gameManager = new GameManager(this);
+    gameManager.initialize();
+
+
+    // ============================================================
+    // PLAYER MANAGER
+    // ============================================================
+
+    playerManager = new PlayerManager(this);
+    playerManager.initialize();
+
+
+    // ============================================================
+    // WORLD MANAGER
+    // ============================================================
+
+    worldManager = new WorldManager(this);
+    worldManager.initialize();
+
+
+    // ============================================================
+    // UI MANAGER
+    // ============================================================
+
+    uiManager = new UIManager(this);
+    uiManager.initialize();
+
+
+    // ============================================================
+    // INVENTORY / DROP
+    // ============================================================
+
+    inventoryManager =
+            new InventoryManager(this, guiNode);
+
+    dropManager =
+            new DropManager(this, guiNode);
+
+
+    // ============================================================
+    // UI -> MANAGERS
+    // ============================================================
+
+    uiManager.setPlayerManager(
+            playerManager
+    );
+
+    uiManager.setInventoryManager(
+            inventoryManager
+    );
+
+
+    // ============================================================
+    // TALENTS
+    // ============================================================
+
+    TalentManager talentManager =
+            new TalentManager(
+                    playerManager,
+                    networkManager
+            );
+
+    uiManager.setTalentManager(
+            talentManager
+    );
+
+    playerManager.setTalentManager(
+            talentManager
+    );
+
+
+    // ============================================================
+    // WORLD MANAGER CONNECTIONS
+    // ============================================================
+
+    worldManager.setNetworkManager(
+            networkManager
+    );
+
+    worldManager.setPlayerManager(
+            playerManager
+    );
+
+    worldManager.setDropManager(
+            dropManager
+    );
+
+    worldManager.setUIManager(
+            uiManager
+    );
+
+
+    // ============================================================
+    // PLAYER MANAGER CONNECTIONS
+    // ============================================================
+
+    playerManager.setWorldManager(
+            worldManager
+    );
+
+    playerManager.setDropManager(
+            dropManager
+    );
+
+
+    // ============================================================
+    // DROP MANAGER
+    // ============================================================
+
+    dropManager.setInventoryManager(
+            inventoryManager
+    );
+
+
+    // ============================================================
+    // GAME MANAGER CONNECTIONS
+    // ============================================================
+
+    gameManager.setNetworkManager(
+            networkManager
+    );
+
+    gameManager.setPlayerManager(
+            playerManager
+    );
+
+    gameManager.setWorldManager(
+            worldManager
+    );
+
+    gameManager.setUIManager(
+            uiManager
+    );
+
+
+    // ============================================================
+    // UI -> WORLD
+    // ============================================================
+
+    uiManager.setWorldManager(
+            worldManager
+    );
+
+
+    // ============================================================
+    // MINI MAP
+    // ============================================================
+    //
+    // ВАЖНО:
+    //
+    // MapRenderer использует основной rootNode.
+    // Он НЕ получает dungeonNode.
+    //
+    // Поэтому создание карты должно происходить
+    // после создания WorldManager.
+    //
+    // ============================================================
+
+    System.out.println(
+            "[Main] Creating MapRenderer..."
+    );
+
+    mapRenderer =
+            new MapRenderer(this);
+
+    mapRenderer.initialize();
+
+    System.out.println(
+            "[Main] MapRenderer initialized."
+    );
+
+
+    System.out.println(
+            "[Main] Creating MapWindow..."
+    );
+
+    mapWindow =
+            new MapWindow(
+                    this,
+                    mapRenderer,
+                    playerManager
+            );
+
+    System.out.println(
+            "[Main] MapWindow created."
+    );
+
+
+    // ============================================================
+    // INITIALIZED
+    // ============================================================
+
+    isInitialized = true;
+
+    System.out.println(
+            "[Main] ===== ALL MANAGERS INITIALIZED ====="
+    );
+}
 
     // ============================================================
     //                    ГЕТТЕРЫ

@@ -11,24 +11,10 @@ import com.jme3.texture.Image.Format;
 import com.jme3.texture.Texture2D;
 
 /**
- * Рендерер карты.
+ * Рендерер мини-карты.
  *
- * ВАЖНО:
- *
- * Карта НЕ использует DungeonNode как отдельный root.
- *
- * Дополнительный viewport подключается к основному rootNode:
- *
- *      app.getRootNode()
- *             |
- *             +-- WorldNode
- *             |
- *             +-- DungeonNode
- *             |
- *             +-- другие игровые объекты
- *
- * Это позволяет jME обновлять scene graph
- * обычным способом.
+ * Карта использует ОСНОВНОЙ rootNode.
+ * Никаких отдельных DungeonNode для viewport здесь нет.
  */
 public class MapRenderer {
 
@@ -42,7 +28,7 @@ public class MapRenderer {
     private boolean initialized = false;
 
     /**
-     * Размер области мира, видимой на карте.
+     * Размер области мира, отображаемой картой.
      */
     private float viewSize = 120f;
 
@@ -53,14 +39,6 @@ public class MapRenderer {
         this.app = app;
     }
 
-    /**
-     * Инициализация карты.
-     *
-     * ВАЖНО:
-     * DungeonNode сюда больше НЕ передаётся.
-     *
-     * Карта использует основной rootNode.
-     */
     public void initialize() {
 
         if (initialized) {
@@ -125,12 +103,12 @@ public class MapRenderer {
         updateCameraFrustum();
 
         /*
-         * Начальная позиция камеры.
+         * Начальная позиция.
          */
         mapCam.setLocation(
                 new Vector3f(
                         0f,
-                        50f,
+                        100f,
                         0f
                 )
         );
@@ -150,10 +128,11 @@ public class MapRenderer {
          * =========================================================
          */
 
-        mapViewPort = app.getRenderManager().createPreView(
-                "MapViewPort",
-                mapCam
-        );
+        mapViewPort =
+                app.getRenderManager().createPreView(
+                        "MapViewPort",
+                        mapCam
+                );
 
         mapViewPort.setClearFlags(
                 true,
@@ -175,34 +154,15 @@ public class MapRenderer {
         );
 
         /*
-         * =========================================================
-         * КРИТИЧЕСКИ ВАЖНО
-         * =========================================================
+         * КРИТИЧЕСКИ ВАЖНО:
          *
-         * НЕ:
-         *
-         *     attachScene(DungeonNode)
-         *
-         * НЕ:
-         *
-         *     attachScene(WorldNode)
-         *
-         * Используем основной rootNode.
-         *
-         * DungeonNode остаётся обычным дочерним узлом
-         * основного scene graph.
+         * viewport смотрит на тот же rootNode,
+         * который используется основной камерой.
          */
         mapViewPort.attachScene(
                 app.getRootNode()
         );
 
-        System.out.println(
-                "[MapRenderer] Attached main rootNode"
-        );
-
-        /*
-         * Карта изначально выключена.
-         */
         mapViewPort.setEnabled(false);
 
         initialized = true;
@@ -213,16 +173,9 @@ public class MapRenderer {
     }
 
     /**
-     * Обновляет положение камеры карты.
+     * Обновление позиции камеры карты.
      *
-     * ВАЖНО:
-     *
-     * Здесь НЕЛЬЗЯ вызывать:
-     *
-     * updateLogicalState()
-     * updateGeometricState()
-     *
-     * Также здесь не изменяется DungeonNode.
+     * НИКАКИХ updateGeometricState здесь нет.
      */
     public void update(Vector3f playerPos) {
 
@@ -241,20 +194,14 @@ public class MapRenderer {
         float x = playerPos.x;
         float z = playerPos.z;
 
-        /*
-         * Камера находится над игроком.
-         */
         mapCam.setLocation(
                 new Vector3f(
                         x,
-                        50f,
+                        100f,
                         z
                 )
         );
 
-        /*
-         * Смотрим строго вниз.
-         */
         mapCam.lookAt(
                 new Vector3f(
                         x,
@@ -266,9 +213,31 @@ public class MapRenderer {
     }
 
     /**
-     * Изменяет размер области мира,
-     * отображаемой на карте.
+     * Правильный orthographic frustum.
+     *
+     * left  = -half
+     * right = +half
+     * top   = +half
+     * bottom= -half
      */
+    private void updateCameraFrustum() {
+
+        if (mapCam == null) {
+            return;
+        }
+
+        float half = viewSize / 2f;
+
+        mapCam.setFrustum(
+                0.1f,
+                1000f,
+                -half,
+                half,
+                half,
+                -half
+        );
+    }
+
     public void setViewSize(float size) {
 
         if (size <= 0f) {
@@ -286,30 +255,6 @@ public class MapRenderer {
         return viewSize;
     }
 
-    /**
-     * Обновление orthographic frustum.
-     */
-    private void updateCameraFrustum() {
-
-        if (mapCam == null) {
-            return;
-        }
-
-        float half = viewSize / 2f;
-
-        mapCam.setFrustum(
-                0.1f,
-                1000f,
-                half,
-                -half,
-                -half,
-                half
-        );
-    }
-
-    /**
-     * Включение / выключение карты.
-     */
     public void setEnabled(boolean enabled) {
 
         if (mapViewPort == null) {
@@ -317,6 +262,10 @@ public class MapRenderer {
         }
 
         mapViewPort.setEnabled(enabled);
+
+        System.out.println(
+                "[MapRenderer] ViewPort enabled = " + enabled
+        );
     }
 
     public boolean isEnabled() {
@@ -325,30 +274,39 @@ public class MapRenderer {
                 && mapViewPort.isEnabled();
     }
 
-    /**
-     * Получить текстуру карты.
-     */
     public Texture2D getTexture() {
         return renderTexture;
     }
 
-    /**
-     * Получить камеру карты.
-     */
     public Camera getCamera() {
         return mapCam;
     }
 
-    /**
-     * Получить viewport карты.
-     */
     public ViewPort getViewPort() {
         return mapViewPort;
     }
 
     /**
-     * Освобождение ресурсов.
+     * Важно:
+     * вызывать только из jME потока.
      */
+    public void refresh(Vector3f playerPos) {
+
+        if (!initialized) {
+            return;
+        }
+
+        if (playerPos != null) {
+            update(playerPos);
+        }
+
+        if (mapViewPort != null) {
+            mapViewPort.setEnabled(
+                    mapViewPort.isEnabled()
+            );
+        }
+    }
+
     public void cleanup() {
 
         System.out.println(

@@ -589,7 +589,36 @@ public void loadDungeon(String dungeonId, int difficulty) {
         }
 
         switchToDungeon();
+        if (mapRenderer != null
+        && playerManager != null) {
 
+    Vector3f playerPos =
+            playerManager.getPosition();
+
+    if (playerPos != null) {
+
+        mapRenderer.update(
+                playerPos
+        );
+
+        System.out.println(
+                "[WorldManager] Map camera refreshed after dungeon load: "
+                + playerPos
+        );
+    }
+
+    /*
+     * Если карта уже была открыта —
+     * она должна продолжить работать сразу.
+     */
+    if (mapWindow != null
+            && mapWindow.isVisible()) {
+
+        mapRenderer.setEnabled(true);
+
+        mapWindow.update();
+    }
+}
         if (Main.getInstance() != null) {
             Main.getInstance().getGameManager().setState(GameState.DUNGEON);
         }
@@ -771,15 +800,55 @@ public void setUIManager(UIManager ui) {
                 break;
         }
     }
+private MapWindow mapWindow;
 
-    public void update(float tpf) {
-        for (Monster m : activeMonsters) {
-            m.update(tpf);
-        }
-        if (dungeonManager != null) {
-            dungeonManager.update();
+public void setMapWindow(MapWindow mapWindow) {
+    this.mapWindow = mapWindow;
+
+    System.out.println(
+            "[WorldManager] MapWindow set: "
+            + (mapWindow != null)
+    );
+}
+
+
+public void update(float tpf) {
+
+    for (Monster m : activeMonsters) {
+        m.update(tpf);
+    }
+
+    if (dungeonManager != null) {
+        dungeonManager.update();
+    }
+
+    /*
+     * Обновляем камеру карты.
+     */
+    if (mapRenderer != null
+            && mapRenderer.isEnabled()
+            && playerManager != null) {
+
+        Vector3f playerPos =
+                playerManager.getPosition();
+
+        if (playerPos != null) {
+
+            mapRenderer.update(
+                    playerPos
+            );
         }
     }
+
+    /*
+     * Обновляем GUI карты.
+     */
+    if (mapWindow != null
+            && mapWindow.isVisible()) {
+
+        mapWindow.update();
+    }
+}
 
     public void cleanup() {
         System.out.println("[WorldManager] cleanup() called from:");
@@ -841,4 +910,13 @@ auctioneer.setLocalTranslation(5f, -1.3f, 5f);
     
     private Dungeon currentDungeon;      // текущий объект данжа
 private String currentDungeonId;     // ID текущего данжа
+private MapRenderer mapRenderer;
+public void setMapRenderer(MapRenderer mapRenderer) {
+    this.mapRenderer = mapRenderer;
+
+    System.out.println(
+            "[WorldManager] MapRenderer set: "
+            + (mapRenderer != null)
+    );
+}
 }
