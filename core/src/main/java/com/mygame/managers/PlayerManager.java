@@ -18,6 +18,7 @@ import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
 import com.jme3.math.Vector3f;
+import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
@@ -311,10 +312,38 @@ public class PlayerManager {
     // ============================================================
     // MODEL
     // ============================================================
+private void enableShadows(Spatial spatial) {
+
+    if (spatial instanceof Geometry) {
+
+        Geometry geometry = (Geometry) spatial;
+
+        geometry.setShadowMode(
+                RenderQueue.ShadowMode.CastAndReceive
+        );
+
+        System.out.println(
+                "[SHADOW] " + geometry.getName()
+                + " -> CastAndReceive"
+        );
+
+        return;
+    }
+
+    if (spatial instanceof Node) {
+
+        Node node = (Node) spatial;
+
+        for (Spatial child : node.getChildren()) {
+            enableShadows(child);
+        }
+    }
+}
 
     private void loadPlayerModel() {
         try {
             Spatial model = app.getAssetManager().loadModel("Models/Player/player.gltf");
+            enableShadows(model);
             if (model == null) {
                 System.err.println("[PlayerManager] Model not found. Creating placeholder.");
                 createPlaceholderModel();

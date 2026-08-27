@@ -26,6 +26,8 @@ import com.jme3.math.Vector3f;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.renderer.RenderManager;
+import com.jme3.shadow.DirectionalLightShadowRenderer;
+import com.jme3.shadow.EdgeFilteringMode;
 import com.jme3.system.AppSettings;
 import com.simsilica.lemur.GuiGlobals;
 import com.simsilica.lemur.TextField;
@@ -366,23 +368,87 @@ public void applyResolution(int width, int height) {
     // ============================================================
     //                    СВЕТ И СТИЛИ
     // ============================================================
+private DirectionalLightShadowRenderer shadowRenderer;
+private void setupLighting() {
 
-    private void setupLighting() {
-        DirectionalLight sun = new DirectionalLight();
-        sun.setDirection(new Vector3f(-1, -2, -1).normalizeLocal());
-        sun.setColor(ColorRGBA.White.mult(1.2f));
-        rootNode.addLight(sun);
+    // ============================================================
+    // ОСНОВНОЙ СВЕТ — СОЛНЦЕ
+    // ============================================================
 
-        DirectionalLight fillLight = new DirectionalLight();
-        fillLight.setDirection(new Vector3f(1, -1, 1).normalizeLocal());
-        fillLight.setColor(new ColorRGBA(0.6f, 0.6f, 0.7f, 1f).mult(0.8f));
-        rootNode.addLight(fillLight);
+    DirectionalLight sun = new DirectionalLight();
 
-        AmbientLight ambient = new AmbientLight();
-        ambient.setColor(new ColorRGBA(0.6f, 0.6f, 0.6f, 1.0f));
-        rootNode.addLight(ambient);
-    }
+    sun.setDirection(
+            new Vector3f(-1f, -2f, -1f).normalizeLocal()
+    );
 
+    sun.setColor(
+            ColorRGBA.White.mult(1.2f)
+    );
+
+    rootNode.addLight(sun);
+
+
+    // ============================================================
+    // SHADOW RENDERER
+    // ============================================================
+
+    shadowRenderer =
+            new DirectionalLightShadowRenderer(
+                    assetManager,
+                    2048,
+                    3
+            );
+
+    shadowRenderer.setLight(sun);
+
+    shadowRenderer.setEdgeFilteringMode(
+            EdgeFilteringMode.PCFPOISSON
+    );
+
+    shadowRenderer.setShadowZExtend(100f);
+
+    viewPort.addProcessor(shadowRenderer);
+
+
+    // ============================================================
+    // ДОПОЛНИТЕЛЬНЫЙ СВЕТ
+    // ============================================================
+
+    DirectionalLight fillLight = new DirectionalLight();
+
+    fillLight.setDirection(
+            new Vector3f(1f, -1f, 1f).normalizeLocal()
+    );
+
+    fillLight.setColor(
+            new ColorRGBA(
+                    0.6f,
+                    0.6f,
+                    0.7f,
+                    1f
+            ).mult(0.8f)
+    );
+
+    rootNode.addLight(fillLight);
+
+
+    // ============================================================
+    // AMBIENT LIGHT
+    // ============================================================
+
+    AmbientLight ambient = new AmbientLight();
+
+    ambient.setColor(
+            new ColorRGBA(
+                    0.6f,
+                    0.6f,
+                    0.6f,
+                    1f
+            )
+    );
+
+    rootNode.addLight(ambient);
+}
     private void applyTextFieldStyle() {
         Styles styles = GuiGlobals.getInstance().getStyles();
         Attributes attrs = styles.getSelector(TextField.ELEMENT_ID, null);

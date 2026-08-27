@@ -41,6 +41,7 @@ import java.util.logging.Level;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import com.jme3.renderer.queue.RenderQueue;
 import java.lang.reflect.Type;
 import java.io.*;
 public class WorldManager {
@@ -160,6 +161,10 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
         try {
             System.out.println("[WorldManager] Loading city model from: Models/City/city.gltf");
             cityModel = app.getAssetManager().loadModel("Models/City/city.gltf");
+            
+            cityModel.setShadowMode(
+                RenderQueue.ShadowMode.Receive
+            );
         } catch (Exception e) {
             System.err.println("[WorldManager] Exception loading city model: " + e.getMessage());
         }

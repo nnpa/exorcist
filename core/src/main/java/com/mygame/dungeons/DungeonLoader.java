@@ -11,6 +11,7 @@ import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
 import com.jme3.math.Vector3f;
+import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
@@ -210,6 +211,7 @@ public class DungeonLoader {
 
         try {
             Spatial model = app.getAssetManager().loadModel(modelPath);
+            enableShadows(model);
             if (model != null) {
                 // Применяем трансформации, если нужно
                 model.scale(2.5f);
@@ -223,11 +225,40 @@ public class DungeonLoader {
         }
         return null;
     }
+private void enableShadows(Spatial spatial) {
 
+    if (spatial instanceof Geometry) {
+
+        Geometry geometry = (Geometry) spatial;
+
+        geometry.setShadowMode(
+                RenderQueue.ShadowMode.CastAndReceive
+        );
+
+        System.out.println(
+                "[SHADOW] " + geometry.getName()
+                + " -> CastAndReceive"
+        );
+
+        return;
+    }
+
+    if (spatial instanceof Node) {
+
+        Node node = (Node) spatial;
+
+        for (Spatial child : node.getChildren()) {
+            enableShadows(child);
+        }
+    }
+}
     private void createDungeonScene(Node parentNode, String dungeonId) {
         // ... (без изменений, как было)
         try {
             Spatial sceneModel = app.getAssetManager().loadModel("Models/Dungeons/" + dungeonId + ".gltf");
+           sceneModel.setShadowMode(
+             RenderQueue.ShadowMode.Receive
+           );
             if (sceneModel != null) {
                 if (bulletAppState != null) {
                     CollisionShape shape = CollisionShapeFactory.createMeshShape(sceneModel);
