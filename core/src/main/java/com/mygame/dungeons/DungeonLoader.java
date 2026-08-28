@@ -27,7 +27,11 @@ import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.monsters.BossMonster;
 import com.mygame.monsters.Demon;
 import com.mygame.monsters.Head;
+import com.mygame.monsters.Scorpion;
+import com.mygame.monsters.Sgolem;
+import com.mygame.monsters.Snake;
 import com.mygame.monsters.SpiderBoss;
+import com.mygame.monsters.WormBoss;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -204,6 +208,16 @@ public class DungeonLoader {
         }
          else if (monster instanceof SpiderBoss) {
             modelPath = "Models/Monsters/SpiderBoss.gltf"; // если есть такая модель
+        }
+         else if (monster instanceof Scorpion) {
+            modelPath = "Models/Monsters/Scorpion.gltf"; // если есть такая модель
+        }else if (monster instanceof Snake) {
+            modelPath = "Models/Monsters/snake.gltf"; // если есть такая модель
+        }
+        else if (monster instanceof Sgolem) {
+            modelPath = "Models/Monsters/sgolem.gltf"; // если есть такая модель
+        }else if (monster instanceof WormBoss) {
+            modelPath = "Models/Monsters/wormboss.gltf"; // если есть такая модель
         }else {
             // По умолчанию – скелет
             modelPath = "Models/Monsters/skeleton_warrior.gltf";

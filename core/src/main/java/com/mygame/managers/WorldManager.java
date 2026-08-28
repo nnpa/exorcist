@@ -348,7 +348,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
         Spatial model = null;
         try {
             System.out.println("[WorldManager] Loading model: Models/Monsters/SpirderBoss.gltf");
-            model = app.getAssetManager().loadModel("Models/Monsters/SpiderBoss.gltf");
+            model = app.getAssetManager().loadModel("Models/Monsters/wormboss.gltf");
         } catch (Exception e) {
             System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
             e.printStackTrace();

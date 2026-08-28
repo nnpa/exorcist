@@ -10,8 +10,12 @@ import com.mygame.dungeons.Dungeon;
 import com.mygame.monsters.Demon;
 import com.mygame.monsters.Head;
 import com.mygame.monsters.Monster;
+import com.mygame.monsters.Scorpion;
+import com.mygame.monsters.Sgolem;
 import com.mygame.monsters.SkeletonWarrior;
+import com.mygame.monsters.Snake;
 import com.mygame.monsters.SpiderBoss;
+import com.mygame.monsters.WormBoss;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.SpringGridLayout;
 import com.simsilica.lemur.component.QuadBackgroundComponent;
@@ -161,17 +165,38 @@ public class DungeonEditor {
         }
     }
 
-    private void addMonster(Class<? extends Monster> cls) {
-        Vector3f playerPos = app.getPlayerManager().getPosition();
-        Dungeon.MonsterSpawn spawn = new Dungeon.MonsterSpawn(
-                cls.getName(),
-                playerPos.x, 2.0f, playerPos.z,
-                1, 100, 10,
-                null, false, false, false
-        );
-        spawns.add(spawn);
-        updateSpawnList();
+private void addMonster(Class<? extends Monster> cls) {
+    Vector3f playerPos = app.getPlayerManager().getPosition();
+
+    if (playerPos == null) {
+        System.err.println("[DungeonEditor] Не удалось получить позицию персонажа.");
+        return;
     }
+
+    Dungeon.MonsterSpawn spawn = new Dungeon.MonsterSpawn(
+            cls.getName(),
+            playerPos.x,
+            playerPos.y,
+            playerPos.z,
+            1,
+            100,
+            10,
+            null,
+            false,
+            false,
+            false
+    );
+
+    spawns.add(spawn);
+    updateSpawnList();
+
+    System.out.println(
+            "[DungeonEditor] Added " + cls.getSimpleName()
+            + " at (" + playerPos.x
+            + ", " + playerPos.y
+            + ", " + playerPos.z + ")"
+    );
+}
 
     private void saveToFile() {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -191,10 +216,10 @@ public class DungeonEditor {
 
     private List<Class<? extends Monster>> getMonsterClasses() {
         List<Class<? extends Monster>> classes = new ArrayList<>();
-        classes.add(SkeletonWarrior.class);
-        classes.add(Head.class);
-        classes.add(Demon.class);
-        classes.add(SpiderBoss.class);
+        classes.add(Scorpion.class);
+        classes.add(Sgolem.class);
+        classes.add(Snake.class);
+        classes.add(WormBoss.class);
         return classes;
     }
 }

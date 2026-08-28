@@ -2506,8 +2506,7 @@ private void createRegisterScreen() {
     private Container teleporterDialog;
     private boolean teleporterDialogVisible = false;
 
-    public void showTeleporterDialog() {
-
+ public void showTeleporterDialog() {
         if (teleporterDialog == null) {
             createTeleporterDialog();
         }
@@ -2516,75 +2515,80 @@ private void createRegisterScreen() {
             return;
         }
 
-        teleporterDialogVisible = true;
+        // Принудительно делаем узел видимым перед прикреплением
+        teleporterDialog.setCullHint(Node.CullHint.Never);
 
+        teleporterDialogVisible = true;
         attachNode(teleporterDialog);
     }
 
     public void hideTeleporterDialog() {
-
-        if (teleporterDialog != null
-                && teleporterDialogVisible) {
+        if (teleporterDialog != null && teleporterDialogVisible) {
+            // Скрываем узел перед откреплением
+            teleporterDialog.setCullHint(Node.CullHint.Always);
 
             detachNode(teleporterDialog);
-
             teleporterDialogVisible = false;
         }
     }
 
 private void createTeleporterDialog() {
-    updateScale();
+        updateScale();
 
-    float screenWidth = app.getCamera().getWidth();
-    float screenHeight = app.getCamera().getHeight();
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
 
-    float winW = 350 * scale;
-    float winH = 160 * scale;
+        float winW = 350 * scale;
+        float winH = 160 * scale;
 
-    teleporterDialog = new Container();
-    teleporterDialog.setPreferredSize(new Vector3f(winW, winH, 0));
-    teleporterDialog.setLayout(null);
-    teleporterDialog.setName("TeleporterDialog");
+        teleporterDialog = new Container();
+        teleporterDialog.setPreferredSize(new Vector3f(winW, winH, 0));
+        teleporterDialog.setLayout(null);
+        teleporterDialog.setName("TeleporterDialog");
 
-    float x = (screenWidth - winW) / 2;
-    float y = (screenHeight - winH) / 2;
-    if (y < 0) y = 0;
-    teleporterDialog.setLocalTranslation(x, y, 0);
+        float x = (screenWidth - winW) / 2;
+        float y = (screenHeight - winH) / 2;
+        if (y < 0) y = 0;
+        teleporterDialog.setLocalTranslation(x, y, 0);
 
-    Geometry bgGeom = createBackgroundGeometry(winW, winH);
-    teleporterDialog.attachChild(bgGeom);
+        Geometry bgGeom = createBackgroundGeometry(winW, winH);
+        teleporterDialog.attachChild(bgGeom);
 
-    Label question = new Label(getLocalized("teleporter.question"));
-    question.setFontSize(22 * scale);
-    question.setColor(ColorRGBA.White);
-    question.setLocalTranslation(winW / 2 - 120 * scale, winH - 40 * scale, 0.1f);
-    teleporterDialog.attachChild(question);
+        Label question = new Label(getLocalized("teleporter.question"));
+        question.setFontSize(22 * scale);
+        question.setColor(ColorRGBA.White);
+        question.setLocalTranslation(winW / 2 - 120 * scale, winH - 40 * scale, 0.1f);
+        teleporterDialog.attachChild(question);
 
-    Button yesButton = new Button(getLocalized("teleporter.yes"));
-    yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
-    yesButton.setFontSize(18 * scale);
-    yesButton.setColor(ColorRGBA.White);
-    yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
-    yesButton.addClickCommands((source) -> {
-        SoundManager.playSound(SoundManager.SOUND_CLICK);
-        hideTeleporterDialog();
-        Main main = (Main) app;
-        if (main != null) {
-            WorldManager wm = main.getWorldManager();
-            if (wm != null) wm.teleportToDungeon();
-        }
-    });
-    teleporterDialog.attachChild(yesButton);
+        Button yesButton = new Button(getLocalized("teleporter.yes"));
+        yesButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+        yesButton.setFontSize(18 * scale);
+        yesButton.setColor(ColorRGBA.White);
+        yesButton.setLocalTranslation(60 * scale, 30 * scale, 0.1f);
+        yesButton.addClickCommands((source) -> {
+            SoundManager.playSound(SoundManager.SOUND_CLICK);
+            hideTeleporterDialog();
+            Main main = (Main) app;
+            if (main != null) {
+                WorldManager wm = main.getWorldManager();
+                if (wm != null) wm.teleportToDungeon();
+            }
+        });
+        teleporterDialog.attachChild(yesButton);
 
-    Button noButton = new Button(getLocalized("teleporter.no"));
-    noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
-    noButton.setFontSize(18 * scale);
-    noButton.setColor(ColorRGBA.White);
-    noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
-    noButton.addClickCommands((source) -> hideTeleporterDialog());
-    teleporterDialog.attachChild(noButton);
-}
-    // ============================================================
+        Button noButton = new Button(getLocalized("teleporter.no"));
+        noButton.setPreferredSize(new Vector3f(80 * scale, 30 * scale, 0));
+        noButton.setFontSize(18 * scale);
+        noButton.setColor(ColorRGBA.White);
+        noButton.setLocalTranslation(180 * scale, 30 * scale, 0.1f);
+        noButton.addClickCommands((source) -> hideTeleporterDialog());
+        teleporterDialog.attachChild(noButton);
+
+        // ВАЖНО: Сразу после создания делаем узел видимым,
+        // чтобы он не остался скрытым после первого открепления.
+        teleporterDialog.setCullHint(Node.CullHint.Never);
+        guiNode.attachChild(teleporterDialog);
+    }    // ============================================================
     // ПОЗИЦИИ
     // ============================================================
 

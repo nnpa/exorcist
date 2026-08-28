@@ -866,7 +866,7 @@ private void enableShadows(Spatial spatial) {
 
             if (dir.lengthSquared() > 0.0001f) {
                 dir.normalizeLocal();
-                characterControl.setWalkDirection(dir.mult(5f));
+                characterControl.setWalkDirection(dir.mult(6f));
                 //characterControl.setWalkDirection(dir.mult(12f));
 
                 setMoving(true);
