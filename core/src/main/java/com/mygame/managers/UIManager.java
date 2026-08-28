@@ -476,6 +476,7 @@ private void applyStoredLanguage() {
 
             guiNode.attachChild(backgroundNode);
         }
+        createLoginBottomButtons();
     }
 
     // ============================================================
@@ -2425,6 +2426,8 @@ private void createRegisterScreen() {
                 );
             }
         });
+            showLoginBottomButtons();
+
     }
 
     public void hideLoginScreen() {
@@ -2443,6 +2446,7 @@ private void createRegisterScreen() {
 
             detachNode(loginWindow);
         }
+        hideLoginBottomButtons();
     }
 
     public void showRegisterScreen() {
@@ -3744,4 +3748,455 @@ private void createTeleporterDialog() {
     private String getLocalized(String key) {
     return LocalizationManager.getInstance().get(key);
 }
+    
+    
+     private boolean loginButtonsVisible = false;
+    private Button creditsButton;
+    private Button bestiaryButton;
+    private Container creditsWindow;
+    private BestiaryWindow bestiaryWindow;
+
+    // Добавьте этот метод в createLoginScreen() или initialize()
+    private void createLoginBottomButtons() {
+        float screenWidth = app.getCamera().getWidth();
+        float screenHeight = app.getCamera().getHeight();
+
+        // Создаем кнопку Credits
+        creditsButton = new Button(getLocalized("ui.credits"));
+        creditsButton.setFontSize(18 * scale);
+        creditsButton.setPreferredSize(new Vector3f(100 * scale, 30 * scale, 0));
+        creditsButton.setLocalTranslation(screenWidth - 240 * scale, 20 * scale, 0.1f);
+        creditsButton.addClickCommands((source) -> {
+            SoundManager.playSound(SoundManager.SOUND_CLICK);
+            showCreditsWindow();
+        });
+        creditsButton.setCullHint(Node.CullHint.Always);
+        guiNode.attachChild(creditsButton);
+
+        // Создаем кнопку Bestiary
+        bestiaryButton = new Button(getLocalized("ui.bestiary"));
+        bestiaryButton.setFontSize(18 * scale);
+        bestiaryButton.setPreferredSize(new Vector3f(100 * scale, 30 * scale, 0));
+        bestiaryButton.setLocalTranslation(screenWidth - 140 * scale, 20 * scale, 0.1f);
+        bestiaryButton.addClickCommands((source) -> {
+            SoundManager.playSound(SoundManager.SOUND_CLICK);
+            toggleBestiaryWindow();
+        });
+        bestiaryButton.setCullHint(Node.CullHint.Always);
+        guiNode.attachChild(bestiaryButton);
+    }
+
+    public void showLoginBottomButtons() {
+        if (creditsButton != null) creditsButton.setCullHint(Node.CullHint.Never);
+        if (bestiaryButton != null) bestiaryButton.setCullHint(Node.CullHint.Never);
+        loginButtonsVisible = true;
+    }
+
+    public void hideLoginBottomButtons() {
+        if (creditsButton != null) creditsButton.setCullHint(Node.CullHint.Always);
+        if (bestiaryButton != null) bestiaryButton.setCullHint(Node.CullHint.Always);
+        loginButtonsVisible = false;
+    }
+
+    // ============================================================
+    // CREDITS WINDOW
+    // ============================================================
+    public void showCreditsWindow() {
+
+    // ============================================================
+    // ЕСЛИ ОКНО УЖЕ СОЗДАНО
+    // ============================================================
+
+    if (creditsWindow != null) {
+
+        creditsWindow.setCullHint(
+                Node.CullHint.Never
+        );
+
+        // Поднимаем поверх всех окон
+        Vector3f pos =
+                creditsWindow.getLocalTranslation();
+
+        creditsWindow.setLocalTranslation(
+                pos.x,
+                pos.y,
+                5000f
+        );
+
+        return;
+    }
+
+
+    // ============================================================
+    // РАЗМЕР ОКНА
+    // ============================================================
+
+    float winW =
+            430f * scale;
+
+    float winH =
+            560f * scale;
+
+
+    // ============================================================
+    // ОТСТУПЫ
+    // ============================================================
+
+    float sideMargin =
+            35f * scale;
+
+    float topMargin =
+            30f * scale;
+
+    float bottomMargin =
+            25f * scale;
+
+
+    // ============================================================
+    // СОЗДАЁМ ОКНО
+    // ============================================================
+
+    creditsWindow =
+            new Container();
+
+
+    creditsWindow.setPreferredSize(
+            new Vector3f(
+                    winW,
+                    winH,
+                    0f
+            )
+    );
+
+
+    creditsWindow.setLayout(
+            null
+    );
+
+
+    // ============================================================
+    // ЦЕНТРИРУЕМ ОКНО
+    // ============================================================
+
+    float windowX =
+            (app.getCamera().getWidth() - winW) / 2f;
+
+    float windowY =
+            (app.getCamera().getHeight() - winH) / 2f;
+
+
+    // ============================================================
+    // Z-СЛОЙ
+    // ============================================================
+    //
+    // Большое значение, чтобы Credits был поверх
+    // логина, полей ввода и остальных окон.
+    //
+
+    final float CREDITS_Z =
+            5000f;
+
+
+    creditsWindow.setLocalTranslation(
+            windowX,
+            windowY,
+            CREDITS_Z
+    );
+
+
+    // ============================================================
+    // КОЖАНЫЙ ФОН
+    // ============================================================
+
+    Geometry leatherBg =
+            createBackgroundGeometry(
+                    winW,
+                    winH
+            );
+
+
+    leatherBg.setLocalTranslation(
+            0f,
+            0f,
+            0f
+    );
+
+
+    creditsWindow.attachChild(
+            leatherBg
+    );
+
+
+    // ============================================================
+    // ИМЯ
+    // ============================================================
+
+    Label nameLabel =
+            new Label(
+                    "Ivan Aleksandrov"
+            );
+
+
+    nameLabel.setFontSize(
+            22f * scale
+    );
+
+
+    nameLabel.setColor(
+            ColorRGBA.White
+    );
+
+
+    nameLabel.setLocalTranslation(
+            sideMargin,
+            winH - topMargin,
+            30f
+    );
+
+
+    creditsWindow.attachChild(
+            nameLabel
+    );
+
+
+    // ============================================================
+    // ИЗОБРАЖЕНИЯ
+    // ============================================================
+
+    try {
+
+        // ========================================================
+        // ПОРТРЕТ DEVELOPER.PNG
+        // ========================================================
+        //
+        // Прямоугольный формат.
+        //
+
+        Texture devTex =
+                app.getAssetManager().loadTexture(
+                        "Interface/developer.png"
+                );
+
+
+        float portraitW =
+                winW - sideMargin * 2f;
+
+
+        float portraitH =
+                250f * scale;
+
+
+        Geometry devImg =
+                new Geometry(
+                        "DevImage",
+                        new Quad(
+                                portraitW,
+                                portraitH
+                        )
+                );
+
+
+        Material devMat =
+                new Material(
+                        app.getAssetManager(),
+                        "Common/MatDefs/Misc/Unshaded.j3md"
+                );
+
+
+        devMat.setTexture(
+                "ColorMap",
+                devTex
+        );
+
+
+        devImg.setMaterial(
+                devMat
+        );
+
+
+        // Портрет под именем
+        devImg.setLocalTranslation(
+                sideMargin,
+                winH
+                        - topMargin
+                        - 40f * scale
+                        - portraitH,
+                10f
+        );
+
+
+        creditsWindow.attachChild(
+                devImg
+        );
+
+
+        // ========================================================
+        // INTRO_BG.PNG
+        // ========================================================
+        //
+        // Квадратная иконка.
+        //
+
+        Texture introTex =
+                app.getAssetManager().loadTexture(
+                        "Interface/intro_bg.png"
+                );
+
+
+        float iconSize =
+                150f * scale;
+
+
+        Geometry introImg =
+                new Geometry(
+                        "IntroImage",
+                        new Quad(
+                                iconSize,
+                                iconSize
+                        )
+                );
+
+
+        Material introMat =
+                new Material(
+                        app.getAssetManager(),
+                        "Common/MatDefs/Misc/Unshaded.j3md"
+                );
+
+
+        introMat.setTexture(
+                "ColorMap",
+                introTex
+        );
+
+
+        introImg.setMaterial(
+                introMat
+        );
+
+
+        // Центрируем квадрат
+        float iconX =
+                (winW - iconSize) / 2f;
+
+
+        float iconY =
+                bottomMargin;
+
+
+        introImg.setLocalTranslation(
+                iconX,
+                iconY,
+                10f
+        );
+
+
+        creditsWindow.attachChild(
+                introImg
+        );
+
+
+    } catch (Exception e) {
+
+        System.err.println(
+                "[CreditsWindow] Failed to load images:"
+        );
+
+        e.printStackTrace();
+    }
+
+
+    // ============================================================
+    // КРЕСТИК
+    // ============================================================
+
+    Button closeBtn =
+            new Button(
+                    "X"
+            );
+
+
+    closeBtn.setPreferredSize(
+            new Vector3f(
+                    40f * scale,
+                    40f * scale,
+                    0f
+            )
+    );
+
+
+    closeBtn.setLocalTranslation(
+            winW - 50f * scale,
+            winH - 50f * scale,
+            50f
+    );
+
+
+    closeBtn.addClickCommands(
+            source -> {
+
+                creditsWindow.setCullHint(
+                        Node.CullHint.Always
+                );
+
+            }
+    );
+
+
+    creditsWindow.attachChild(
+            closeBtn
+    );
+
+
+    // ============================================================
+    // ДОБАВЛЯЕМ ОКНО В GUI
+    // ============================================================
+
+    guiNode.attachChild(
+            creditsWindow
+    );
+
+
+    // ============================================================
+    // ФИНАЛЬНО УСТАНАВЛИВАЕМ Z
+    // ============================================================
+
+    creditsWindow.setLocalTranslation(
+            windowX,
+            windowY,
+            CREDITS_Z
+    );
+}
+
+    // ============================================================
+    // BESTIARY WINDOW
+    // ============================================================
+public void toggleBestiaryWindow() {
+
+    if (bestiaryWindow == null) {
+
+        bestiaryWindow =
+                new BestiaryWindow(
+                        app,
+                        this
+                );
+    }
+
+
+    if (!bestiaryVisible) {
+
+        bestiaryVisible = true;
+
+        bestiaryWindow.showView();
+
+    } else {
+
+        bestiaryVisible = false;
+
+        bestiaryWindow.hideView();
+    }
+}
+private boolean bestiaryVisible = false;
+
+private int bestiaryCurrentIndex = 0;
 }
