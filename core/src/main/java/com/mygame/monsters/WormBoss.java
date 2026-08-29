@@ -11,9 +11,9 @@ public class WormBoss extends Monster {
         setId("wormboss");
         setName("wormboss");
         setLevel(1);
-        setMaxHealth(30);
-        setHealth(30);
-        setDamage(5);
+        setMaxHealth(130);
+        setHealth(130);
+        setDamage(15);
         setAttackRange(1.5f);
         setMoveSpeed(2.0f);
         setAggroRange(8.0f);

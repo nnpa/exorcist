@@ -42,6 +42,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.jme3.renderer.queue.RenderQueue;
+import com.mygame.monsters.WormBoss;
 import java.lang.reflect.Type;
 import java.io.*;
 public class WorldManager {
@@ -338,7 +339,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             return;
         }
 
-        Monster skeleton = new SpiderBoss();
+        Monster skeleton = new WormBoss();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
@@ -384,12 +385,18 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
         System.out.println("[WorldManager] Test Skeleton spawned at " + spawnPos);
     }
 
-    public Monster getMonsterByModel(Spatial model) {
-        for (Monster m : activeMonsters) {
-            if (m.getModelNode() == model) return m;
+public Monster getMonsterByModel(Spatial model) {
+    for (Monster m : activeMonsters) {
+        // Проверяем прямую ссылку
+        if (m.getModelNode() == model) return m;
+        
+        // Проверяем, является ли модель дочерним элементом узла монстра
+        if (m.getModelNode() != null && model != null && m.getModelNode().hasChild(model)) {
+            return m;
         }
-        return null;
     }
+    return null;
+}
 
     public MonsterData getMonsterByGeometry(Geometry geom) {
         for (MonsterData md : monsters) {

@@ -15,8 +15,11 @@ public class MonsterAI {
     private float attackCooldown = 0f;
     private static final float ATTACK_COOLDOWN_TIME = 1.5f;
     private float attackAnimTimer = 0f;
-    private boolean isAttacking = false;
     private boolean bossMusicStarted = false;
+    private boolean stopped = false;
+
+    // ===== НОВОЕ: ОГЛУШЕНИЕ =====
+    private boolean isStunned = false;
 
     public MonsterAI(Monster monster) {
         this.monster = monster;
@@ -26,14 +29,37 @@ public class MonsterAI {
         this.playerManager = pm;
     }
 
+    public void setStunned(boolean stunned) {
+        this.isStunned = stunned;
+        if (stunned) {
+            monster.stopWalking();
+            monster.playAnimation("Idle");
+        }
+    }
+
     public void resetMusicFlag() {
         bossMusicStarted = false;
     }
 
+    public void stop() {
+        this.stopped = true;
+        this.monster = null;
+        this.playerManager = null;
+        currentState = State.IDLE;
+        isStunned = false;
+        System.out.println("[MonsterAI] AI stopped.");
+    }
+
     public void update(float tpf) {
-        if (stopped || monster == null) {
-            return;
+        if (stopped || monster == null) return;
+
+        // ===== ЖЁСТКАЯ ПРОВЕРКА ОГЛУШЕНИЯ =====
+        if (isStunned || monster.getStunTimer() > 0f) {
+            monster.stopWalking();
+            monster.playAnimation("Idle");
+            return; // Никаких действий
         }
+
         if (attackCooldown > 0) attackCooldown -= tpf;
         if (attackAnimTimer > 0) attackAnimTimer -= tpf;
 
@@ -55,28 +81,25 @@ public class MonsterAI {
             case CHASING:
                 if (dist < monster.getAttackRange() * 0.9f) {
                     currentState = State.ATTACKING;
-                    if (attackCooldown > 0) {
-                        monster.playAnimation("Idle");
-                    }
-                    //System.out.println("Monster ATTACKING, dist=" + dist);
+                    if (attackCooldown > 0) monster.playAnimation("Idle");
+                    System.out.println("Monster ATTACKING, dist=" + dist);
                 } else {
                     moveTowards(playerPos, tpf);
                 }
                 break;
 
             case ATTACKING:
-                // ===== ВКЛЮЧАЕМ МУЗЫКУ БОССА ТОЛЬКО ЗДЕСЬ =====
+                // ===== МУЗЫКА БОССА =====
                 if (monster.isBoss() && !bossMusicStarted) {
                     SoundManager.stopMusic();
                     SoundManager.playMusic(SoundManager.MUSIC_BOSS);
                     bossMusicStarted = true;
-                   // System.out.println("[MonsterAI] Boss music started!");
                 }
 
                 if (dist > monster.getAttackRange() * 1.2f) {
                     currentState = State.CHASING;
                     monster.playAnimation("Walk");
-                   // System.out.println("Monster CHASING (lost target)");
+                    System.out.println("Monster CHASING (lost target)");
                 } else {
                     attackPlayer();
                 }
@@ -92,9 +115,7 @@ public class MonsterAI {
         direction.normalizeLocal();
 
         float stopDistance = monster.getAttackRange() * 0.85f;
-        if (dist <= stopDistance) {
-            return;
-        }
+        if (dist <= stopDistance) return;
 
         Vector3f newPos = currentPos.add(direction.mult(monster.getMoveSpeed() * tpf));
         monster.setPosition(newPos);
@@ -109,15 +130,13 @@ public class MonsterAI {
 
     private void attackPlayer() {
         if (attackCooldown > 0) {
-            if (attackAnimTimer <= 0) {
-                monster.playAnimation("Idle");
-            }
+            if (attackAnimTimer <= 0) monster.playAnimation("Idle");
             return;
         }
 
         if (playerManager != null) {
             playerManager.takeDamage((int) monster.getDamage());
-           // System.out.println("[MonsterAI] Attacked player for " + monster.getDamage());
+            System.out.println("[MonsterAI] Attacked player for " + monster.getDamage());
         }
         monster.playAnimation("Attack");
         attackCooldown = ATTACK_COOLDOWN_TIME;
@@ -130,16 +149,4 @@ public class MonsterAI {
         }
         return new Vector3f(0, 0, 0);
     }
-    
-    private boolean stopped = false;
-
-// Добавьте метод stop
-public void stop() {
-    this.stopped = true;
-    this.monster = null;
-    this.playerManager = null;
-    currentState = State.IDLE;
-    System.out.println("[MonsterAI] AI stopped.");
-}
-
 }
