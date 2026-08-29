@@ -12,6 +12,7 @@ import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.effect.ParticleEmitter;
 import com.jme3.effect.ParticleMesh;
 import com.jme3.effect.influencers.ParticleInfluencer;
+import com.jme3.effect.shapes.EmitterPointShape;
 import com.jme3.effect.shapes.EmitterSphereShape;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
@@ -205,10 +206,15 @@ public class PlayerManager {
     private Node effectNode;
     private ParticleEmitter healParticles;
 
-    // НОВЫЕ ПОЛЯ ДЛЯ WHIRLWIND
+    // Whirlwind
     private Node whirlwindEffectNode;
     private ParticleEmitter whirlwindParticles;
     private boolean whirlwindActive = false;
+
+    // BLOOD (НОВОЕ)
+    private Node bloodEffectNode;
+    private ParticleEmitter bloodEmitter;
+    private boolean bloodActive = false;
 
     // ============================================================
     // КОНСТРУКТОР
@@ -242,7 +248,8 @@ public class PlayerManager {
         }
 
         createHealEffect();
-        createWhirlwindEffect(); // новый вызов
+        createWhirlwindEffect();
+        createBloodEffect(); // новый вызов
     }
 
     // ============================================================
@@ -552,14 +559,15 @@ public class PlayerManager {
         if (!skillAnimationPlaying) {
             return;
         }
+
         // Отключаем эффект Whirlwind, если анимация была SpinAttack
-if (skillAnimationName != null && skillAnimationName.equals(ANIM_SPIN)) {
-    if (whirlwindParticles != null) {
-        whirlwindParticles.killAllParticles(); // убиваем все живые частицы
-        whirlwindParticles.setEnabled(false);
-        whirlwindActive = false;
-    }
-}
+        if (skillAnimationName != null && skillAnimationName.equals(ANIM_SPIN)) {
+            if (whirlwindParticles != null) {
+                whirlwindParticles.killAllParticles();
+                whirlwindParticles.setEnabled(false);
+                whirlwindActive = false;
+            }
+        }
 
         animationGeneration++;
         skillAnimationPlaying = false;
@@ -735,6 +743,9 @@ if (skillAnimationName != null && skillAnimationName.equals(ANIM_SPIN)) {
         if (worldManager == null) {
             return;
         }
+
+        // Испускаем кровь в сторону цели
+        emitBloodTowardsTarget();
 
         Monster monster = worldManager.getMonsterByModel(currentTarget);
         if (monster != null && monster.isAlive()) {
@@ -1346,11 +1357,12 @@ if (skillAnimationName != null && skillAnimationName.equals(ANIM_SPIN)) {
         stopAnimationInternal();
 
         // Отключаем эффект Whirlwind при респавне
-if (whirlwindParticles != null) {
-    whirlwindParticles.killAllParticles();
-    whirlwindParticles.setEnabled(false);
-    whirlwindActive = false;
-}
+        if (whirlwindParticles != null) {
+            whirlwindParticles.killAllParticles();
+            whirlwindParticles.setEnabled(false);
+            whirlwindActive = false;
+        }
+
         setHealth(getMaxHealth());
         setMana(getMaxMana());
         setAlive(true);
@@ -1494,7 +1506,7 @@ if (whirlwindParticles != null) {
 
         // Вращение эффекта Whirlwind
         if (whirlwindActive && whirlwindEffectNode != null) {
-            whirlwindEffectNode.rotate(0, tpf * 8f, 0); // скорость вращения
+            whirlwindEffectNode.rotate(0, tpf * 8f, 0);
         }
 
         // Skill animation
@@ -1537,7 +1549,7 @@ if (whirlwindParticles != null) {
             Vector3f dir = new Vector3f(targetPosition.x - currentPos.x, 0, targetPosition.z - currentPos.z);
             if (dir.lengthSquared() > 0.0001f) {
                 dir.normalizeLocal();
-                characterControl.setWalkDirection(dir.mult(26f));
+                characterControl.setWalkDirection(dir.mult(6f));
                 setMoving(true);
                 playBaseAnimation(ANIM_WALK);
             } else {
@@ -1661,51 +1673,132 @@ if (whirlwindParticles != null) {
     }
 
     // ============================================================
-    // НОВЫЙ ЭФФЕКТ ДЛЯ WHIRLWIND
+    // ЭФФЕКТ WHIRLWIND
     // ============================================================
-private void createWhirlwindEffect() {
-    if (effectNode == null) {
-        effectNode = new Node("EffectNode");
-        playerNode.attachChild(effectNode);
+    private void createWhirlwindEffect() {
+        if (effectNode == null) {
+            effectNode = new Node("EffectNode");
+            playerNode.attachChild(effectNode);
+        }
+
+        whirlwindEffectNode = new Node("WhirlwindEffectNode");
+        effectNode.attachChild(whirlwindEffectNode);
+        whirlwindEffectNode.setLocalTranslation(0, 1.2f, 0);
+
+        Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Particle.j3md");
+
+        whirlwindParticles = new ParticleEmitter("WhirlwindParticles", ParticleMesh.Type.Triangle, 40);
+        whirlwindParticles.setMaterial(particleMat);
+        whirlwindParticles.setImagesX(1);
+        whirlwindParticles.setImagesY(1);
+        whirlwindParticles.setStartColor(new ColorRGBA(1f, 1f, 1f, 0.7f));
+        whirlwindParticles.setEndColor(new ColorRGBA(1f, 1f, 1f, 0f));
+        whirlwindParticles.setStartSize(0.25f);
+        whirlwindParticles.setEndSize(0.05f);
+        whirlwindParticles.setShape(new EmitterSphereShape(Vector3f.ZERO, 0.1f));
+
+        ParticleInfluencer inf = whirlwindParticles.getParticleInfluencer();
+        inf.setInitialVelocity(new Vector3f(0, 2.5f, 0));
+        inf.setVelocityVariation(0.6f);
+
+        whirlwindParticles.setGravity(new Vector3f(0, -2.0f, 0));
+        whirlwindParticles.setLowLife(0.6f);
+        whirlwindParticles.setHighLife(1.2f);
+        whirlwindParticles.setParticlesPerSec(15);
+        whirlwindParticles.setEnabled(false);
+        whirlwindParticles.setLocalTranslation(1.8f, 0, 0);
+
+        whirlwindEffectNode.attachChild(whirlwindParticles);
     }
 
-    // Узел, который будет вращаться вокруг игрока
-    whirlwindEffectNode = new Node("WhirlwindEffectNode");
-    effectNode.attachChild(whirlwindEffectNode);
-    whirlwindEffectNode.setLocalTranslation(0, 1.2f, 0); // чуть выше пояса
+    // ============================================================
+    // ЭФФЕКТ КРОВИ (НОВОЕ)
+    // ============================================================
+    private void createBloodEffect() {
+        if (effectNode == null) {
+            effectNode = new Node("EffectNode");
+            playerNode.attachChild(effectNode);
+        }
 
-    // Материал для частиц
-    Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Particle.j3md");
-    // Можно указать текстуру, но оставим стандартные точки
-    whirlwindParticles = new ParticleEmitter("WhirlwindParticles", ParticleMesh.Type.Triangle, 40);
-    whirlwindParticles.setMaterial(particleMat);
-    whirlwindParticles.setImagesX(1);
-    whirlwindParticles.setImagesY(1);
-    // Белые, полупрозрачные
-    whirlwindParticles.setStartColor(new ColorRGBA(1f, 1f, 1f, 0.7f));
-    whirlwindParticles.setEndColor(new ColorRGBA(1f, 1f, 1f, 0f));
-    // Уменьшенный размер
-    whirlwindParticles.setStartSize(0.25f);
-    whirlwindParticles.setEndSize(0.05f);
-    // Форма – точка (испускаем из одной точки)
-    whirlwindParticles.setShape(new EmitterSphereShape(Vector3f.ZERO, 0.1f));
-    // Скорость – вверх и в стороны
-    ParticleInfluencer inf = whirlwindParticles.getParticleInfluencer();
-    inf.setInitialVelocity(new Vector3f(0, 2.5f, 0));
-    inf.setVelocityVariation(0.6f);
-    // Гравитация вниз, чтобы частицы падали
-    whirlwindParticles.setGravity(new Vector3f(0, -2.0f, 0));
-    whirlwindParticles.setLowLife(0.6f);
-    whirlwindParticles.setHighLife(1.2f);
-    // Меньше частиц в секунду
-    whirlwindParticles.setParticlesPerSec(15);
-    // Изначально выключен
-    whirlwindParticles.setEnabled(false);
+        bloodEffectNode = new Node("BloodEffectNode");
+        effectNode.attachChild(bloodEffectNode);
+        bloodEffectNode.setLocalTranslation(0, 1.0f, 0); // примерно на уровне груди
 
-    // Размещаем эмиттер на радиусе 1.8 от центра
-    whirlwindParticles.setLocalTranslation(1.8f, 0, 0);
-    whirlwindEffectNode.attachChild(whirlwindParticles);
-}
+        Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Particle.j3md");
+        // Можно загрузить текстуру крови, но оставим точки
+
+        bloodEmitter = new ParticleEmitter("BloodEmitter", ParticleMesh.Type.Triangle, 30);
+        bloodEmitter.setMaterial(particleMat);
+        bloodEmitter.setImagesX(1);
+        bloodEmitter.setImagesY(1);
+        bloodEmitter.setStartColor(new ColorRGBA(0.8f, 0.0f, 0.0f, 0.9f)); // красный
+        bloodEmitter.setEndColor(new ColorRGBA(0.4f, 0.0f, 0.0f, 0.0f));
+        bloodEmitter.setStartSize(0.12f);
+        bloodEmitter.setEndSize(0.04f);
+
+        // Используем точечный эмиттер (из одной точки)
+        bloodEmitter.setShape(new EmitterPointShape(Vector3f.ZERO));
+
+        // Скорость будет задаваться динамически, поэтому оставим стандартный Influencer
+        // и будем менять initialVelocity при каждом выбросе
+        ParticleInfluencer inf = bloodEmitter.getParticleInfluencer();
+        inf.setInitialVelocity(new Vector3f(0, 0, 0)); // временно
+        inf.setVelocityVariation(0.3f);
+
+        bloodEmitter.setGravity(new Vector3f(0, -5.0f, 0)); // сильная гравитация для падения
+        bloodEmitter.setLowLife(0.3f);
+        bloodEmitter.setHighLife(0.8f);
+        bloodEmitter.setParticlesPerSec(0); // не непрерывный, а однократный выброс
+        bloodEmitter.setEnabled(false);
+
+        // Устанавливаем в мировое пространство, чтобы частицы не двигались с персонажем?
+        // В данном случае лучше false, т.к. эмиттер привязан к персонажу, но направление будем задавать локально.
+        // Однако гравитация действует в мировом пространстве, поэтому частицы будут падать вниз.
+        bloodEmitter.setInWorldSpace(false);
+
+        bloodEffectNode.attachChild(bloodEmitter);
+    }
+
+    private void emitBloodTowardsTarget() {
+        if (bloodEmitter == null || currentTarget == null) return;
+        if (!isAlive) return;
+
+        // Получаем позицию персонажа и цели
+        Vector3f playerPos = getPosition();
+        Vector3f targetPos = currentTarget.getWorldTranslation();
+
+        // Направление от персонажа к цели (нормализованное)
+        Vector3f direction = targetPos.subtract(playerPos);
+        direction.y = 0; // игнорируем разницу по высоте для направления
+        direction.normalizeLocal();
+
+        // Добавляем небольшой вертикальный компонент вверх, чтобы струя немного взлетала
+        Vector3f velocity = direction.mult(4.0f).add(0, 1.5f, 0);
+
+        // Настраиваем скорость частиц
+        ParticleInfluencer inf = bloodEmitter.getParticleInfluencer();
+        inf.setInitialVelocity(velocity);
+
+        // Включаем и выбрасываем частицы
+        bloodEmitter.killAllParticles();
+        bloodEmitter.setEnabled(true);
+        bloodEmitter.emitAllParticles();
+
+        // Автоматически отключаем через некоторое время (как в heal)
+        new Thread(() -> {
+            try {
+                Thread.sleep(600); // 0.6 сек
+            } catch (InterruptedException ignored) {}
+            app.enqueue(() -> {
+                if (bloodEmitter != null) {
+                    bloodEmitter.setEnabled(false);
+                    bloodEmitter.killAllParticles();
+                }
+                return null;
+            });
+        }).start();
+    }
+
     // ============================================================
     // UI
     // ============================================================
