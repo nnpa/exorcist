@@ -855,15 +855,24 @@ public void update(float tpf) {
     }
 }
 
-    public void cleanup() {
-        System.out.println("[WorldManager] cleanup() called from:");
+public void cleanup() {
+    System.out.println("[WorldManager] cleanup() called from:");
     StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     for (int i = 2; i < Math.min(5, stack.length); i++) {
         System.out.println("  " + stack[i].getClassName() + "." + stack[i].getMethodName() + ":" + stack[i].getLineNumber());
     }
-        app.getRootNode().detachChild(worldNode);
-        System.out.println("[WorldManager] Cleanup");
+    
+    // ===== ДОБАВЛЕНО: Останавливаем всех монстров =====
+    for (Monster m : activeMonsters) {
+        if (m != null) m.stop();
     }
+    activeMonsters.clear();
+    dungeonManager.clearMonsters();
+    // ==================================================
+
+    app.getRootNode().detachChild(worldNode);
+    System.out.println("[WorldManager] Cleanup complete");
+}
 
     // ============================================================
     //   ГЕТТЕРЫ

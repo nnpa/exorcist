@@ -31,6 +31,9 @@ public class MonsterAI {
     }
 
     public void update(float tpf) {
+        if (stopped || monster == null) {
+            return;
+        }
         if (attackCooldown > 0) attackCooldown -= tpf;
         if (attackAnimTimer > 0) attackAnimTimer -= tpf;
 
@@ -55,7 +58,7 @@ public class MonsterAI {
                     if (attackCooldown > 0) {
                         monster.playAnimation("Idle");
                     }
-                    System.out.println("Monster ATTACKING, dist=" + dist);
+                    //System.out.println("Monster ATTACKING, dist=" + dist);
                 } else {
                     moveTowards(playerPos, tpf);
                 }
@@ -67,13 +70,13 @@ public class MonsterAI {
                     SoundManager.stopMusic();
                     SoundManager.playMusic(SoundManager.MUSIC_BOSS);
                     bossMusicStarted = true;
-                    System.out.println("[MonsterAI] Boss music started!");
+                   // System.out.println("[MonsterAI] Boss music started!");
                 }
 
                 if (dist > monster.getAttackRange() * 1.2f) {
                     currentState = State.CHASING;
                     monster.playAnimation("Walk");
-                    System.out.println("Monster CHASING (lost target)");
+                   // System.out.println("Monster CHASING (lost target)");
                 } else {
                     attackPlayer();
                 }
@@ -114,7 +117,7 @@ public class MonsterAI {
 
         if (playerManager != null) {
             playerManager.takeDamage((int) monster.getDamage());
-            System.out.println("[MonsterAI] Attacked player for " + monster.getDamage());
+           // System.out.println("[MonsterAI] Attacked player for " + monster.getDamage());
         }
         monster.playAnimation("Attack");
         attackCooldown = ATTACK_COOLDOWN_TIME;
@@ -127,4 +130,16 @@ public class MonsterAI {
         }
         return new Vector3f(0, 0, 0);
     }
+    
+    private boolean stopped = false;
+
+// Добавьте метод stop
+public void stop() {
+    this.stopped = true;
+    this.monster = null;
+    this.playerManager = null;
+    currentState = State.IDLE;
+    System.out.println("[MonsterAI] AI stopped.");
+}
+
 }

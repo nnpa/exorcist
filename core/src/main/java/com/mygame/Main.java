@@ -227,6 +227,9 @@ inputManager.addListener(new ActionListener() {
     @Override
     public void simpleUpdate(float tpf) {
         super.simpleUpdate(tpf);
+        if (!Monster.isGameRunning) {
+            return; // Игра закрыта, пропускаем обновление мира
+        }
         if (gameManager != null) gameManager.update(tpf);
         if (playerManager != null) playerManager.update(tpf);
         if (worldManager != null) worldManager.update(tpf);
@@ -304,6 +307,19 @@ public void applyResolution(int width, int height) {
     settings.setHeight(height);
     setSettings(settings);
     restart(); // перезапускает дисплей
+}
+
+@Override
+public void stop() {
+    System.out.println("[Main] Stopping application...");
+    
+    // Останавливаем монстров и мир
+    Monster.isGameRunning = false; // Останавливает все обновления монстров
+    if (worldManager != null) {
+        worldManager.cleanup(); // Останавливает AI и чистит ноды
+    }
+    
+    super.stop(); // Останавливаем сам движок jME3
 }
     private void handleClick(float screenX, float screenY) {
         if (!worldLoaded || playerManager == null) return;

@@ -199,11 +199,11 @@ public class Monster {
     public Vector3f getPosition() { return currentPosition; }
 public void setPosition(Vector3f position) {
     if (position == null) return;
-    System.out.println("[Monster] setPosition called for " + name + " -> " + position);
+    //System.out.println("[Monster] setPosition called for " + name + " -> " + position);
     this.currentPosition = position.clone();
     if (modelNode != null) {
         modelNode.setLocalTranslation(position);
-        System.out.println("[Monster] Model moved to " + modelNode.getLocalTranslation());
+       // System.out.println("[Monster] Model moved to " + modelNode.getLocalTranslation());
     }
 }
 
@@ -388,8 +388,23 @@ public void setPosition(Vector3f position) {
         // ============================================================
     // UPDATE
     // ============================================================
+public static boolean isGameRunning = true;
 
+// Добавьте метод stop
+public void stop() {
+    isAlive = false;
+    if (ai != null) {
+        ai.stop();
+        ai = null;
+    }
+    if (modelNode != null && modelNode.getParent() != null) {
+        modelNode.getParent().detachChild(modelNode);
+    }
+    modelNode = null;
+    System.out.println("[Monster] " + name + " stopped.");
+}
     public void update(float tpf) {
+         if (!isGameRunning) return;
         if (!isAlive) {
             if (deathTimer > 0) {
                 deathTimer -= tpf;
