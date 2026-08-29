@@ -1,0 +1,50 @@
+[
+  {
+    "className": "com.mygame.monsters.Root",
+    "x": 1.1189339,
+    "y": -0.5022129,
+    "z": -16.487942,
+    "level": 1,
+    "health": 100.0,
+    "damage": 10.0,
+    "isBoss": false,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  },
+  {
+    "className": "com.mygame.monsters.Raptor",
+    "x": -5.561814,
+    "y": -0.502213,
+    "z": -37.235367,
+    "level": 1,
+    "health": 100.0,
+    "damage": 10.0,
+    "isBoss": false,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  },
+  {
+    "className": "com.mygame.monsters.Osa",
+    "x": -3.4631052,
+    "y": -0.5022125,
+    "z": -57.432312,
+    "level": 1,
+    "health": 100.0,
+    "damage": 10.0,
+    "isBoss": false,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  },
+  {
+    "className": "com.mygame.monsters.RobotBoss",
+    "x": -0.417507,
+    "y": -0.5022129,
+    "z": -78.296585,
+    "level": 1,
+    "health": 100.0,
+    "damage": 10.0,
+    "isBoss": false,
+    "isFinalBoss": false,
+    "increaseDifficulty": false
+  }
+]

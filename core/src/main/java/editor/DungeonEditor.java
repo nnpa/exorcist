@@ -10,6 +10,10 @@ import com.mygame.dungeons.Dungeon;
 import com.mygame.monsters.Demon;
 import com.mygame.monsters.Head;
 import com.mygame.monsters.Monster;
+import com.mygame.monsters.Osa;
+import com.mygame.monsters.Raptor;
+import com.mygame.monsters.RobotBoss;
+import com.mygame.monsters.Root;
 import com.mygame.monsters.Scorpion;
 import com.mygame.monsters.Sgolem;
 import com.mygame.monsters.SkeletonWarrior;
@@ -216,10 +220,10 @@ private void addMonster(Class<? extends Monster> cls) {
 
     private List<Class<? extends Monster>> getMonsterClasses() {
         List<Class<? extends Monster>> classes = new ArrayList<>();
-        classes.add(Scorpion.class);
-        classes.add(Sgolem.class);
-        classes.add(Snake.class);
-        classes.add(WormBoss.class);
+        classes.add(Root.class);
+        classes.add(Raptor.class);
+        classes.add(Osa.class);
+        classes.add(RobotBoss.class);
         return classes;
     }
 }
