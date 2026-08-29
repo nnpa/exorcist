@@ -205,6 +205,11 @@ public class PlayerManager {
     private Node effectNode;
     private ParticleEmitter healParticles;
 
+    // НОВЫЕ ПОЛЯ ДЛЯ WHIRLWIND
+    private Node whirlwindEffectNode;
+    private ParticleEmitter whirlwindParticles;
+    private boolean whirlwindActive = false;
+
     // ============================================================
     // КОНСТРУКТОР
     // ============================================================
@@ -237,6 +242,7 @@ public class PlayerManager {
         }
 
         createHealEffect();
+        createWhirlwindEffect(); // новый вызов
     }
 
     // ============================================================
@@ -546,6 +552,15 @@ public class PlayerManager {
         if (!skillAnimationPlaying) {
             return;
         }
+        // Отключаем эффект Whirlwind, если анимация была SpinAttack
+if (skillAnimationName != null && skillAnimationName.equals(ANIM_SPIN)) {
+    if (whirlwindParticles != null) {
+        whirlwindParticles.killAllParticles(); // убиваем все живые частицы
+        whirlwindParticles.setEnabled(false);
+        whirlwindActive = false;
+    }
+}
+
         animationGeneration++;
         skillAnimationPlaying = false;
         skillAnimationName = null;
@@ -903,6 +918,12 @@ public class PlayerManager {
                 if (hasTalent("attack_4")) {
                     divineWrathReady = true;
                     System.out.println("[Player] Divine Wrath ready.");
+                }
+
+                // Активируем визуальный эффект Whirlwind
+                if (whirlwindParticles != null) {
+                    whirlwindParticles.setEnabled(true);
+                    whirlwindActive = true;
                 }
                 break;
 
@@ -1324,6 +1345,12 @@ public class PlayerManager {
         activeOneShotAction = null;
         stopAnimationInternal();
 
+        // Отключаем эффект Whirlwind при респавне
+if (whirlwindParticles != null) {
+    whirlwindParticles.killAllParticles();
+    whirlwindParticles.setEnabled(false);
+    whirlwindActive = false;
+}
         setHealth(getMaxHealth());
         setMana(getMaxMana());
         setAlive(true);
@@ -1465,6 +1492,11 @@ public class PlayerManager {
             }
         }
 
+        // Вращение эффекта Whirlwind
+        if (whirlwindActive && whirlwindEffectNode != null) {
+            whirlwindEffectNode.rotate(0, tpf * 8f, 0); // скорость вращения
+        }
+
         // Skill animation
         if (skillAnimationPlaying) {
             if (!isActiveOneShot()) {
@@ -1571,7 +1603,7 @@ public class PlayerManager {
     }
 
     // ============================================================
-    // ЭФФЕКТ ЛЕЧЕНИЯ (частицы)
+    // ЭФФЕКТЫ (Heal)
     // ============================================================
     private void createHealEffect() {
         if (effectNode == null) {
@@ -1628,6 +1660,52 @@ public class PlayerManager {
         }).start();
     }
 
+    // ============================================================
+    // НОВЫЙ ЭФФЕКТ ДЛЯ WHIRLWIND
+    // ============================================================
+private void createWhirlwindEffect() {
+    if (effectNode == null) {
+        effectNode = new Node("EffectNode");
+        playerNode.attachChild(effectNode);
+    }
+
+    // Узел, который будет вращаться вокруг игрока
+    whirlwindEffectNode = new Node("WhirlwindEffectNode");
+    effectNode.attachChild(whirlwindEffectNode);
+    whirlwindEffectNode.setLocalTranslation(0, 1.2f, 0); // чуть выше пояса
+
+    // Материал для частиц
+    Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Particle.j3md");
+    // Можно указать текстуру, но оставим стандартные точки
+    whirlwindParticles = new ParticleEmitter("WhirlwindParticles", ParticleMesh.Type.Triangle, 40);
+    whirlwindParticles.setMaterial(particleMat);
+    whirlwindParticles.setImagesX(1);
+    whirlwindParticles.setImagesY(1);
+    // Белые, полупрозрачные
+    whirlwindParticles.setStartColor(new ColorRGBA(1f, 1f, 1f, 0.7f));
+    whirlwindParticles.setEndColor(new ColorRGBA(1f, 1f, 1f, 0f));
+    // Уменьшенный размер
+    whirlwindParticles.setStartSize(0.25f);
+    whirlwindParticles.setEndSize(0.05f);
+    // Форма – точка (испускаем из одной точки)
+    whirlwindParticles.setShape(new EmitterSphereShape(Vector3f.ZERO, 0.1f));
+    // Скорость – вверх и в стороны
+    ParticleInfluencer inf = whirlwindParticles.getParticleInfluencer();
+    inf.setInitialVelocity(new Vector3f(0, 2.5f, 0));
+    inf.setVelocityVariation(0.6f);
+    // Гравитация вниз, чтобы частицы падали
+    whirlwindParticles.setGravity(new Vector3f(0, -2.0f, 0));
+    whirlwindParticles.setLowLife(0.6f);
+    whirlwindParticles.setHighLife(1.2f);
+    // Меньше частиц в секунду
+    whirlwindParticles.setParticlesPerSec(15);
+    // Изначально выключен
+    whirlwindParticles.setEnabled(false);
+
+    // Размещаем эмиттер на радиусе 1.8 от центра
+    whirlwindParticles.setLocalTranslation(1.8f, 0, 0);
+    whirlwindEffectNode.attachChild(whirlwindParticles);
+}
     // ============================================================
     // UI
     // ============================================================

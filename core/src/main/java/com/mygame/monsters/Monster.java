@@ -15,6 +15,7 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.control.BillboardControl;
 import com.jme3.scene.shape.Quad;
+import com.jme3.scene.shape.Sphere;
 import com.mygame.items.Item;
 import com.mygame.items.LootTable;
 import com.mygame.managers.DropManager;
@@ -105,13 +106,21 @@ public class Monster {
     private static final float HP_BAR_Z_OFFSET = 0.01f;
 
     // ============================================================
-    // НОВОЕ: ФЛАГ ИГРЫ И СТАТУСЫ
+    // СТАТУСЫ И ЭФФЕКТЫ
     // ============================================================
 
     public static boolean isGameRunning = true;
     private float stunTimer = 0f;
     private float bleedTimer = 0f;
     private float bleedDamage = 0f;
+
+    // ============================================================
+    // ВИЗУАЛЬНЫЙ ЭФФЕКТ СТАНА (НОВОЕ)
+    // ============================================================
+
+    private Node stunEffectNode;          // узел для вращения частиц
+    private Spatial[] stunParticles;      // 4 частицы (геометрии)
+    private boolean stunEffectActive = false;
 
     // ============================================================
     // КОНСТРУКТОР
@@ -170,6 +179,7 @@ public class Monster {
             animComposer.setCurrentAction("Idle");
         }
         createHealthBar();
+        createStunEffect(); // создаём эффект стана
     }
 
     // POSITION
@@ -210,12 +220,14 @@ public class Monster {
     public void setIncreaseDifficultyOnDeath(boolean increase) { this.increaseDifficultyOnDeath = increase; }
 
     // ============================================================
-    // СТАТУСЫ (НОВОЕ)
+    // СТАТУСЫ
     // ============================================================
 
     public void applyStun(float duration) {
         this.stunTimer = Math.max(stunTimer, duration);
         System.out.println(">>> СТАН НАЛОЖЕН НА: " + name + " на " + duration + " сек");
+        // Включаем визуальный эффект
+        showStunEffect(true);
     }
 
     public float getStunTimer() {
@@ -233,7 +245,6 @@ public class Monster {
     }
 
     public void stopWalking() {
-        // Принудительно останавливаем движение/анимацию
         if (animComposer != null) {
             animComposer.setCurrentAction("Idle");
         }
@@ -308,11 +319,69 @@ public class Monster {
     }
 
     // ============================================================
+    // ЭФФЕКТ СТАНА (НОВОЕ)
+    // ============================================================
+
+    private void createStunEffect() {
+        if (app == null || modelNode == null) return;
+        if (stunEffectNode != null) return; // уже создан
+
+        stunEffectNode = new Node("StunEffectNode");
+        stunEffectNode.setLocalTranslation(0, 3.0f, 0); // над головой
+        stunEffectNode.setCullHint(Spatial.CullHint.Always); // по умолчанию скрыт
+
+        // Материал для частиц (серые)
+        Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+        particleMat.setColor("Color", new ColorRGBA(0.5f, 0.5f, 0.5f, 0.9f)); // серый
+
+        // Создаём 4 частицы в виде маленьких сфер или квадов
+        stunParticles = new Spatial[4];
+        float radius = 0.6f; // радиус круга
+        for (int i = 0; i < 4; i++) {
+            float angle = i * FastMath.HALF_PI; // 0, 90, 180, 270 градусов
+            float x = radius * FastMath.cos(angle);
+            float z = radius * FastMath.sin(angle);
+
+            // Используем сферу или квад – выберем квад для простоты (повёрнут к камере)
+            Quad quad = new Quad(0.2f, 0.2f);
+            Geometry particle = new Geometry("StunParticle_" + i, quad);
+            particle.setMaterial(particleMat);
+            particle.setLocalTranslation(x, 0, z);
+            // Поворачиваем к камере (BillboardControl) – но лучше использовать Billboard на каждую частицу
+            // или повернуть весь узел? Лучше добавить BillboardControl к каждой частице.
+            BillboardControl billboard = new BillboardControl();
+            particle.addControl(billboard);
+            particle.setQueueBucket(RenderQueue.Bucket.Transparent);
+
+            stunParticles[i] = particle;
+            stunEffectNode.attachChild(particle);
+        }
+
+        modelNode.attachChild(stunEffectNode);
+        System.out.println("[Monster] Stun effect created for " + name);
+    }
+
+    private void showStunEffect(boolean show) {
+        if (stunEffectNode == null) return;
+        if (show && isAlive) {
+            stunEffectNode.setCullHint(Spatial.CullHint.Inherit);
+            stunEffectActive = true;
+        } else {
+            stunEffectNode.setCullHint(Spatial.CullHint.Always);
+            stunEffectActive = false;
+        }
+    }
+
+    // ============================================================
     // СМЕРТЬ
     // ============================================================
 
     protected void onDeath() {
         SoundManager.playSound(SoundManager.SOUND_MONSTER_DIE);
+
+        // Скрываем эффект стана
+        showStunEffect(false);
+
         if (healthBarNode != null) {
             healthBarNode.setCullHint(Spatial.CullHint.Always);
         }
@@ -346,6 +415,8 @@ public class Monster {
             modelNode.getParent().detachChild(modelNode);
             modelNode = null;
         }
+        stunEffectNode = null; // ссылка больше не нужна
+        stunParticles = null;
     }
 
     // ============================================================
@@ -374,6 +445,7 @@ public class Monster {
 
     public void stop() {
         isAlive = false;
+        showStunEffect(false);
         if (ai != null) {
             ai.stop();
             ai = null;
@@ -382,11 +454,13 @@ public class Monster {
             modelNode.getParent().detachChild(modelNode);
         }
         modelNode = null;
+        stunEffectNode = null;
+        stunParticles = null;
         System.out.println("[Monster] " + name + " stopped.");
     }
 
     // ============================================================
-    // ОБНОВЛЕНИЕ (КРИТИЧЕСКИ ВАЖНО С БЛОКИРОВКОЙ)
+    // ОБНОВЛЕНИЕ
     // ============================================================
 
     public void update(float tpf) {
@@ -397,9 +471,23 @@ public class Monster {
             stunTimer -= tpf;
             if (stunTimer < 0f) stunTimer = 0f;
             if (ai != null) ai.setStunned(true);
+
+            // Вращаем эффект стана
+            if (stunEffectActive && stunEffectNode != null) {
+                stunEffectNode.rotate(0, tpf * 4f, 0); // вращаем по Y
+            }
+
+            // Если стан закончился, выключаем эффект
+            if (stunTimer <= 0f) {
+                showStunEffect(false);
+            }
             return; // Монстр не двигается и не атакует
         } else {
             if (ai != null) ai.setStunned(false);
+            // Если эффект всё ещё активен (а стан уже 0) – выключаем на всякий случай
+            if (stunEffectActive) {
+                showStunEffect(false);
+            }
         }
 
         // ===== КРОВОТЕЧЕНИЕ =====
