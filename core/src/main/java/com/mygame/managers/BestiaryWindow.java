@@ -1256,7 +1256,7 @@ public class BestiaryWindow {
          * чтобы Attack-анимация не обрезалась.
          */
 
-        distance *= 4.45f;
+        distance *= 6.45f;
 
 
         distance =
