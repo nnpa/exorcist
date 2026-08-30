@@ -29,6 +29,8 @@ import com.jme3.renderer.RenderManager;
 import com.jme3.shadow.DirectionalLightShadowRenderer;
 import com.jme3.shadow.EdgeFilteringMode;
 import com.jme3.system.AppSettings;
+import com.jme3.texture.Texture;
+import com.jme3.util.SkyFactory;
 import com.simsilica.lemur.GuiGlobals;
 import com.simsilica.lemur.TextField;
 import com.simsilica.lemur.Insets3f;
@@ -64,6 +66,9 @@ public class Main extends SimpleApplication {
     @Override
     public void simpleInitApp() {
         instance = this;
+Spatial sky = SkyFactory.createSky(assetManager, "Interface/Sky/sky.png", SkyFactory.EnvMapType.EquirectMap);
+rootNode.attachChild(sky);
+    
         setDisplayFps(false);
         setDisplayStatView(false);
         viewPort.setBackgroundColor(ColorRGBA.Black);
