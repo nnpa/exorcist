@@ -42,6 +42,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.jme3.renderer.queue.RenderQueue;
+import com.mygame.monsters.FinalBoss;
 import com.mygame.monsters.RobotBoss;
 import com.mygame.monsters.WormBoss;
 import java.lang.reflect.Type;
@@ -148,7 +149,7 @@ public class WorldManager {
         createCityScene();
         loadNPCs();
         createInteractiveObjects();
-        //spawnTestMonster();
+        spawnTestMonster();
 
         cityNode.setCullHint(Node.CullHint.Dynamic);
         npcNode.setCullHint(Node.CullHint.Dynamic);
@@ -340,7 +341,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             return;
         }
 
-        Monster skeleton = new RobotBoss();
+        Monster skeleton = new FinalBoss();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
@@ -350,7 +351,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
         Spatial model = null;
         try {
             System.out.println("[WorldManager] Loading model: Models/Monsters/SpirderBoss.gltf");
-            model = app.getAssetManager().loadModel("Models/Monsters/robotboss.gltf");
+            model = app.getAssetManager().loadModel("Models/Monsters/finalboss.gltf");
         } catch (Exception e) {
             System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
             e.printStackTrace();

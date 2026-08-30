@@ -92,8 +92,24 @@ public class Monster {
     // ============================================================
     // ПРИЛОЖЕНИЕ
     // ============================================================
+protected boolean isPlayerInAttackRange() {
 
-    private static SimpleApplication app;
+    if (getPlayerManager() == null) {
+        return false;
+    }
+
+    Vector3f bossPos = getPosition();
+
+    Vector3f playerPos =
+            getPlayerManager()
+                    .getPosition();
+
+    float distance =
+            bossPos.distance(playerPos);
+
+    return distance <= getAttackRange();
+}
+    protected static SimpleApplication app;
 
     // ============================================================
     // HP BAR
@@ -534,4 +550,6 @@ healthBarNode.setLocalTranslation(HP_BAR_LEFT_OFFSET, hpBarHeightOffset, 0);
             ai.update(tpf);
         }
     }
+    public MonsterAI getAI() { return ai; }
+public PlayerManager getPlayerManager() { return playerManager; }
 }

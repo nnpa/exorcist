@@ -66,8 +66,8 @@ public class Main extends SimpleApplication {
     @Override
     public void simpleInitApp() {
         instance = this;
-Spatial sky = SkyFactory.createSky(assetManager, "Interface/Sky/sky.png", SkyFactory.EnvMapType.EquirectMap);
-rootNode.attachChild(sky);
+        Spatial sky = SkyFactory.createSky(assetManager, "Interface/Sky/sky.png", SkyFactory.EnvMapType.EquirectMap);
+        rootNode.attachChild(sky);
     
         setDisplayFps(false);
         setDisplayStatView(false);
