@@ -17,6 +17,7 @@ public class SpiderBoss extends Monster {
         setAttackRange(1.5f);
         setMoveSpeed(2.0f);
         setAggroRange(8.0f);
+        setBoss(true);
 
         // Таблица дропа – только одеваемые предметы
         LootTable loot = new LootTable();

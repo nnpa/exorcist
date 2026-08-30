@@ -102,10 +102,17 @@ public class Monster {
     private static final float HP_BAR_WIDTH = 1.2f;
     private static final float HP_BAR_HEIGHT = 0.08f;
     private static final float HP_BAR_HEIGHT_OFFSET = 3.0f;
+    private float hpBarHeightOffset = HP_BAR_HEIGHT_OFFSET; 
+
     private static final float HP_BAR_LEFT_OFFSET = 0.6f;
     private static final float HP_BAR_Z_OFFSET = 0.01f;
-
-    // ============================================================
+public void setHpBarHeightOffset(float offset) {
+        this.hpBarHeightOffset = offset;
+        // Если полоска уже создана, сразу обновляем её позицию
+        if (healthBarNode != null) {
+            healthBarNode.setLocalTranslation(HP_BAR_LEFT_OFFSET, hpBarHeightOffset, 0);
+        }
+    }    // ============================================================
     // СТАТУСЫ И ЭФФЕКТЫ
     // ============================================================
 
@@ -282,7 +289,7 @@ public class Monster {
 
         healthBarNode = new Node("HealthBarNode");
         healthBarNode.setQueueBucket(RenderQueue.Bucket.Transparent);
-        healthBarNode.setLocalTranslation(HP_BAR_LEFT_OFFSET, HP_BAR_HEIGHT_OFFSET, 0);
+healthBarNode.setLocalTranslation(HP_BAR_LEFT_OFFSET, hpBarHeightOffset, 0);
 
         BillboardControl billboard = new BillboardControl();
         healthBarNode.addControl(billboard);

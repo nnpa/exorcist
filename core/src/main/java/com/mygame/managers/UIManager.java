@@ -1845,7 +1845,7 @@ private void applyStoredLanguage() {
 
             hpTextLabel.setText(
                     (int) hp
-                            + " : "
+                            + " / "
                             + (int) maxHp
             );
 
@@ -1865,7 +1865,7 @@ private void applyStoredLanguage() {
 
             manaTextLabel.setText(
                     (int) mana
-                            + " : "
+                            + " / "
                             + (int) maxMana
             );
 

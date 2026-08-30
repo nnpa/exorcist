@@ -11,13 +11,14 @@ public class RobotBoss extends Monster {
         setId("robotboss");
         setName("robotboss");
         setLevel(1);
-        setMaxHealth(30);
-        setHealth(30);
+        setMaxHealth(1130);
+        setHealth(1130);
         setDamage(5);
         setAttackRange(1.5f);
         setMoveSpeed(2.0f);
         setAggroRange(8.0f);
-        
+        setBoss(true);
+        setHpBarHeightOffset(5.0f);
         // Таблица дропа – только одеваемые предметы
         LootTable loot = new LootTable();
         
