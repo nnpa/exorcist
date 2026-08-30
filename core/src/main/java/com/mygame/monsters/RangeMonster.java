@@ -419,63 +419,62 @@ public class RangeMonster extends Monster {
     // ПОВОРОТ К ИГРОКУ
     // ============================================================
 
-    protected void rotateTowardsPlayer(
-            Vector3f playerPosition
-    ) {
+protected void rotateTowardsPlayer(
+        Vector3f playerPosition
+) {
 
-        if (modelNode == null ||
-                playerPosition == null) {
+    if (modelNode == null ||
+            playerPosition == null) {
 
-            return;
-        }
-
-        Vector3f monsterPosition =
-                getPosition();
-
-        if (monsterPosition == null) {
-            return;
-        }
-
-        float dx =
-                playerPosition.x -
-                monsterPosition.x;
-
-        float dz =
-                playerPosition.z -
-                monsterPosition.z;
-
-        if (FastMath.abs(dx) < 0.000001f &&
-                FastMath.abs(dz) < 0.000001f) {
-
-            return;
-        }
-
-        /*
-         * Рабочий вариант поворота.
-         *
-         * Не добавляем HALF_PI.
-         */
-
-        float angle =
-                FastMath.atan2(
-                        dx,
-                        dz
-                );
-
-        Quaternion rotation =
-                new Quaternion();
-
-        rotation.fromAngles(
-                0f,
-                angle,
-                0f
-        );
-
-        modelNode.setLocalRotation(
-                rotation
-        );
+        return;
     }
 
+    Vector3f monsterPosition =
+            getPosition();
+
+    if (monsterPosition == null) {
+        return;
+    }
+
+    float dx =
+            playerPosition.x -
+            monsterPosition.x;
+
+    float dz =
+            playerPosition.z -
+            monsterPosition.z;
+
+    if (FastMath.abs(dx) < 0.000001f &&
+            FastMath.abs(dz) < 0.000001f) {
+
+        return;
+    }
+
+    float angle =
+            FastMath.atan2(
+                    dx,
+                    dz
+            );
+
+    /*
+     * Коррекция поворота модели:
+     * -45 градусов.
+     */
+    angle -= FastMath.QUARTER_PI;
+
+    Quaternion rotation =
+            new Quaternion();
+
+    rotation.fromAngles(
+            0f,
+            angle,
+            0f
+    );
+
+    modelNode.setLocalRotation(
+            rotation
+    );
+}
     // ============================================================
     // ВЫПУСК СНАРЯДА
     // ============================================================
