@@ -214,196 +214,873 @@ public class TalentWindow {
     private List<Spatial> talentContainers = new ArrayList<>();
     private boolean tooltipPersistent = false;
 
-    public void updateUI() {
-        for (Spatial s : talentContainers) {
-            if (s != null && s.getParent() == windowNode) {
-                windowNode.detachChild(s);
-            }
-        }
-        talentContainers.clear();
+public void updateUI() {
 
-        TalentTree tree = talentManager.getTrees().get(currentBranch);
-        if (tree == null) return;
+    // ============================================================
+    // 1. Удаляем старые элементы талантов
+    // ============================================================
 
-        List<Talent> talents = new ArrayList<>(tree.getTalents());
-        talents.sort((a, b) -> {
-            if (a.getRow() != b.getRow()) return Integer.compare(a.getRow(), b.getRow());
-            return Integer.compare(a.getColumn(), b.getColumn());
-        });
+    for (Spatial spatial : talentContainers) {
 
-        float totalWidth = 2 * buttonSize + buttonSpacingH;
-        float totalHeight = 5 * buttonSize + 4 * buttonSpacingV;
-        float startX = (currentWidth - totalWidth) / 2;
-        float startY = currentHeight - 120 * (currentHeight / 550f) - 100;
-        if (startY - totalHeight < 10) startY = totalHeight + 10;
-
-        // Фон окна
-        Node bgNode = new Node("WindowBgNode");
-        Geometry windowBg = new Geometry("WindowBg", new Quad(currentWidth, currentHeight));
-        Material bgMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        bgMat.setColor("Color", new ColorRGBA(0.1f, 0.1f, 0.15f, 0.95f));
-        windowBg.setMaterial(bgMat);
-        windowBg.setLocalTranslation(0, 0, -0.2f);
-        bgNode.attachChild(windowBg);
-        windowNode.attachChild(bgNode);
-        talentContainers.add(bgNode);
-
-        for (int r = 0; r < 5; r++) {
-            for (int c = 0; c < 2; c++) {
-                Talent found = null;
-                for (Talent t : talents) {
-                    if (t.getRow() == r && t.getColumn() == c) {
-                        found = t;
-                        break;
-                    }
-                }
-
-                float x = startX + c * (buttonSize + buttonSpacingH);
-                float y = startY - r * (buttonSize + buttonSpacingV) - 20;
-
-                Node cellNode = new Node("TalentCell_" + r + "_" + c);
-                cellNode.setLocalTranslation(x, y, 0.1f);
-
-                Geometry bg = new Geometry("TalentCellBg_" + r + "_" + c, new Quad(buttonSize, buttonSize));
-                bg.setLocalTranslation(0, 0, 0);
-                Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-
-                if (found != null) {
-                    final Talent talent = found;
-                    int level = talentManager.getLearned().getOrDefault(talent.getId(), 0);
-                    boolean hasPrereqs = tree.isAvailable(talent, talentManager.getLearned());
-                    boolean hasPoints = talentManager.getAvailablePoints() >= talent.getCost();
-                    boolean isAvailable = hasPoints && hasPrereqs;
-                    boolean isMaxLevel = level >= talent.getMaxLevel();
-
-                    String iconName = ICON_MAP.get(talent.getId());
-                    Texture tex = null;
-                    if (iconName != null) {
-                        try {
-                            tex = app.getAssetManager().loadTexture("Interface/Talents/" + iconName);
-                        } catch (Exception ignored) {}
-                    }
-
-                    if (tex != null) {
-                        mat.setTexture("ColorMap", tex);
-                    } else {
-                        ColorRGBA color;
-                        if (isMaxLevel) color = new ColorRGBA(0.8f, 0.7f, 0.1f, 0.9f);
-                        else if (isAvailable) color = new ColorRGBA(0.1f, 0.8f, 0.1f, 0.9f);
-                        else color = new ColorRGBA(0.3f, 0.3f, 0.3f, 0.9f);
-                        mat.setColor("Color", color);
-                    }
-                    bg.setMaterial(mat);
-                    cellNode.attachChild(bg);
-
-                    String displayText = talent.getLocalizedName();
-                    if (level > 0) {
-                        displayText += " " + level + "/" + talent.getMaxLevel();
-                    }
-
-                    float fontSize = 15;
-                    Label temp = new Label(displayText);
-                    temp.setFontSize(fontSize);
-                    float tw = temp.getPreferredSize().x;
-                    float th = temp.getPreferredSize().y;
-                    float posX = (buttonSize - tw) / 2;
-                    float posY = (buttonSize - th) / 2;
-
-                    Label shadow1 = new Label(displayText);
-                    shadow1.setFontSize(fontSize);
-                    shadow1.setColor(new ColorRGBA(0, 0, 0, 0.95f));
-                    shadow1.setLocalTranslation(posX + 1, posY + 1, 0.1f);
-                    cellNode.attachChild(shadow1);
-
-                    Label shadow2 = new Label(displayText);
-                    shadow2.setFontSize(fontSize);
-                    shadow2.setColor(new ColorRGBA(0, 0, 0, 0.8f));
-                    shadow2.setLocalTranslation(posX + 2, posY + 2, 0.1f);
-                    cellNode.attachChild(shadow2);
-
-                    Label textLabel = new Label(displayText);
-                    textLabel.setFontSize(fontSize);
-                    textLabel.setColor(ColorRGBA.White);
-                    textLabel.setLocalTranslation(posX, posY, 0.2f);
-                    cellNode.attachChild(textLabel);
-
-                    MouseListener talentListener = new MouseListener() {
-                        @Override
-                        public void mouseButtonEvent(MouseButtonEvent evt, Spatial spatial, Spatial target) {
-                            if (!evt.isPressed() || evt.getButtonIndex() != 0 || !isVisible) return;
-                            if (isMaxLevel) {
-                                showTooltip(talent.getLocalizedName() + getLocalized("talents.maxlevel"));
-                                return;
-                            }
-                            if (!isAvailable) {
-                                StringBuilder msg = new StringBuilder(getLocalized("talents.notavailable"));
-                                if (!hasPrereqs) {
-                                    msg.append(getLocalized("talents.prereqmissing"));
-                                    for (String prereqId : talent.getPrerequisites()) {
-                                        if (!talentManager.getLearned().containsKey(prereqId) ||
-                                            talentManager.getLearned().get(prereqId) == 0) {
-                                            Talent prereqTalent = tree.getTalentById(prereqId);
-                                            msg.append(prereqTalent != null ? prereqTalent.getLocalizedName() : prereqId);
-                                            msg.append(" ");
-                                        }
-                                    }
-                                } else if (!hasPoints) {
-                                    msg.append(getLocalized("talents.notenoughpoints"));
-                                }
-                                showTooltip(msg.toString());
-                                return;
-                            }
-                            SoundManager.playSound(SoundManager.SOUND_CLICK);
-                            talentManager.levelUpTalentAsync(talent.getId()).thenAccept(success -> {
-                                app.enqueue(() -> {
-                                    if (success) {
-                                        updateUI();
-                                        showTooltip("✓ " + talent.getLocalizedName() + getLocalized("talents.upgrade.success"));
-                                    } else {
-                                        showTooltip("✗ " + getLocalized("talents.upgrade.fail") + " " + talent.getLocalizedName());
-                                    }
-                                    return null;
-                                });
-                            });
-                        }
-
-                        @Override
-                        public void mouseEntered(MouseMotionEvent evt, Spatial spatial, Spatial target) {
-                            String desc = talent.getLocalizedDescription();
-                            if (desc == null || desc.isEmpty()) desc = talent.getLocalizedName();
-                            showTooltipPersistent(desc);
-                        }
-
-                        @Override
-                        public void mouseExited(MouseMotionEvent evt, Spatial spatial, Spatial target) {
-                            hideTooltipPersistent();
-                        }
-
-                        @Override
-                        public void mouseMoved(MouseMotionEvent evt, Spatial spatial, Spatial target) {}
-                    };
-
-                    MouseEventControl.removeListenersFromSpatial(bg);
-                    MouseEventControl.addListenersToSpatial(bg, talentListener);
-                    MouseEventControl.removeListenersFromSpatial(textLabel);
-                    MouseEventControl.addListenersToSpatial(textLabel, talentListener);
-
-                } else {
-                    mat.setColor("Color", new ColorRGBA(0.15f, 0.15f, 0.15f, 0.9f));
-                    bg.setMaterial(mat);
-                    cellNode.attachChild(bg);
-                }
-
-                windowNode.attachChild(cellNode);
-                talentContainers.add(cellNode);
-            }
+        if (spatial == null) {
+            continue;
         }
 
-        if (pointsLabel != null) {
-            pointsLabel.setText(getLocalized("talents.points") + talentManager.getAvailablePoints());
+        // Удаляем все mouse listeners перед удалением
+        // старого элемента.
+        MouseEventControl.removeListenersFromSpatial(spatial);
+
+        if (spatial.getParent() == windowNode) {
+            windowNode.detachChild(spatial);
         }
     }
 
+    talentContainers.clear();
+
+    // ============================================================
+    // 2. Получаем текущее дерево талантов
+    // ============================================================
+
+    TalentTree tree =
+            talentManager.getTrees().get(currentBranch);
+
+    if (tree == null) {
+
+        if (pointsLabel != null) {
+            pointsLabel.setText(
+                    getLocalized("talents.points")
+                            + talentManager.getAvailablePoints()
+            );
+        }
+
+        return;
+    }
+
+    List<Talent> talents =
+            new ArrayList<>(tree.getTalents());
+
+    talents.sort((a, b) -> {
+
+        if (a.getRow() != b.getRow()) {
+            return Integer.compare(
+                    a.getRow(),
+                    b.getRow()
+            );
+        }
+
+        return Integer.compare(
+                a.getColumn(),
+                b.getColumn()
+        );
+    });
+
+    // ============================================================
+    // 3. Размеры сетки
+    // ============================================================
+
+    float totalWidth =
+            2 * buttonSize
+                    + buttonSpacingH;
+
+    float totalHeight =
+            5 * buttonSize
+                    + 4 * buttonSpacingV;
+
+    float startX =
+            (currentWidth - totalWidth) / 2f;
+
+    float startY =
+            currentHeight
+                    - 120
+                    * (currentHeight / 550f)
+                    - 100;
+
+    if (startY - totalHeight < 10) {
+        startY =
+                totalHeight + 10;
+    }
+
+    // ============================================================
+    // 4. Фон окна
+    // ============================================================
+
+    Node bgNode =
+            new Node("WindowBgNode");
+
+    Geometry windowBg =
+            new Geometry(
+                    "WindowBg",
+                    new Quad(
+                            currentWidth,
+                            currentHeight
+                    )
+            );
+
+    Material bgMat =
+            new Material(
+                    app.getAssetManager(),
+                    "Common/MatDefs/Misc/Unshaded.j3md"
+            );
+
+    bgMat.setColor(
+            "Color",
+            new ColorRGBA(
+                    0.1f,
+                    0.1f,
+                    0.15f,
+                    0.95f
+            )
+    );
+
+    windowBg.setMaterial(bgMat);
+
+    windowBg.setLocalTranslation(
+            0,
+            0,
+            -0.2f
+    );
+
+    bgNode.attachChild(windowBg);
+
+    windowNode.attachChild(bgNode);
+
+    talentContainers.add(bgNode);
+
+    // ============================================================
+    // 5. Создаем сетку 5 x 2
+    // ============================================================
+
+    for (int r = 0; r < 5; r++) {
+
+        for (int c = 0; c < 2; c++) {
+
+            Talent found = null;
+
+            // ----------------------------------------------------
+            // Ищем талант для текущей ячейки
+            // ----------------------------------------------------
+
+            for (Talent talent : talents) {
+
+                if (talent.getRow() == r
+                        && talent.getColumn() == c) {
+
+                    found = talent;
+                    break;
+                }
+            }
+
+            // ----------------------------------------------------
+            // Позиция ячейки
+            // ----------------------------------------------------
+
+            float x =
+                    startX
+                            + c
+                            * (buttonSize + buttonSpacingH);
+
+            float y =
+                    startY
+                            - r
+                            * (buttonSize + buttonSpacingV)
+                            - 20;
+
+            Node cellNode =
+                    new Node(
+                            "TalentCell_" + r + "_" + c
+                    );
+
+            cellNode.setLocalTranslation(
+                    x,
+                    y,
+                    0.1f
+            );
+
+            // ====================================================
+            // Если талант существует
+            // ====================================================
+
+            if (found != null) {
+
+                final Talent talent = found;
+
+                // ------------------------------------------------
+                // Текущий уровень
+                // ------------------------------------------------
+
+                int level =
+                        talentManager
+                                .getLearned()
+                                .getOrDefault(
+                                        talent.getId(),
+                                        0
+                                );
+
+                // ------------------------------------------------
+                // Проверяем требования
+                // ------------------------------------------------
+
+                boolean hasPrereqs =
+                        tree.isAvailable(
+                                talent,
+                                talentManager.getLearned()
+                        );
+
+                // ------------------------------------------------
+                // Проверяем очки
+                // ------------------------------------------------
+
+                boolean hasPoints =
+                        talentManager
+                                .getAvailablePoints()
+                                >= talent.getCost();
+
+                boolean isAvailable =
+                        hasPoints
+                                && hasPrereqs;
+
+                // ------------------------------------------------
+                // Максимальный уровень
+                // ------------------------------------------------
+
+                boolean isMaxLevel =
+                        level >= talent.getMaxLevel();
+
+                // =================================================
+                // 6. ВИЗУАЛЬНАЯ ИКОНКА
+                // =================================================
+
+                Geometry bg =
+                        new Geometry(
+                                "TalentCellBg_" + r + "_" + c,
+                                new Quad(
+                                        buttonSize,
+                                        buttonSize
+                                )
+                        );
+
+                bg.setLocalTranslation(
+                        0,
+                        0,
+                        0
+                );
+
+                Material mat =
+                        new Material(
+                                app.getAssetManager(),
+                                "Common/MatDefs/Misc/Unshaded.j3md"
+                        );
+
+                // -------------------------------------------------
+                // Загружаем иконку
+                // -------------------------------------------------
+
+                String iconName =
+                        ICON_MAP.get(
+                                talent.getId()
+                        );
+
+                Texture tex = null;
+
+                if (iconName != null) {
+
+                    try {
+
+                        tex =
+                                app.getAssetManager()
+                                        .loadTexture(
+                                                "Interface/Talents/"
+                                                        + iconName
+                                        );
+
+                    } catch (Exception e) {
+
+                        System.out.println(
+                                "[TalentWindow] Не удалось загрузить "
+                                        + "иконку таланта "
+                                        + talent.getId()
+                                        + ": "
+                                        + e.getMessage()
+                        );
+                    }
+                }
+
+                // -------------------------------------------------
+                // Если иконка найдена
+                // -------------------------------------------------
+
+                if (tex != null) {
+
+                    mat.setTexture(
+                            "ColorMap",
+                            tex
+                    );
+
+                } else {
+
+                    // ------------------------------------------------
+                    // Если иконки нет — цветной квадрат
+                    // ------------------------------------------------
+
+                    ColorRGBA color;
+
+                    if (isMaxLevel) {
+
+                        color =
+                                new ColorRGBA(
+                                        0.8f,
+                                        0.7f,
+                                        0.1f,
+                                        0.9f
+                                );
+
+                    } else if (isAvailable) {
+
+                        color =
+                                new ColorRGBA(
+                                        0.1f,
+                                        0.8f,
+                                        0.1f,
+                                        0.9f
+                                );
+
+                    } else {
+
+                        color =
+                                new ColorRGBA(
+                                        0.3f,
+                                        0.3f,
+                                        0.3f,
+                                        0.9f
+                                );
+                    }
+
+                    mat.setColor(
+                            "Color",
+                            color
+                    );
+                }
+
+                bg.setMaterial(mat);
+
+                // =================================================
+                // 7. ДОБАВЛЯЕМ ИКОНКУ
+                // =================================================
+
+                cellNode.attachChild(bg);
+
+                // =================================================
+                // 8. ТЕКСТ ТАЛАНТА
+                // =================================================
+
+                String displayText =
+                        talent.getLocalizedName();
+
+                if (level > 0) {
+
+                    displayText +=
+                            " "
+                                    + level
+                                    + "/"
+                                    + talent.getMaxLevel();
+                }
+
+                float fontSize = 15f;
+
+                // -------------------------------------------------
+                // Временный Label для расчета размера
+                // -------------------------------------------------
+
+                Label temp =
+                        new Label(displayText);
+
+                temp.setFontSize(
+                        fontSize
+                );
+
+                float tw =
+                        temp.getPreferredSize().x;
+
+                float th =
+                        temp.getPreferredSize().y;
+
+                float posX =
+                        (buttonSize - tw) / 2f;
+
+                float posY =
+                        (buttonSize - th) / 2f;
+
+                // =================================================
+                // 9. ТЕНЬ №1
+                // =================================================
+
+                Label shadow1 =
+                        new Label(displayText);
+
+                shadow1.setFontSize(
+                        fontSize
+                );
+
+                shadow1.setColor(
+                        new ColorRGBA(
+                                0f,
+                                0f,
+                                0f,
+                                0.95f
+                        )
+                );
+
+                shadow1.setLocalTranslation(
+                        posX + 1,
+                        posY + 1,
+                        0.1f
+                );
+
+                cellNode.attachChild(
+                        shadow1
+                );
+
+                // =================================================
+                // 10. ТЕНЬ №2
+                // =================================================
+
+                Label shadow2 =
+                        new Label(displayText);
+
+                shadow2.setFontSize(
+                        fontSize
+                );
+
+                shadow2.setColor(
+                        new ColorRGBA(
+                                0f,
+                                0f,
+                                0f,
+                                0.8f
+                        )
+                );
+
+                shadow2.setLocalTranslation(
+                        posX + 2,
+                        posY + 2,
+                        0.1f
+                );
+
+                cellNode.attachChild(
+                        shadow2
+                );
+
+                // =================================================
+                // 11. ОСНОВНОЙ ТЕКСТ
+                // =================================================
+
+                Label textLabel =
+                        new Label(displayText);
+
+                textLabel.setFontSize(
+                        fontSize
+                );
+
+                textLabel.setColor(
+                        ColorRGBA.White
+                );
+
+                textLabel.setLocalTranslation(
+                        posX,
+                        posY,
+                        0.2f
+                );
+
+                cellNode.attachChild(
+                        textLabel
+                );
+
+                // =================================================
+                // 12. НЕВИДИМАЯ ОБЛАСТЬ КЛИКА
+                //
+                // ВАЖНО:
+                //
+                // Она НЕ рисуется.
+                // Но участвует в Lemur picking.
+                //
+                // Именно это позволяет нажимать:
+                // - на картинку
+                // - на текст
+                // - рядом с текстом
+                // =================================================
+
+                Geometry clickTarget =
+                        new Geometry(
+                                "TalentClickTarget_"
+                                        + r
+                                        + "_"
+                                        + c,
+                                new Quad(
+                                        buttonSize,
+                                        buttonSize
+                                )
+                        );
+
+                clickTarget.setLocalTranslation(
+                        0,
+                        0,
+                        0.5f
+                );
+
+                Material clickMaterial =
+                        new Material(
+                                app.getAssetManager(),
+                                "Common/MatDefs/Misc/Unshaded.j3md"
+                        );
+
+                clickMaterial.setColor(
+                        "Color",
+                        ColorRGBA.White
+                );
+
+                clickTarget.setMaterial(
+                        clickMaterial
+                );
+
+                // -------------------------------------------------
+                // КРИТИЧЕСКИ ВАЖНО
+                //
+                // Geometry не будет отображаться.
+                // Но Lemur продолжит использовать её
+                // для picking.
+                // -------------------------------------------------
+
+                clickTarget.setCullHint(
+                        Node.CullHint.Always
+                );
+
+                cellNode.attachChild(
+                        clickTarget
+                );
+
+                // =================================================
+                // 13. MouseListener
+                // =================================================
+
+                MouseListener talentListener =
+                        new MouseListener() {
+
+                    @Override
+                    public void mouseButtonEvent(
+                            MouseButtonEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+
+                        // -----------------------------------------
+                        // Только нажатие ЛКМ
+                        // -----------------------------------------
+
+                        if (!evt.isPressed()) {
+                            return;
+                        }
+
+                        if (evt.getButtonIndex() != 0) {
+                            return;
+                        }
+
+                        if (!isVisible) {
+                            return;
+                        }
+
+                        // -----------------------------------------
+                        // Теперь событие можно потребить.
+                        // -----------------------------------------
+
+                        evt.setConsumed();
+
+                        // =================================================
+                        // MAX LEVEL
+                        // =================================================
+
+                        if (isMaxLevel) {
+
+                            showTooltip(
+                                    talent.getLocalizedName()
+                                            + getLocalized(
+                                                    "talents.maxlevel"
+                                            )
+                            );
+
+                            return;
+                        }
+
+                        // =================================================
+                        // НЕДОСТУПЕН
+                        // =================================================
+
+                        if (!isAvailable) {
+
+                            StringBuilder msg =
+                                    new StringBuilder(
+                                            getLocalized(
+                                                    "talents.notavailable"
+                                            )
+                                    );
+
+                            // -----------------------------------------
+                            // Нет prerequisites
+                            // -----------------------------------------
+
+                            if (!hasPrereqs) {
+
+                                msg.append(
+                                        getLocalized(
+                                                "talents.prereqmissing"
+                                        )
+                                );
+
+                                for (
+                                        String prereqId
+                                        : talent.getPrerequisites()
+                                ) {
+
+                                    Integer learnedLevel =
+                                            talentManager
+                                                    .getLearned()
+                                                    .get(
+                                                            prereqId
+                                                    );
+
+                                    if (
+                                            learnedLevel == null
+                                                    || learnedLevel == 0
+                                    ) {
+
+                                        Talent prereqTalent =
+                                                tree.getTalentById(
+                                                        prereqId
+                                                );
+
+                                        if (prereqTalent != null) {
+
+                                            msg.append(
+                                                    prereqTalent
+                                                            .getLocalizedName()
+                                            );
+
+                                        } else {
+
+                                            msg.append(
+                                                    prereqId
+                                            );
+                                        }
+
+                                        msg.append(" ");
+                                    }
+                                }
+
+                            // -----------------------------------------
+                            // Нет очков
+                            // -----------------------------------------
+
+                            } else if (!hasPoints) {
+
+                                msg.append(
+                                        getLocalized(
+                                                "talents.notenoughpoints"
+                                        )
+                                );
+                            }
+
+                            showTooltip(
+                                    msg.toString()
+                            );
+
+                            return;
+                        }
+
+                        // =================================================
+                        // ПРОКАЧКА
+                        // =================================================
+
+                        SoundManager.playSound(
+                                SoundManager.SOUND_CLICK
+                        );
+
+                        talentManager
+                                .levelUpTalentAsync(
+                                        talent.getId()
+                                )
+                                .thenAccept(success -> {
+
+                                    // -------------------------------------
+                                    // Возвращаемся в render thread.
+                                    // -------------------------------------
+
+                                    app.enqueue(() -> {
+
+                                        if (success) {
+
+                                            // =================================
+                                            // ГЛАВНОЕ ИСПРАВЛЕНИЕ
+                                            //
+                                            // Старые Label удаляются.
+                                            // Создаются новые с новым level.
+                                            // =================================
+
+                                            updateUI();
+
+                                            showTooltip(
+                                                    "✓ "
+                                                            + talent
+                                                            .getLocalizedName()
+                                                            + getLocalized(
+                                                                    "talents.upgrade.success"
+                                                            )
+                                            );
+
+                                        } else {
+
+                                            showTooltip(
+                                                    "✗ "
+                                                            + getLocalized(
+                                                                    "talents.upgrade.fail"
+                                                            )
+                                                            + " "
+                                                            + talent
+                                                            .getLocalizedName()
+                                            );
+                                        }
+
+                                        return null;
+                                    });
+                                });
+                    }
+
+                    @Override
+                    public void mouseEntered(
+                            MouseMotionEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+
+                        String desc =
+                                talent.getLocalizedDescription();
+
+                        if (
+                                desc == null
+                                        || desc.isEmpty()
+                        ) {
+
+                            desc =
+                                    talent.getLocalizedName();
+                        }
+
+                        showTooltipPersistent(
+                                desc
+                        );
+                    }
+
+                    @Override
+                    public void mouseExited(
+                            MouseMotionEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+
+                        hideTooltipPersistent();
+                    }
+
+                    @Override
+                    public void mouseMoved(
+                            MouseMotionEvent evt,
+                            Spatial spatial,
+                            Spatial target) {
+                    }
+                };
+
+                // =================================================
+                // 14. Listener ставим ТОЛЬКО на clickTarget
+                // =================================================
+
+                MouseEventControl.removeListenersFromSpatial(
+                        clickTarget
+                );
+
+                MouseEventControl.addListenersToSpatial(
+                        clickTarget,
+                        talentListener
+                );
+
+            } else {
+
+                // =================================================
+                // ПУСТАЯ ЯЧЕЙКА
+                // =================================================
+
+                Geometry bg =
+                        new Geometry(
+                                "TalentCellBg_"
+                                        + r
+                                        + "_"
+                                        + c,
+                                new Quad(
+                                        buttonSize,
+                                        buttonSize
+                                )
+                        );
+
+                Material mat =
+                        new Material(
+                                app.getAssetManager(),
+                                "Common/MatDefs/Misc/Unshaded.j3md"
+                        );
+
+                mat.setColor(
+                        "Color",
+                        new ColorRGBA(
+                                0.15f,
+                                0.15f,
+                                0.15f,
+                                0.9f
+                        )
+                );
+
+                bg.setMaterial(mat);
+
+                cellNode.attachChild(bg);
+            }
+
+            // ====================================================
+            // 15. Добавляем ячейку в окно
+            // ====================================================
+
+            windowNode.attachChild(
+                    cellNode
+            );
+
+            talentContainers.add(
+                    cellNode
+            );
+        }
+    }
+
+    // ============================================================
+    // 16. Обновляем количество очков
+    // ============================================================
+
+    if (pointsLabel != null) {
+
+        pointsLabel.setText(
+                getLocalized("talents.points")
+                        + talentManager.getAvailablePoints()
+        );
+    }
+
+    // ============================================================
+    // 17. Обновляем состояние GUI
+    //
+    // Не обязательно для picking, но после массового
+    // пересоздания элементов полезно обновить геометрию.
+    // ============================================================
+
+    windowNode.updateLogicalState(0f);
+    windowNode.updateGeometricState();
+}
+    
     private void showTooltip(String text) {
         if (tooltipLabel == null || !isVisible) return;
         tooltipLabel.setText(text);
