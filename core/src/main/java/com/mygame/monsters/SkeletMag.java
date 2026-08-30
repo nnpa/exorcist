@@ -5,19 +5,19 @@ import com.mygame.items.ItemRarity;
 import com.mygame.items.LootTable;
 import com.mygame.items.ItemGenerator;
 
-public class Sgolem extends MeleMonster {
+public class SkeletMag extends RangeMonster {
 
-    public Sgolem() {
-        setId("sgolem");
-        setName("sgolem");
+    public SkeletMag() {
+        setId("skeletmag");
+        setName("skeletmag");
         setLevel(1);
-        setMaxHealth(30);
-        setHealth(30);
+        setMaxHealth(1130);
+        setHealth(1130);
         setDamage(5);
         setAttackRange(1.5f);
         setMoveSpeed(2.0f);
         setAggroRange(8.0f);
-
+        setAttackRange(12f);
         // Таблица дропа – только одеваемые предметы
         LootTable loot = new LootTable();
         

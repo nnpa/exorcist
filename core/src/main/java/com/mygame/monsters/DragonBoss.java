@@ -2,7 +2,6 @@ package com.mygame.monsters;
 
 import com.jme3.effect.ParticleEmitter;
 import com.jme3.effect.ParticleMesh;
-import com.jme3.effect.shapes.EmitterShape;
 import com.jme3.export.InputCapsule;
 import com.jme3.export.JmeExporter;
 import com.jme3.export.JmeImporter;
@@ -25,52 +24,47 @@ import com.mygame.items.LootTable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+
 /**
- * Финальный босс.
+ * Босс-червь.
  *
- * Способности:
+ * Способность:
  *
- * 1. Круг:
- *    - красная зона на земле;
- *    - 2 секунды подготовки;
- *    - босс стоит;
- *    - после подготовки из всей площади круга
- *      вырываются красные частицы вверх.
+ * 1. Босс подходит к игроку.
  *
- * 2. Огненный треугольник:
- *    - красный треугольник на земле;
- *    - 2 секунды подготовки;
- *    - направление фиксируется в момент начала каста;
- *    - после подготовки огонь летит вперёд.
+ * 2. Когда игрок оказывается на расстоянии атаки,
+ *    босс останавливается.
  *
- * После каста:
- *    - AI разблокируется;
- *    - если игрок убежал -> Run;
- *    - если игрок рядом -> Idle.
+ * 3. На земле появляется красный/кислотно-зелёный
+ *    треугольник направления атаки.
+ *
+ * 4. Босс стоит 2 секунды.
+ *
+ * 5. После подготовки из точки каста вырываются
+ *    кислотно-зелёные частицы.
+ *
+ * 6. Если игрок за время подготовки убежал,
+ *    после каста босс снова начинает Run.
  */
-public class FinalBoss extends MeleMonster {
+public class DragonBoss extends MeleMonster {
 
     // ============================================================
-    // НАСТРОЙКИ
+    // НАСТРОЙКИ СПОСОБНОСТИ
     // ============================================================
 
     /**
-     * Интервал между началами способностей.
+     * Через сколько секунд после завершения предыдущей
+     * способности можно начинать следующую.
      */
-    private static final float ABILITY_INTERVAL = 5f;
+    private static final float ABILITY_INTERVAL = 3.5f;
 
     /**
-     * Время предупреждения перед срабатыванием.
+     * Сколько секунд босс стоит перед срабатыванием.
      */
     private static final float ABILITY_DURATION = 2.0f;
 
     /**
-     * Радиус круга.
-     */
-    private static final float CIRCLE_RADIUS = 4.0f;
-
-    /**
-     * Длина огненного треугольника.
+     * Максимальная длина треугольника.
      */
     private static final float CONE_LENGTH = 6.0f;
 
@@ -80,66 +74,93 @@ public class FinalBoss extends MeleMonster {
     private static final float CONE_RADIUS = 3.0f;
 
     /**
-     * Высота визуальных зон над землёй.
+     * Высота треугольника над землёй.
      */
     private static final float GROUND_HEIGHT = 0.06f;
+
+    /**
+     * Урон способности.
+     */
+    private static final float ABILITY_DAMAGE_MULTIPLIER = 2.0f;
+
+
+    // ============================================================
+    // ЦВЕТ ЧАСТИЦ
+    // ============================================================
+
+    /**
+     * Цвет частиц вынесен в отдельную переменную.
+     *
+     * Сейчас:
+     * КИСЛОТНО-ЗЕЛЁНЫЙ.
+     *
+     * Если потом захочешь другой цвет,
+     * достаточно изменить только эти значения.
+     */
+private static final ColorRGBA PARTICLE_COLOR =
+            new ColorRGBA(
+                    0.00f,
+                    0.50f,
+                    1.00f,
+                    1.00f
+            );
+
 
     // ============================================================
     // ТАЙМЕРЫ
     // ============================================================
 
+    /**
+     * Таймер до следующей способности.
+     */
     private float abilityCooldownTimer = 3.5f;
 
+    /**
+     * Оставшееся время подготовки способности.
+     */
     private float abilityDurationTimer = 0.0f;
 
+
     // ============================================================
-    // СПОСОБНОСТИ
+    // СОСТОЯНИЕ КАСТА
     // ============================================================
 
     /**
-     * false = круг.
-     * true  = треугольник.
-     */
-    private boolean nextConeAbility = false;
-
-    /**
-     * 0 = нет способности.
-     * 1 = круг.
-     * 2 = треугольник.
-     */
-    private int abilityType = 0;
-
-    /**
-     * Сейчас идёт подготовка способности.
+     * true = босс сейчас подготавливает способность.
      */
     private boolean isCasting = false;
 
-    // ============================================================
-    // ЗАФИКСИРОВАННОЕ СОСТОЯНИЕ КАСТА
-    // ============================================================
-
-    /**
-     * Позиция босса в момент начала каста.
-     *
-     * Все визуальные эффекты и урон способности
-     * используют именно эту позицию.
-     */
-    private Vector3f abilityStartPosition =
-            Vector3f.ZERO.clone();
 
     /**
      * Направление треугольника.
      *
-     * Фиксируется при начале каста.
+     * Фиксируется в момент начала способности.
+     *
+     * Если игрок убежит, треугольник не будет
+     * следовать за ним.
      */
     private Vector3f abilityDirection =
             Vector3f.UNIT_Z.clone();
 
+
+    /**
+     * Позиция босса в момент начала каста.
+     *
+     * ВАЖНО:
+     *
+     * Частицы и урон используют эту позицию,
+     * а не текущую позицию босса.
+     */
+    private Vector3f abilityStartPosition =
+            Vector3f.ZERO.clone();
+
+
     // ============================================================
-    // ВИЗУАЛЬНАЯ ЗОНА
+    // ВИЗУАЛЬНЫЙ ТРЕУГОЛЬНИК
     // ============================================================
 
     private Geometry areaMesh = null;
+
 
     // ============================================================
     // ЧАСТИЦЫ
@@ -151,16 +172,17 @@ public class FinalBoss extends MeleMonster {
 
     private float particleTimer = 0.0f;
 
-    private Texture2D fireParticleTexture = null;
+    private Texture2D acidParticleTexture = null;
+
 
     // ============================================================
     // КОНСТРУКТОР
     // ============================================================
 
-    public FinalBoss() {
+    public DragonBoss() {
 
-        setId("finalboss");
-        setName("finalboss");
+        setId("wormboss");
+        setName("wormboss");
 
         setLevel(1);
 
@@ -169,16 +191,14 @@ public class FinalBoss extends MeleMonster {
 
         setDamage(15);
 
-        /*
-         * Босс начинает способность только когда
-         * игрок находится на расстоянии атаки.
-         */
         setAttackRange(1.5f);
 
         setMoveSpeed(2.0f);
+
         setAggroRange(8.0f);
 
         setBoss(true);
+
 
         // ========================================================
         // LOOT
@@ -254,6 +274,7 @@ public class FinalBoss extends MeleMonster {
         setLootTable(loot);
     }
 
+
     // ============================================================
     // UPDATE
     // ============================================================
@@ -263,26 +284,30 @@ public class FinalBoss extends MeleMonster {
 
         super.update(tpf);
 
+
         // --------------------------------------------------------
-        // Частицы
+        // Обновляем частицы
         // --------------------------------------------------------
 
         updateParticles(tpf);
 
+
         // --------------------------------------------------------
-        // Мёртв
+        // БОСС МЁРТВ
         // --------------------------------------------------------
 
         if (!isAlive()) {
 
             removeAbilityVisual();
+
             removeParticles();
 
             return;
         }
 
+
         // --------------------------------------------------------
-        // Оглушён
+        // ОГЛУШЁН
         // --------------------------------------------------------
 
         if (isStunned()) {
@@ -290,44 +315,52 @@ public class FinalBoss extends MeleMonster {
             return;
         }
 
+
         // --------------------------------------------------------
-        // ИДЁТ КАСТ
+        // СЕЙЧАС ИДЁТ КАСТ
         // --------------------------------------------------------
 
         if (isCasting) {
 
             /*
-             * Босс должен стоять на месте всё время каста.
+             * Пока способность подготавливается,
+             * босс НЕ ДВИГАЕТСЯ.
              *
-             * Это также защищает от ситуации,
-             * когда физика сдвигает босса.
+             * Возвращаем его в точку начала каста.
              */
             setPosition(
                     abilityStartPosition
             );
 
+
             abilityDurationTimer -= tpf;
+
 
             if (abilityDurationTimer <= 0.0f) {
 
                 finishAbility();
             }
 
+
             return;
         }
 
+
         // --------------------------------------------------------
-        // ТАЙМЕР
+        // ОЖИДАНИЕ СЛЕДУЮЩЕЙ СПОСОБНОСТИ
         // --------------------------------------------------------
 
         abilityCooldownTimer -= tpf;
+
 
         if (abilityCooldownTimer <= 0.0f) {
 
             abilityCooldownTimer = 0.0f;
 
+
             /*
-             * Способность начинается только вплотную.
+             * Босс начинает каст только тогда,
+             * когда игрок находится в дистанции атаки.
              */
             if (isPlayerInAttackRange()) {
 
@@ -336,11 +369,13 @@ public class FinalBoss extends MeleMonster {
         }
     }
 
+
     // ============================================================
-    // ПРОВЕРКА ДИСТАНЦИИ
+    // ПРОВЕРКА ДИСТАНЦИИ ДО ИГРОКА
     // ============================================================
 
     
+
 
     // ============================================================
     // НАЧАЛО СПОСОБНОСТИ
@@ -353,16 +388,22 @@ public class FinalBoss extends MeleMonster {
             return;
         }
 
+
         /*
-         * Дополнительная защита.
+         * Дополнительная проверка.
+         *
+         * Даже если таймер закончился,
+         * способность не начнётся,
+         * если игрок далеко.
          */
         if (!isPlayerInAttackRange()) {
 
             return;
         }
 
+
         // ========================================================
-        // КАСТ
+        // НАЧИНАЕМ КАСТ
         // ========================================================
 
         isCasting = true;
@@ -370,49 +411,18 @@ public class FinalBoss extends MeleMonster {
         abilityDurationTimer =
                 ABILITY_DURATION;
 
+
         // ========================================================
-        // ФИКСИРУЕМ ПОЗИЦИЮ
+        // ЗАПОМИНАЕМ ПОЗИЦИЮ
         // ========================================================
 
         abilityStartPosition =
                 getPosition().clone();
 
-        // ========================================================
-        // ОСТАНАВЛИВАЕМ AI
-        // ========================================================
-
-        if (getAI() != null) {
-
-            getAI().setStunned(true);
-        }
-
-        /*
-         * Только во время подготовки.
-         */
-        playAnimation("Idle");
 
         // ========================================================
-        // ВЫБОР СПОСОБНОСТИ
+        // ЗАПОМИНАЕМ НАПРАВЛЕНИЕ
         // ========================================================
-
-        if (nextConeAbility) {
-
-            abilityType = 2;
-
-        } else {
-
-            abilityType = 1;
-        }
-
-        nextConeAbility =
-                !nextConeAbility;
-
-        // ========================================================
-        // ПОЗИЦИЯ
-        // ========================================================
-
-        Vector3f bossPos =
-                abilityStartPosition.clone();
 
         Vector3f playerPos;
 
@@ -426,300 +436,77 @@ public class FinalBoss extends MeleMonster {
         } else {
 
             playerPos =
-                    bossPos.add(
-                            Vector3f.UNIT_Z
-                    );
+                    abilityStartPosition
+                            .add(
+                                    Vector3f.UNIT_Z
+                            );
         }
 
-        // ========================================================
-        // КРУГ
-        // ========================================================
 
-        if (abilityType == 1) {
+        Vector3f direction =
+                playerPos.subtract(
+                        abilityStartPosition
+                );
 
-            createCircleVisual(
-                    bossPos,
-                    CIRCLE_RADIUS
+
+        direction.y = 0.0f;
+
+
+        if (direction.lengthSquared() <
+                0.000001f) {
+
+            direction.set(
+                    Vector3f.UNIT_Z
             );
 
+        } else {
+
+            direction.normalizeLocal();
         }
 
+
+        /*
+         * НАПРАВЛЕНИЕ ФИКСИРУЕТСЯ.
+         *
+         * Игрок может убежать.
+         * Треугольник останется на старом месте.
+         */
+        abilityDirection =
+                direction.clone();
+
+
         // ========================================================
-        // ТРЕУГОЛЬНИК
+        // ОСТАНАВЛИВАЕМ AI
         // ========================================================
 
-        else {
+        if (getAI() != null) {
 
-            Vector3f direction =
-                    playerPos.subtract(
-                            bossPos
-                    );
-
-            direction.y = 0.0f;
-
-            if (direction.lengthSquared() <
-                    0.000001f) {
-
-                direction.set(
-                        Vector3f.UNIT_Z
-                );
-
-            } else {
-
-                direction.normalizeLocal();
-            }
-
-            /*
-             * Направление запоминаем.
-             *
-             * Если игрок убежит во время подготовки,
-             * треугольник НЕ будет поворачиваться.
-             */
-            abilityDirection =
-                    direction.clone();
-
-            createConeVisual(
-                    bossPos,
-                    abilityDirection,
-                    CONE_LENGTH,
-                    CONE_RADIUS
-            );
+            getAI().setStunned(true);
         }
+
+
+        // ========================================================
+        // АНИМАЦИЯ IDLE
+        // ========================================================
+
+        playAnimation("Idle");
+
+
+        // ========================================================
+        // СОЗДАЁМ ТРЕУГОЛЬНИК
+        // ========================================================
+
+        createConeVisual(
+                abilityStartPosition,
+                abilityDirection,
+                CONE_LENGTH,
+                CONE_RADIUS
+        );
     }
 
-    // ============================================================
-    // КРУГ НА ЗЕМЛЕ
-    // ============================================================
-
-    private void createCircleVisual(
-            Vector3f center,
-            float radius
-    ) {
-
-        removeAbilityVisual();
-
-        /*
-         * ВАЖНО:
-         *
-         * Здесь НЕ используется Cylinder.
-         *
-         * Мы создаём плоский диск непосредственно
-         * в плоскости XZ.
-         *
-         * Поэтому он физически горизонтальный:
-         *
-         *             Y
-         *             |
-         *             |
-         *             +-------- X
-         *            /
-         *           Z
-         *
-         * Никакого Quaternion для круга не требуется.
-         */
-
-        Mesh mesh =
-                createHorizontalCircleMesh(
-                        radius,
-                        64
-                );
-
-        areaMesh =
-                new Geometry(
-                        "CircleAbility",
-                        mesh
-                );
-
-        // ========================================================
-        // МАТЕРИАЛ
-        // ========================================================
-
-        Material mat =
-                new Material(
-                        app.getAssetManager(),
-                        "Common/MatDefs/Misc/Unshaded.j3md"
-                );
-
-        mat.setColor(
-                "Color",
-                new ColorRGBA(
-                        1.0f,
-                        0.0f,
-                        0.0f,
-                        0.42f
-                )
-        );
-
-        mat.getAdditionalRenderState()
-                .setBlendMode(
-                        RenderState.BlendMode.Alpha
-                );
-
-        mat.getAdditionalRenderState()
-                .setDepthWrite(false);
-
-        mat.getAdditionalRenderState()
-                .setDepthTest(true);
-
-        /*
-         * Видим сверху и снизу.
-         */
-        mat.getAdditionalRenderState()
-                .setFaceCullMode(
-                        RenderState.FaceCullMode.Off
-                );
-
-        areaMesh.setMaterial(mat);
-
-        areaMesh.setQueueBucket(
-                RenderQueue.Bucket.Translucent
-        );
-
-        // ========================================================
-        // ПОЗИЦИЯ
-        // ========================================================
-
-        areaMesh.setLocalTranslation(
-                center.x,
-                GROUND_HEIGHT,
-                center.z
-        );
-
-        /*
-         * rotation НЕ задаём.
-         *
-         * Mesh уже создан горизонтально.
-         */
-
-        Node parent =
-                getModelNode().getParent();
-
-        if (parent != null) {
-
-            parent.attachChild(
-                    areaMesh
-            );
-        }
-    }
 
     // ============================================================
-    // СОЗДАНИЕ ГОРИЗОНТАЛЬНОГО КРУГА
-    // ============================================================
-
-    private Mesh createHorizontalCircleMesh(
-            float radius,
-            int segments
-    ) {
-
-        /*
-         * Один центральный vertex.
-         *
-         * Остальные vertices идут по окружности.
-         */
-        float[] positions =
-                new float[
-                        (segments + 1) * 3
-                ];
-
-        short[] indices =
-                new short[
-                        segments * 3
-                ];
-
-        // --------------------------------------------------------
-        // ЦЕНТР
-        // --------------------------------------------------------
-
-        positions[0] = 0.0f;
-        positions[1] = 0.0f;
-        positions[2] = 0.0f;
-
-        // --------------------------------------------------------
-        // ОКРУЖНОСТЬ
-        // --------------------------------------------------------
-
-        for (int i = 0; i < segments; i++) {
-
-            float angle =
-                    FastMath.TWO_PI *
-                    ((float) i /
-                            (float) segments);
-
-            float x =
-                    FastMath.cos(angle) *
-                    radius;
-
-            float z =
-                    FastMath.sin(angle) *
-                    radius;
-
-            int index =
-                    (i + 1) * 3;
-
-            positions[index] =
-                    x;
-
-            positions[index + 1] =
-                    0.0f;
-
-            positions[index + 2] =
-                    z;
-        }
-
-        // --------------------------------------------------------
-        // ТРЕУГОЛЬНИКИ
-        // --------------------------------------------------------
-
-        for (int i = 0; i < segments; i++) {
-
-            int next =
-                    (i + 1) %
-                            segments;
-
-            int index =
-                    i * 3;
-
-            /*
-             * Центр
-             * текущая точка
-             * следующая точка
-             */
-            indices[index] =
-                    0;
-
-            indices[index + 1] =
-                    (short) (i + 1);
-
-            indices[index + 2] =
-                    (short) (next + 1);
-        }
-
-        Mesh mesh =
-                new Mesh();
-
-        mesh.setMode(
-                Mesh.Mode.Triangles
-        );
-
-        mesh.setBuffer(
-                VertexBuffer.Type.Position,
-                3,
-                positions
-        );
-
-        mesh.setBuffer(
-                VertexBuffer.Type.Index,
-                3,
-                indices
-        );
-
-        mesh.updateBound();
-
-        return mesh;
-    }
-
-    // ============================================================
-    // ТРЕУГОЛЬНИК НА ЗЕМЛЕ
+    // СОЗДАНИЕ ТРЕУГОЛЬНИКА
     // ============================================================
 
     private void createConeVisual(
@@ -731,10 +518,16 @@ public class FinalBoss extends MeleMonster {
 
         removeAbilityVisual();
 
+
+        // ========================================================
+        // НОРМАЛИЗУЕМ НАПРАВЛЕНИЕ
+        // ========================================================
+
         Vector3f dir =
                 direction.clone();
 
         dir.y = 0.0f;
+
 
         if (dir.lengthSquared() <
                 0.000001f) {
@@ -744,12 +537,18 @@ public class FinalBoss extends MeleMonster {
             );
         }
 
+
         dir.normalizeLocal();
 
+
         // ========================================================
-        // ПЕРПЕНДИКУЛЯРНЫЙ ВЕКТОР
+        // БОКОВОЙ ВЕКТОР
         // ========================================================
 
+        /*
+         * Получаем перпендикулярный вектор
+         * в горизонтальной плоскости.
+         */
         Vector3f side =
                 new Vector3f(
                         -dir.z,
@@ -757,10 +556,12 @@ public class FinalBoss extends MeleMonster {
                         dir.x
                 );
 
+
         side.normalizeLocal();
 
+
         // ========================================================
-        // ВЕРШИНА
+        // ВЕРШИНА ТРЕУГОЛЬНИКА
         // ========================================================
 
         Vector3f p0 =
@@ -768,8 +569,9 @@ public class FinalBoss extends MeleMonster {
                         0.25f
                 );
 
+
         // ========================================================
-        // КОНЕЦ
+        // КОНЕЦ ТРЕУГОЛЬНИКА
         // ========================================================
 
         Vector3f forward =
@@ -777,25 +579,32 @@ public class FinalBoss extends MeleMonster {
                         length
                 );
 
+
         Vector3f p1 =
                 forward.add(
                         side.mult(radius)
                 );
+
 
         Vector3f p2 =
                 forward.subtract(
                         side.mult(radius)
                 );
 
+
         // ========================================================
-        // ВСЕ ТОЧКИ НА ЗЕМЛЕ
+        // КЛАДЁМ ВСЕ ТОЧКИ НА ЗЕМЛЮ
         // ========================================================
 
-        p0.y = GROUND_HEIGHT;
+        p0.y =
+                GROUND_HEIGHT;
 
-        p1.y = GROUND_HEIGHT;
+        p1.y =
+                GROUND_HEIGHT;
 
-        p2.y = GROUND_HEIGHT;
+        p2.y =
+                GROUND_HEIGHT;
+
 
         // ========================================================
         // MESH
@@ -804,9 +613,11 @@ public class FinalBoss extends MeleMonster {
         Mesh mesh =
                 new Mesh();
 
+
         mesh.setMode(
                 Mesh.Mode.Triangles
         );
+
 
         mesh.setBuffer(
                 VertexBuffer.Type.Position,
@@ -827,6 +638,7 @@ public class FinalBoss extends MeleMonster {
                 }
         );
 
+
         mesh.setBuffer(
                 VertexBuffer.Type.Index,
                 3,
@@ -837,16 +649,19 @@ public class FinalBoss extends MeleMonster {
                 }
         );
 
+
         mesh.updateBound();
+
 
         areaMesh =
                 new Geometry(
-                        "ConeAbility",
+                        "WormBossConeAbility",
                         mesh
                 );
 
+
         // ========================================================
-        // MATERIAL
+        // МАТЕРИАЛ
         // ========================================================
 
         Material mat =
@@ -855,6 +670,13 @@ public class FinalBoss extends MeleMonster {
                         "Common/MatDefs/Misc/Unshaded.j3md"
                 );
 
+
+        /*
+         * Пока оставляем саму зону красной.
+         *
+         * Если хочешь, её тоже можно вынести
+         * в отдельную переменную.
+         */
         mat.setColor(
                 "Color",
                 new ColorRGBA(
@@ -865,27 +687,39 @@ public class FinalBoss extends MeleMonster {
                 )
         );
 
+
         mat.getAdditionalRenderState()
                 .setBlendMode(
                         RenderState.BlendMode.Alpha
                 );
 
+
         mat.getAdditionalRenderState()
                 .setDepthWrite(false);
+
 
         mat.getAdditionalRenderState()
                 .setDepthTest(true);
 
+
+        /*
+         * Видим треугольник с обеих сторон.
+         */
         mat.getAdditionalRenderState()
                 .setFaceCullMode(
                         RenderState.FaceCullMode.Off
                 );
 
-        areaMesh.setMaterial(mat);
+
+        areaMesh.setMaterial(
+                mat
+        );
+
 
         areaMesh.setQueueBucket(
                 RenderQueue.Bucket.Translucent
         );
+
 
         // ========================================================
         // ПОЗИЦИЯ
@@ -897,8 +731,14 @@ public class FinalBoss extends MeleMonster {
                 origin.z
         );
 
+
+        // ========================================================
+        // ПРИКРЕПЛЯЕМ К МИРУ
+        // ========================================================
+
         Node parent =
                 getModelNode().getParent();
+
 
         if (parent != null) {
 
@@ -908,6 +748,7 @@ public class FinalBoss extends MeleMonster {
         }
     }
 
+
     // ============================================================
     // ЗАВЕРШЕНИЕ СПОСОБНОСТИ
     // ============================================================
@@ -915,21 +756,22 @@ public class FinalBoss extends MeleMonster {
     private void finishAbility() {
 
         /*
-         * Используем ТОЧКУ НАЧАЛА КАСТА.
-         *
-         * Не текущую позицию босса.
+         * Используем именно позицию,
+         * где способность была начата.
          */
         Vector3f abilityPos =
                 abilityStartPosition.clone();
 
+
         // ========================================================
-        // УДАЛЯЕМ ЗОНУ
+        // УДАЛЯЕМ ТРЕУГОЛЬНИК
         // ========================================================
 
         removeAbilityVisual();
 
+
         // ========================================================
-        // ПОЗИЦИЯ ИГРОКА
+        // ПОЛУЧАЕМ ИГРОКА
         // ========================================================
 
         Vector3f playerPos;
@@ -947,98 +789,73 @@ public class FinalBoss extends MeleMonster {
                     abilityPos.clone();
         }
 
+
         // ========================================================
-        // КРУГ
+        // ПРОВЕРЯЕМ ПОПАДАНИЕ
         // ========================================================
 
-        if (abilityType == 1) {
+        Vector3f toPlayer =
+                playerPos.subtract(
+                        abilityPos
+                );
 
-            float dx =
-                    playerPos.x -
-                    abilityPos.x;
 
-            float dz =
-                    playerPos.z -
-                    abilityPos.z;
+        toPlayer.y = 0.0f;
 
-            float distance =
-                    FastMath.sqrt(
-                            dx * dx +
-                            dz * dz
+
+        float distance =
+                toPlayer.length();
+
+
+        if (
+                distance <= CONE_LENGTH
+                        &&
+                        distance > 0.0001f
+        ) {
+
+            Vector3f playerDirection =
+                    toPlayer.normalizeLocal();
+
+
+            float angle =
+                    playerDirection.angleBetween(
+                            abilityDirection
                     );
 
-            if (distance <=
-                    CIRCLE_RADIUS) {
+
+            /*
+             * Угол треугольника.
+             */
+            float coneAngle =
+                    FastMath.atan(
+                            CONE_RADIUS /
+                                    CONE_LENGTH
+                    );
+
+
+            if (angle <= coneAngle) {
 
                 applyDamageToPlayer();
             }
-
-            // ----------------------------------------------------
-            // ОГОНЬ
-            // ----------------------------------------------------
-
-            spawnFireParticles(
-                    true,
-                    abilityPos,
-                    Vector3f.UNIT_Y
-            );
         }
 
+
         // ========================================================
-        // ТРЕУГОЛЬНИК
+        // ОГОНЬ
         // ========================================================
 
-        else {
+        spawnFireParticles(
+                abilityPos,
+                abilityDirection
+        );
 
-            Vector3f toPlayer =
-                    playerPos.subtract(
-                            abilityPos
-                    );
-
-            toPlayer.y = 0.0f;
-
-            float dist =
-                    toPlayer.length();
-
-            if (
-                    dist <= CONE_LENGTH
-                    &&
-                    dist > 0.0001f
-            ) {
-
-                Vector3f dir =
-                        toPlayer.normalizeLocal();
-
-                float angle =
-                        dir.angleBetween(
-                                abilityDirection
-                        );
-
-                float coneAngle =
-                        FastMath.atan(
-                                CONE_RADIUS /
-                                        CONE_LENGTH
-                        );
-
-                if (angle <=
-                        coneAngle) {
-
-                    applyDamageToPlayer();
-                }
-            }
-
-            spawnFireParticles(
-                    false,
-                    abilityPos,
-                    abilityDirection
-            );
-        }
 
         // ========================================================
         // КАСТ ЗАКОНЧЕН
         // ========================================================
 
         isCasting = false;
+
 
         // ========================================================
         // РАЗБЛОКИРУЕМ AI
@@ -1049,18 +866,16 @@ public class FinalBoss extends MeleMonster {
             getAI().setStunned(false);
         }
 
+
         // ========================================================
-        // ВОЗВРАЩАЕМ АНИМАЦИЮ
+        // ВОЗВРАЩАЕМ ДВИЖЕНИЕ
         // ========================================================
 
         /*
-         * Очень важно.
+         * Самая важная часть.
          *
-         * Если игрок убежал за время каста,
-         * босс должен сразу начать Run.
-         *
-         * Если игрок остался рядом,
-         * оставляем Idle.
+         * Если игрок убежал за 2 секунды каста,
+         * босс сразу начинает Run.
          */
         if (!isPlayerInAttackRange()) {
 
@@ -1071,19 +886,22 @@ public class FinalBoss extends MeleMonster {
             playAnimation("Idle");
         }
 
+
         // ========================================================
-        // ТАЙМЕР
+        // НОВЫЙ ТАЙМЕР
         // ========================================================
 
         abilityCooldownTimer =
                 ABILITY_INTERVAL -
                         ABILITY_DURATION;
 
+
         if (abilityCooldownTimer < 0.0f) {
 
             abilityCooldownTimer = 0.0f;
         }
     }
+
 
     // ============================================================
     // УРОН
@@ -1096,22 +914,25 @@ public class FinalBoss extends MeleMonster {
             return;
         }
 
+
         int damage =
                 Math.round(
-                        getDamage() * 2
+                        getDamage() *
+                                ABILITY_DAMAGE_MULTIPLIER
                 );
+
 
         getPlayerManager().takeDamage(
                 damage
         );
     }
 
+
     // ============================================================
-    // ОГНЕННЫЕ ЧАСТИЦЫ
+    // ЧАСТИЦЫ
     // ============================================================
 
     private void spawnFireParticles(
-            boolean isCircle,
             Vector3f pos,
             Vector3f direction
     ) {
@@ -1121,36 +942,24 @@ public class FinalBoss extends MeleMonster {
             return;
         }
 
+
         // ========================================================
-        // УДАЛЯЕМ СТАРЫЕ
+        // УДАЛЯЕМ СТАРЫЕ ЧАСТИЦЫ
         // ========================================================
 
         removeParticles();
 
+
         // ========================================================
-        // ТЕКСТУРА
+        // СОЗДАЁМ ТЕКСТУРУ
         // ========================================================
 
-        if (fireParticleTexture == null) {
+        if (acidParticleTexture == null) {
 
-            fireParticleTexture =
-                    createFireParticleTexture();
+            acidParticleTexture =
+                    createAcidParticleTexture();
         }
 
-        // ========================================================
-        // КОЛИЧЕСТВО
-        // ========================================================
-
-        int particleCount;
-
-        if (isCircle) {
-
-            particleCount = 220;
-
-        } else {
-
-            particleCount = 220;
-        }
 
         // ========================================================
         // EMITTER
@@ -1158,10 +967,11 @@ public class FinalBoss extends MeleMonster {
 
         particleEmitter =
                 new ParticleEmitter(
-                        "FinalBossFire",
+                        "WormBossAcid",
                         ParticleMesh.Type.Triangle,
-                        particleCount
+                        220
                 );
+
 
         // ========================================================
         // MATERIAL
@@ -1173,74 +983,77 @@ public class FinalBoss extends MeleMonster {
                         "Common/MatDefs/Misc/Particle.j3md"
                 );
 
+
         mat.setTexture(
                 "Texture",
-                fireParticleTexture
+                acidParticleTexture
         );
+
 
         mat.getAdditionalRenderState()
                 .setBlendMode(
                         RenderState.BlendMode.Alpha
                 );
 
+
         mat.getAdditionalRenderState()
                 .setDepthWrite(false);
+
 
         mat.getAdditionalRenderState()
                 .setDepthTest(true);
 
-        particleEmitter.setMaterial(mat);
+
+        particleEmitter.setMaterial(
+                mat
+        );
+
 
         particleEmitter.setQueueBucket(
                 RenderQueue.Bucket.Translucent
         );
 
+
         // ========================================================
-        // КРАСНЫЙ
+        // ЦВЕТ
         // ========================================================
 
+        /*
+         * Весь цвет задаётся через одну переменную.
+         */
         particleEmitter.setStartColor(
-                new ColorRGBA(
-                        1.0f,
-                        0.0f,
-                        0.0f,
-                        1.0f
-                )
+                PARTICLE_COLOR.clone()
         );
+
+
+        /*
+         * На конце частица становится прозрачной,
+         * но сохраняет тот же кислотно-зелёный оттенок.
+         */
+        ColorRGBA endColor =
+                PARTICLE_COLOR.clone();
+
+        endColor.a = 0.0f;
+
 
         particleEmitter.setEndColor(
-                new ColorRGBA(
-                        0.65f,
-                        0.0f,
-                        0.0f,
-                        0.0f
-                )
+                endColor
         );
+
 
         // ========================================================
         // РАЗМЕР
         // ========================================================
 
-        if (isCircle) {
+        particleEmitter.setStartSize(
+                1.0f
+        );
 
-            particleEmitter.setStartSize(
-                    1.15f
-            );
 
-            particleEmitter.setEndSize(
-                    0.20f
-            );
+        particleEmitter.setEndSize(
+                0.18f
+        );
 
-        } else {
-
-            particleEmitter.setStartSize(
-                    1.0f
-            );
-
-            particleEmitter.setEndSize(
-                    0.18f
-            );
-        }
 
         // ========================================================
         // ЖИЗНЬ
@@ -1250,9 +1063,11 @@ public class FinalBoss extends MeleMonster {
                 0.8f
         );
 
+
         particleEmitter.setHighLife(
                 1.8f
         );
+
 
         // ========================================================
         // ОДНОРАЗОВЫЙ ВЫБРОС
@@ -1262,102 +1077,66 @@ public class FinalBoss extends MeleMonster {
                 0.0f
         );
 
-        // ========================================================
-        // КРУГ
-        // ========================================================
-
-        if (isCircle) {
-
-            /*
-             * Частицы рождаются по ВСЕЙ площади круга.
-             *
-             * Эмиттер находится в зафиксированной точке
-             * начала способности.
-             */
-            particleEmitter.setShape(
-                    new CircleAreaEmitterShape(
-                            CIRCLE_RADIUS
-                    )
-            );
-
-            particleEmitter.setLocalTranslation(
-                    pos.x,
-                    0.10f,
-                    pos.z
-            );
-
-            /*
-             * Все частицы идут вверх.
-             */
-            particleEmitter
-                    .getParticleInfluencer()
-                    .setInitialVelocity(
-                            new Vector3f(
-                                    0.0f,
-                                    3.2f,
-                                    0.0f
-                            )
-                    );
-
-            particleEmitter
-                    .getParticleInfluencer()
-                    .setVelocityVariation(
-                            0.35f
-                    );
-
-            particleEmitter.setGravity(
-                    0.0f,
-                    1.8f,
-                    0.0f
-            );
-        }
 
         // ========================================================
-        // ТРЕУГОЛЬНИК
+        // НАПРАВЛЕНИЕ
         // ========================================================
 
-        else {
+        Vector3f velocity =
+                direction
+                        .mult(
+                                5.0f
+                        );
 
-            particleEmitter.setLocalTranslation(
-                    pos.x,
-                    pos.y + 0.8f,
-                    pos.z
-            );
 
-            particleEmitter
-                    .getParticleInfluencer()
-                    .setInitialVelocity(
-                            direction.mult(
-                                    5.0f
-                            )
-                    );
+        particleEmitter
+                .getParticleInfluencer()
+                .setInitialVelocity(
+                        velocity
+                );
 
-            particleEmitter
-                    .getParticleInfluencer()
-                    .setVelocityVariation(
-                            0.45f
-                    );
 
-            particleEmitter.setGravity(
-                    0.0f,
-                    -0.5f,
-                    0.0f
-            );
-        }
+        particleEmitter
+                .getParticleInfluencer()
+                .setVelocityVariation(
+                        0.45f
+                );
+
+
+        particleEmitter.setGravity(
+                0.0f,
+                -0.5f,
+                0.0f
+        );
+
+
+        // ========================================================
+        // ПОЗИЦИЯ
+        // ========================================================
+
+        /*
+         * Используется pos из начала каста.
+         *
+         * НЕ getPosition().
+         *
+         * Поэтому частицы не будут следовать
+         * за движущимся боссом.
+         */
+        particleEmitter.setLocalTranslation(
+                pos.x,
+                pos.y + 0.8f,
+                pos.z
+        );
+
 
         // ========================================================
         // WORLD SPACE
         // ========================================================
 
-        /*
-         * Это критически важно.
-         *
-         * Частицы находятся в мировых координатах
-         * и НЕ следуют за боссом.
-         */
         particleEmitter.setInWorldSpace(
                 true
         );
+
 
         // ========================================================
         // ВРАЩЕНИЕ
@@ -1367,10 +1146,12 @@ public class FinalBoss extends MeleMonster {
                 true
         );
 
+
         particleEmitter.setRotateSpeed(
                 FastMath.nextRandomFloat()
                         * 4.0f
         );
+
 
         // ========================================================
         // NODE
@@ -1378,22 +1159,23 @@ public class FinalBoss extends MeleMonster {
 
         particleNode =
                 new Node(
-                        "FinalBossFireParticles"
+                        "WormBossAcidParticles"
                 );
+
 
         particleNode.attachChild(
                 particleEmitter
         );
 
+
         /*
-         * ВАЖНО:
-         *
-         * Частицы не являются дочерними
-         * узла босса.
+         * Прикрепляем к rootNode,
+         * а не к боссу.
          */
         app.getRootNode().attachChild(
                 particleNode
         );
+
 
         // ========================================================
         // ВЫПУСК
@@ -1403,155 +1185,27 @@ public class FinalBoss extends MeleMonster {
                 true
         );
 
+
         particleEmitter.emitAllParticles();
+
 
         // ========================================================
         // ТАЙМЕР
         // ========================================================
 
-        particleTimer = 2.2f;
+        particleTimer =
+                2.2f;
     }
 
-    // ============================================================
-    // ФОРМА ЭМИТТЕРА — ПЛОЩАДЬ КРУГА
-    // ============================================================
-
-    /**
-     * Равномерное распределение частиц
-     * по площади круга.
-     *
-     * Используется:
-     *
-     * r = sqrt(random) * radius
-     *
-     * а не:
-     *
-     * r = random * radius
-     *
-     * потому что второй вариант даёт слишком много
-     * частиц возле центра.
-     */
-    private static class CircleAreaEmitterShape
-            implements EmitterShape {
-
-        private float radius;
-
-        public CircleAreaEmitterShape() {
-
-            this.radius = 1.0f;
-        }
-
-        public CircleAreaEmitterShape(
-                float radius
-        ) {
-
-            this.radius = radius;
-        }
-
-        @Override
-        public void getRandomPoint(
-                Vector3f store
-        ) {
-
-            float angle =
-                    FastMath.nextRandomFloat()
-                            * FastMath.TWO_PI;
-
-            float r =
-                    FastMath.sqrt(
-                            FastMath.nextRandomFloat()
-                    ) *
-                            radius;
-
-            store.set(
-                    FastMath.cos(angle) * r,
-                    0.0f,
-                    FastMath.sin(angle) * r
-            );
-        }
-
-        @Override
-        public void getRandomPointAndNormal(
-                Vector3f store,
-                Vector3f normal
-        ) {
-
-            getRandomPoint(
-                    store
-            );
-
-            if (normal != null) {
-
-                normal.set(
-                        0.0f,
-                        1.0f,
-                        0.0f
-                );
-            }
-        }
-
-        @Override
-        public EmitterShape deepClone() {
-
-            return new CircleAreaEmitterShape(
-                    radius
-            );
-        }
-
-        @Override
-        public Object jmeClone() {
-
-            return new CircleAreaEmitterShape(
-                    radius
-            );
-        }
-
-        @Override
-        public void cloneFields(
-                com.jme3.util.clone.Cloner cloner,
-                Object original
-        ) {
-            // Ничего не требуется.
-        }
-
-        @Override
-        public void write(
-                JmeExporter ex
-        ) throws IOException {
-
-            OutputCapsule capsule =
-                    ex.getCapsule(this);
-
-            capsule.write(
-                    radius,
-                    "radius",
-                    1.0f
-            );
-        }
-
-        @Override
-        public void read(
-                JmeImporter im
-        ) throws IOException {
-
-            InputCapsule capsule =
-                    im.getCapsule(this);
-
-            radius =
-                    capsule.readFloat(
-                            "radius",
-                            1.0f
-                    );
-        }
-    }
 
     // ============================================================
     // ТЕКСТУРА ЧАСТИЦ
     // ============================================================
 
-    private Texture2D createFireParticleTexture() {
+    private Texture2D createAcidParticleTexture() {
 
         final int size = 32;
+
 
         ByteBuffer buffer =
                 ByteBuffer.allocateDirect(
@@ -1560,12 +1214,15 @@ public class FinalBoss extends MeleMonster {
                                 4
                 );
 
+
         float center =
                 (size - 1) *
                         0.5f;
 
+
         float maxDistance =
                 center;
+
 
         for (int y = 0;
              y < size;
@@ -1579,9 +1236,11 @@ public class FinalBoss extends MeleMonster {
                         x -
                                 center;
 
+
                 float dy =
                         y -
                                 center;
+
 
                 float distance =
                         FastMath.sqrt(
@@ -1589,13 +1248,16 @@ public class FinalBoss extends MeleMonster {
                                         dy * dy
                         );
 
+
                 float normalized =
                         distance /
                                 maxDistance;
 
+
                 float alpha =
                         1.0f -
                                 normalized;
+
 
                 alpha =
                         FastMath.clamp(
@@ -1604,11 +1266,13 @@ public class FinalBoss extends MeleMonster {
                                 1.0f
                         );
 
+
                 alpha =
                         FastMath.pow(
                                 alpha,
                                 1.5f
                         );
+
 
                 int a =
                         (int)
@@ -1617,6 +1281,13 @@ public class FinalBoss extends MeleMonster {
                                                 255.0f
                                 );
 
+
+                /*
+                 * Белая маска.
+                 *
+                 * Реальный цвет задаётся
+                 * через PARTICLE_COLOR.
+                 */
                 buffer.put(
                         (byte) 255
                 );
@@ -1635,7 +1306,9 @@ public class FinalBoss extends MeleMonster {
             }
         }
 
+
         buffer.flip();
+
 
         Image image =
                 new Image(
@@ -1645,21 +1318,26 @@ public class FinalBoss extends MeleMonster {
                         buffer
                 );
 
+
         Texture2D texture =
                 new Texture2D(
                         image
                 );
 
+
         texture.setMagFilter(
                 com.jme3.texture.Texture.MagFilter.Bilinear
         );
+
 
         texture.setMinFilter(
                 com.jme3.texture.Texture.MinFilter.BilinearNoMipMaps
         );
 
+
         return texture;
     }
+
 
     // ============================================================
     // UPDATE PARTICLES
@@ -1674,13 +1352,16 @@ public class FinalBoss extends MeleMonster {
             return;
         }
 
+
         particleTimer -= tpf;
+
 
         if (particleTimer <= 0.0f) {
 
             removeParticles();
         }
     }
+
 
     // ============================================================
     // REMOVE PARTICLES
@@ -1697,6 +1378,7 @@ public class FinalBoss extends MeleMonster {
             particleEmitter = null;
         }
 
+
         if (particleNode != null) {
 
             particleNode.removeFromParent();
@@ -1704,8 +1386,10 @@ public class FinalBoss extends MeleMonster {
             particleNode = null;
         }
 
+
         particleTimer = 0.0f;
     }
+
 
     // ============================================================
     // REMOVE ABILITY VISUAL
@@ -1721,17 +1405,19 @@ public class FinalBoss extends MeleMonster {
         }
     }
 
+
     // ============================================================
     // DISPOSE
     // ============================================================
 
-    public void disposeFinalBossEffects() {
+    public void disposeWormBossEffects() {
 
         removeAbilityVisual();
 
         removeParticles();
 
         isCasting = false;
+
 
         if (getAI() != null) {
 

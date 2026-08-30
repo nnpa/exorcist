@@ -5,7 +5,7 @@ import com.mygame.items.ItemRarity;
 import com.mygame.items.LootTable;
 import com.mygame.items.ItemGenerator;
 
-public class RobotBoss extends Monster {
+public class RobotBoss extends MeleMonster {
 
     public RobotBoss() {
         setId("robotboss");

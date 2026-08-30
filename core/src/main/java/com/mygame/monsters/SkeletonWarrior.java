@@ -5,7 +5,7 @@ import com.mygame.items.ItemRarity;
 import com.mygame.items.LootTable;
 import com.mygame.items.ItemGenerator;
 
-public class SkeletonWarrior extends Monster {
+public class SkeletonWarrior extends MeleMonster {
 
     public SkeletonWarrior() {
         setId("skeleton_warrior");

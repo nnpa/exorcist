@@ -5,7 +5,7 @@ import com.mygame.items.ItemRarity;
 import com.mygame.items.LootTable;
 import com.mygame.items.ItemGenerator;
 
-public class Osa extends Monster {
+public class Osa extends MeleMonster {
 
     public Osa() {
         setId("osa");
