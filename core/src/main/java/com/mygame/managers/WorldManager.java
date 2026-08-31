@@ -341,7 +341,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             return;
         }
 
-        Monster skeleton = new Goblin();
+        Monster skeleton = new Inferno();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
@@ -351,8 +351,8 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
 Spatial model = null;
 try {
     // Убедитесь, что путь совпадает с реальным файлом, который вы видите в логе!
-    System.out.println("[WorldManager] Loading model: Models/Monsters/barbar/barbar.gltf");
-    model = app.getAssetManager().loadModel("Models/Monsters/ice/ice.gltf");
+    System.out.println("[WorldManager] Loading model: Models/Monsters/imp/imp.gltf");
+    model = app.getAssetManager().loadModel("Models/Monsters/inferno/inferno.gltf");
 } catch (Exception e) {
     System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
     e.printStackTrace();
