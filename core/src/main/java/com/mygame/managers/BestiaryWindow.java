@@ -197,99 +197,124 @@ public class BestiaryWindow {
     // ПОИСК МОДЕЛЕЙ
     // ============================================================
 
-    private void scanModelsFolder() {
+   private void scanModelsFolder() {
 
-        models.clear();
+    models.clear();
 
-        String resourcePath =
-                "Models/Monsters";
+    String resourcePath = "Models/Monsters";
 
-        try {
+    try {
 
-            URL url =
-                    getClass()
-                            .getClassLoader()
-                            .getResource(resourcePath);
+        URL url = getClass()
+                .getClassLoader()
+                .getResource(resourcePath);
 
-            if (url == null) {
-
-                System.err.println(
-                        "[BestiaryWindow] Resource folder not found: "
-                                + resourcePath
-                );
-
-                return;
-            }
-
-            if (!"file".equalsIgnoreCase(
-                    url.getProtocol()
-            )) {
-
-                System.err.println(
-                        "[BestiaryWindow] Monster folder is not a file resource."
-                );
-
-                return;
-            }
-
-            File directory =
-                    new File(
-                            url.toURI()
-                    );
-
-            File[] files =
-                    directory.listFiles(
-                            (dir, name) ->
-                                    name.toLowerCase()
-                                            .endsWith(".gltf")
-                    );
-
-            if (files == null) {
-
-                System.err.println(
-                        "[BestiaryWindow] Cannot read monster directory."
-                );
-
-                return;
-            }
-
-            Arrays.sort(
-                    files,
-                    Comparator.comparing(
-                            File::getName,
-                            String.CASE_INSENSITIVE_ORDER
-                    )
-            );
-
-            for (File file : files) {
-
-                String path =
-                        resourcePath
-                                + "/"
-                                + file.getName();
-
-                models.add(path);
-
-                System.out.println(
-                        "[BestiaryWindow] Found model: "
-                                + path
-                );
-            }
-
-        } catch (Exception e) {
+        if (url == null) {
 
             System.err.println(
-                    "[BestiaryWindow] Error scanning models:"
+                    "[BestiaryWindow] Resource folder not found: "
+                            + resourcePath
             );
 
-            e.printStackTrace();
+            return;
         }
 
-        System.out.println(
-                "[BestiaryWindow] Models: "
-                        + models.size()
+        if (!"file".equalsIgnoreCase(url.getProtocol())) {
+
+            System.err.println(
+                    "[BestiaryWindow] Monster folder is not a file resource."
+            );
+
+            return;
+        }
+
+        File directory = new File(url.toURI());
+
+        if (!directory.exists() || !directory.isDirectory()) {
+
+            System.err.println(
+                    "[BestiaryWindow] Invalid monster directory: "
+                            + directory.getAbsolutePath()
+            );
+
+            return;
+        }
+
+        scanModelsRecursive(
+                directory,
+                resourcePath
         );
+
+        models.sort(
+                String.CASE_INSENSITIVE_ORDER
+        );
+
+    } catch (Exception e) {
+
+        System.err.println(
+                "[BestiaryWindow] Error scanning models:"
+        );
+
+        e.printStackTrace();
     }
+
+    System.out.println(
+            "[BestiaryWindow] Models: "
+                    + models.size()
+    );
+}
+
+private void scanModelsRecursive(
+        File directory,
+        String resourcePath
+) {
+
+    File[] files = directory.listFiles();
+
+    if (files == null) {
+        return;
+    }
+
+    Arrays.sort(
+            files,
+            Comparator.comparing(
+                    File::getName,
+                    String.CASE_INSENSITIVE_ORDER
+            )
+    );
+
+    for (File file : files) {
+
+        if (file.isDirectory()) {
+
+            scanModelsRecursive(
+                    file,
+                    resourcePath
+                            + "/"
+                            + file.getName()
+            );
+
+        } else if (
+                file.isFile()
+                        && file.getName()
+                                .toLowerCase()
+                                .endsWith(".gltf")
+        ) {
+
+            String modelPath =
+                    resourcePath
+                            + "/"
+                            + file.getName();
+
+            models.add(modelPath);
+
+            System.out.println(
+                    "[BestiaryWindow] Found model: "
+                            + modelPath
+            );
+        }
+    }
+}
 
 
     // ============================================================
@@ -1069,309 +1094,84 @@ public class BestiaryWindow {
     // КАМЕРА
     // ============================================================
 
-    private void fitCameraToModel(
-            Spatial model
-    ) {
+private void fitCameraToModel(Spatial model) {
 
-        if (model == null) {
-
-            return;
-        }
-
-
-        model.updateLogicalState(
-                0f
-        );
-
-        model.updateGeometricState();
-
-
-        BoundingVolume bounds =
-                model.getWorldBound();
-
-
-        if (bounds == null) {
-
-            return;
-        }
-
-
-        Vector3f center =
-                bounds.getCenter()
-                        .clone();
-
-
-        float modelWidth = 2f;
-        float modelHeight = 2f;
-        float modelDepth = 2f;
-
-
-        // ========================================================
-        // BOUNDING BOX
-        // ========================================================
-
-        if (bounds instanceof BoundingBox box) {
-
-            modelWidth =
-                    box.getXExtent()
-                            * 2f;
-
-            modelHeight =
-                    box.getYExtent()
-                            * 2f;
-
-            modelDepth =
-                    box.getZExtent()
-                            * 2f;
-        }
-
-
-        // ========================================================
-        // BOUNDING SPHERE
-        // ========================================================
-
-        else if (bounds instanceof BoundingSphere sphere) {
-
-            float diameter =
-                    sphere.getRadius()
-                            * 2f;
-
-            modelWidth = diameter;
-            modelHeight = diameter;
-            modelDepth = diameter;
-        }
-
-
-        // ========================================================
-        // ЗАЩИТА
-        // ========================================================
-
-        if (!Float.isFinite(modelWidth) ||
-                modelWidth <= 0.01f) {
-
-            modelWidth = 2f;
-        }
-
-        if (!Float.isFinite(modelHeight) ||
-                modelHeight <= 0.01f) {
-
-            modelHeight = 2f;
-        }
-
-        if (!Float.isFinite(modelDepth) ||
-                modelDepth <= 0.01f) {
-
-            modelDepth = 2f;
-        }
-
-
-        /*
-         * --------------------------------------------------------
-         * FOV
-         * --------------------------------------------------------
-         */
-
-        float fovDegrees =
-                42f;
-
-        float fovRadians =
-                fovDegrees
-                        * FastMath.DEG_TO_RAD;
-
-
-        /*
-         * --------------------------------------------------------
-         * ASPECT
-         * --------------------------------------------------------
-         */
-
-        float aspect =
-                viewportWidth
-                        / viewportHeight;
-
-
-        /*
-         * --------------------------------------------------------
-         * HORIZONTAL FOV
-         * --------------------------------------------------------
-         */
-
-        float horizontalFov =
-                2f * FastMath.atan(
-                        FastMath.tan(
-                                fovRadians / 2f
-                        ) * aspect
-                );
-
-
-        /*
-         * --------------------------------------------------------
-         * DISTANCE ПО ВЫСОТЕ
-         * --------------------------------------------------------
-         */
-
-        float verticalDistance =
-                (modelHeight / 2f)
-                        / FastMath.tan(
-                                fovRadians / 2f
-                        );
-
-
-        /*
-         * --------------------------------------------------------
-         * DISTANCE ПО ШИРИНЕ
-         * --------------------------------------------------------
-         */
-
-        float horizontalDistance =
-                (modelWidth / 2f)
-                        / FastMath.tan(
-                                horizontalFov / 2f
-                        );
-
-
-        /*
-         * --------------------------------------------------------
-         * БЕРЁМ БОЛЬШЕЕ
-         * --------------------------------------------------------
-         */
-
-        float distance =
-                Math.max(
-                        verticalDistance,
-                        horizontalDistance
-                );
-
-
-        /*
-         * --------------------------------------------------------
-         * ОГРОМНЫЙ ЗАПАС
-         * --------------------------------------------------------
-         *
-         * 1.45 означает:
-         *
-         * камера отодвигается ещё на 45%.
-         *
-         * Это специально сделано,
-         * чтобы Attack-анимация не обрезалась.
-         */
-
-        distance *= 6.45f;
-
-
-        distance =
-                Math.max(
-                        distance,
-                        1f
-                );
-
-
-        /*
-         * --------------------------------------------------------
-         * TARGET
-         * --------------------------------------------------------
-         */
-
-        Vector3f target =
-                center.clone();
-
-
-        /*
-         * Не поднимаем модель слишком сильно.
-         *
-         * Цель практически точно по центру bounds.
-         */
-
-        target.y +=
-                modelHeight * 0.02f;
-
-
-        /*
-         * --------------------------------------------------------
-         * CAMERA
-         * --------------------------------------------------------
-         */
-
-        Vector3f cameraPosition =
-                new Vector3f(
-                        target.x,
-                        target.y,
-                        target.z + distance
-                );
-
-
-        modelCam.setLocation(
-                cameraPosition
-        );
-
-
-        modelCam.lookAt(
-                target,
-                Vector3f.UNIT_Y
-        );
-
-
-        /*
-         * --------------------------------------------------------
-         * FRUSTUM
-         * --------------------------------------------------------
-         */
-
-        modelCam.setFrustumPerspective(
-                fovDegrees,
-                aspect,
-                Math.max(
-                        0.01f,
-                        distance * 0.01f
-                ),
-                Math.max(
-                        1000f,
-                        distance * 20f
-                )
-        );
-
-
-        System.out.println(
-                "[BestiaryWindow] -----------------------------"
-        );
-
-        System.out.println(
-                "[BestiaryWindow] Center = "
-                        + center
-        );
-
-        System.out.println(
-                "[BestiaryWindow] Width = "
-                        + modelWidth
-        );
-
-        System.out.println(
-                "[BestiaryWindow] Height = "
-                        + modelHeight
-        );
-
-        System.out.println(
-                "[BestiaryWindow] Depth = "
-                        + modelDepth
-        );
-
-        System.out.println(
-                "[BestiaryWindow] Camera distance = "
-                        + distance
-        );
-
-        System.out.println(
-                "[BestiaryWindow] Camera = "
-                        + cameraPosition
-        );
-
-        System.out.println(
-                "[BestiaryWindow] -----------------------------"
-        );
+    if (model == null) {
+        return;
     }
 
+    model.updateLogicalState(0f);
+    model.updateGeometricState();
 
     // ============================================================
+    // ОДИНАКОВАЯ КАМЕРА ДЛЯ ВСЕХ МОДЕЛЕЙ
+    // ============================================================
+
+    float aspect =
+            viewportWidth / viewportHeight;
+
+    float fov =
+            40f;
+
+    float cameraDistance =
+            8f;
+
+    // ============================================================
+    // ЦЕНТР СЦЕНЫ
+    // ============================================================
+
+    Vector3f target =
+            new Vector3f(
+                    0f,
+                    1.5f,
+                    0f
+            );
+
+    // ============================================================
+    // CAMERA
+    // ============================================================
+
+    Vector3f cameraPosition =
+            new Vector3f(
+                    0f,
+                    target.y,
+                    cameraDistance
+            );
+
+    modelCam.setLocation(
+            cameraPosition
+    );
+
+    modelCam.lookAt(
+            target,
+            Vector3f.UNIT_Y
+    );
+
+    // ============================================================
+    // FRUSTUM
+    // ============================================================
+
+    modelCam.setFrustumPerspective(
+            fov,
+            aspect,
+            0.01f,
+            1000f
+    );
+
+    System.out.println(
+            "[BestiaryWindow] Camera fixed."
+    );
+
+    System.out.println(
+            "[BestiaryWindow] Position = "
+                    + cameraPosition
+    );
+
+    System.out.println(
+            "[BestiaryWindow] Target = "
+                    + target
+    );
+}    // ============================================================
     // FIND ANIM COMPOSER
     // ============================================================
 
