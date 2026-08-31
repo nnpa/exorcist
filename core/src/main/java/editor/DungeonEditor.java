@@ -7,8 +7,13 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.mygame.Main;
 import com.mygame.dungeons.Dungeon;
+import com.mygame.monsters.Barbar;
 import com.mygame.monsters.Demon;
+import com.mygame.monsters.DragonBoss;
+import com.mygame.monsters.Goblin;
 import com.mygame.monsters.Head;
+import com.mygame.monsters.Ice;
+import com.mygame.monsters.Luk;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.Osa;
 import com.mygame.monsters.Raptor;
@@ -220,10 +225,12 @@ private void addMonster(Class<? extends Monster> cls) {
 
     private List<Class<? extends Monster>> getMonsterClasses() {
         List<Class<? extends Monster>> classes = new ArrayList<>();
-        classes.add(Root.class);
-        classes.add(Raptor.class);
-        classes.add(Osa.class);
-        classes.add(RobotBoss.class);
+        classes.add(Barbar.class);
+        classes.add(Luk.class);
+        classes.add(Ice.class);
+        classes.add(Goblin.class);
+        
+        classes.add(DragonBoss.class);
         return classes;
     }
 }

@@ -22,11 +22,15 @@ import com.jme3.texture.Texture;
 import com.mygame.managers.DropManager;
 import com.mygame.managers.PlayerManager;
 import com.mygame.managers.WorldManager;
+import com.mygame.monsters.Barbar;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.monsters.BossMonster;
 import com.mygame.monsters.Demon;
+import com.mygame.monsters.Goblin;
 import com.mygame.monsters.Head;
+import com.mygame.monsters.Ice;
+import com.mygame.monsters.Luk;
 import com.mygame.monsters.Osa;
 import com.mygame.monsters.Raptor;
 import com.mygame.monsters.RobotBoss;
@@ -232,6 +236,14 @@ public class DungeonLoader {
             modelPath = "Models/Monsters/root.gltf"; // если есть такая модель
         }else if (monster instanceof RobotBoss) {
             modelPath = "Models/Monsters/robotboss.gltf"; // если есть такая модель
+        }else if (monster instanceof Barbar) {
+            modelPath = "Models/Monsters/barbar/barbar.gltf"; // если есть такая модель
+        }else if (monster instanceof Ice) {
+            modelPath = "Models/Monsters/ice/ice.gltf"; // если есть такая модель
+        }else if (monster instanceof Luk) {
+            modelPath = "Models/Monsters/luk/luk.gltf"; // если есть такая модель
+        }else if (monster instanceof Goblin) {
+            modelPath = "Models/Monsters/goblin/goblin.gltf"; // если есть такая модель
         }else {
             // По умолчанию – скелет
             modelPath = "Models/Monsters/skeleton_warrior.gltf";
