@@ -636,7 +636,7 @@ public void loadDungeon(String dungeonId, int difficulty) {
     if (playerPos != null) {
 
         mapRenderer.update(
-                playerPos
+                playerManager
         );
 
         System.out.println(
@@ -873,7 +873,7 @@ public void update(float tpf) {
         if (playerPos != null) {
 
             mapRenderer.update(
-                    playerPos
+                    playerManager
             );
         }
     }

@@ -3740,7 +3740,7 @@ private void createTeleporterDialog() {
                 playerManager.getPosition();
 
         if (pos != null) {
-            mapRenderer.update(pos);
+            mapRenderer.update(playerManager);
         }
 
         mapWindow.update();

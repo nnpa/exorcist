@@ -2030,4 +2030,10 @@ public class PlayerManager {
             app.getRootNode().detachChild(playerNode);
         }
     }
+    public Vector3f getViewDirection() {
+    if (characterControl != null) {
+        return characterControl.getViewDirection();
+    }
+    return Vector3f.UNIT_Z;
+}
 }

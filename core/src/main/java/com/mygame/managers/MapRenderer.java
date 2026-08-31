@@ -173,45 +173,72 @@ public class MapRenderer {
     }
 
     /**
-     * Обновление позиции камеры карты.
-     *
-     * НИКАКИХ updateGeometricState здесь нет.
-     */
-    public void update(Vector3f playerPos) {
+ * Обновление позиции и ориентации камеры карты.
+ *
+ * @param playerPos     позиция игрока
+ * @param playerForward направление взгляда игрока (не обязательно нормализовано)
+ */
+/**
+ * Обновление позиции и ориентации камеры карты.
+ *
+ * @param playerManager менеджер игрока — позиция и направление
+ *                       берутся из него напрямую.
+ */
+public void update(PlayerManager playerManager) {
 
-        if (!initialized) {
-            return;
-        }
-
-        if (mapCam == null) {
-            return;
-        }
-
-        if (playerPos == null) {
-            return;
-        }
-
-        float x = playerPos.x;
-        float z = playerPos.z;
-
-        mapCam.setLocation(
-                new Vector3f(
-                        x,
-                        100f,
-                        z
-                )
-        );
-
-        mapCam.lookAt(
-                new Vector3f(
-                        x,
-                        0f,
-                        z
-                ),
-                Vector3f.UNIT_Z
-        );
+    if (!initialized) {
+        return;
     }
 
+    if (mapCam == null) {
+        return;
+    }
+
+    if (playerManager == null) {
+        return;
+    }
+
+    Vector3f playerPos = playerManager.getPosition();
+
+    if (playerPos == null) {
+        return;
+    }
+
+    float x = playerPos.x;
+    float z = playerPos.z;
+
+    mapCam.setLocation(
+            new Vector3f(x, 100f, z)
+    );
+
+    Vector3f playerForward = playerManager.getViewDirection();
+
+    Vector3f up;
+
+    if (playerForward != null) {
+
+        /*
+         * Инвертируем направление — иначе карта
+         * оказывается развёрнутой на 180 градусов
+         * (подтверждено эмпирически: обычный "forward"
+         * даёт зеркальный/перевёрнутый результат).
+         */
+        up = new Vector3f(-playerForward.x, 0f, -playerForward.z);
+
+        if (up.lengthSquared() < 0.0001f) {
+            up = Vector3f.UNIT_Z;
+        } else {
+            up.normalizeLocal();
+        }
+    } else {
+        up = Vector3f.UNIT_Z;
+    }
+
+    mapCam.lookAt(
+            new Vector3f(x, 0f, z),
+            up
+    );
+}
     /**
      * Правильный orthographic frustum.
      *
@@ -286,26 +313,22 @@ public class MapRenderer {
         return mapViewPort;
     }
 
-    /**
-     * Важно:
-     * вызывать только из jME потока.
-     */
-    public void refresh(Vector3f playerPos) {
+public void refresh(PlayerManager playerManager) {
 
-        if (!initialized) {
-            return;
-        }
-
-        if (playerPos != null) {
-            update(playerPos);
-        }
-
-        if (mapViewPort != null) {
-            mapViewPort.setEnabled(
-                    mapViewPort.isEnabled()
-            );
-        }
+    if (!initialized) {
+        return;
     }
+
+    if (playerManager != null) {
+        update(playerManager);
+    }
+
+    if (mapViewPort != null) {
+        mapViewPort.setEnabled(
+                mapViewPort.isEnabled()
+        );
+    }
+}
 
     public void cleanup() {
 

@@ -92,10 +92,6 @@ public class MapWindow {
                         "Common/MatDefs/Misc/Unshaded.j3md"
                 );
 
-        /*
-         * Это резервный фон,
-         * пока framebuffer ещё ничего не нарисовал.
-         */
         mapMaterial.setColor(
                 "Color",
                 new ColorRGBA(
@@ -167,7 +163,7 @@ public class MapWindow {
 
         /*
          * =========================================================
-         * PLAYER MARKER
+         * PLAYER MARKER — простой статичный квадрат в центре
          * =========================================================
          */
 
@@ -198,9 +194,6 @@ public class MapWindow {
                 markerMaterial
         );
 
-        /*
-         * Центр карты.
-         */
         playerMarker.setLocalTranslation(
                 mapSize / 2f - 5f,
                 mapSize / 2f - 5f,
@@ -244,6 +237,7 @@ public class MapWindow {
 
     /**
      * Обновляет отображение текстуры карты.
+     * Маркер игрока статичен — вращается сама карта (камера).
      *
      * Вызывается из игрового jME потока.
      */
@@ -275,10 +269,6 @@ public class MapWindow {
             }
         }
 
-        /*
-         * Игрок всегда в центре,
-         * потому что камера карты следует за ним.
-         */
         if (playerMarker != null) {
 
             playerMarker.setLocalTranslation(
@@ -308,30 +298,22 @@ public class MapWindow {
                 Node.CullHint.Dynamic
         );
 
-        /*
-         * Сначала ставим камеру карты
-         * в позицию игрока.
-         */
         if (playerManager != null) {
 
             Vector3f pos =
                     playerManager.getPosition();
 
+            Vector3f dir =
+                    playerManager.getViewDirection();
+
             if (pos != null) {
 
-                mapRenderer.update(pos);
+                mapRenderer.update(playerManager);
             }
         }
 
-        /*
-         * Только после этого включаем viewport.
-         */
         mapRenderer.setEnabled(true);
 
-        /*
-         * Привязываем framebuffer texture
-         * к GUI.
-         */
         update();
     }
 
@@ -375,7 +357,9 @@ public class MapWindow {
     }
 
     /**
-     * Метод, который можно вызывать после загрузки данжа.
+     * Метод, который можно вызывать после загрузки данжа,
+     * и который нужно вызывать каждый кадр,
+     * пока карта открыта, чтобы она поворачивалась вместе с игроком.
      */
     public void refresh() {
 
@@ -390,9 +374,12 @@ public class MapWindow {
         Vector3f pos =
                 playerManager.getPosition();
 
+        Vector3f dir =
+                playerManager.getViewDirection();
+
         if (pos != null) {
 
-            mapRenderer.update(pos);
+            mapRenderer.update(playerManager);
         }
 
         update();
