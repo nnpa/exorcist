@@ -225,7 +225,7 @@ public class DungeonLoader {
         else if (monster instanceof Sgolem) {
             modelPath = "Models/Monsters/sgolem.gltf"; // если есть такая модель
         }else if (monster instanceof WormBoss) {
-            modelPath = "Models/Monsters/wormboss.gltf"; // если есть такая модель
+            modelPath = "Models/Monsters/wormboss/wormboss.gltf"; // если есть такая модель
         }
         else if (monster instanceof Osa) {
             modelPath = "Models/Monsters/osa.gltf"; // если есть такая модель

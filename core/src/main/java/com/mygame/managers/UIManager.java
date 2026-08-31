@@ -395,27 +395,40 @@ private void applyStoredLanguage() {
 
     public void toggleSettings() {
 
-        if (settingsWindow == null) return;
+    if (settingsWindow == null) return;
+
+    /*
+     * На экранах логина и регистрации
+     * настройки открывать нельзя.
+     */
+    if (loginVisible || registerVisible) {
 
         if (settingsWindow.isVisible()) {
-
             settingsWindow.hide();
-
-            SoundManager.playSound(
-                    SoundManager.SOUND_WINDOW_CLOSE
-            );
-
-        } else {
-
-            closeAllWindowsExcept("settings");
-
-            settingsWindow.show();
-
-            SoundManager.playSound(
-                    SoundManager.SOUND_WINDOW_TALENTS
-            );
         }
+
+        return;
     }
+
+    if (settingsWindow.isVisible()) {
+
+        settingsWindow.hide();
+
+        SoundManager.playSound(
+                SoundManager.SOUND_WINDOW_CLOSE
+        );
+
+    } else {
+
+        closeAllWindowsExcept("settings");
+
+        settingsWindow.show();
+
+        SoundManager.playSound(
+                SoundManager.SOUND_WINDOW_TALENTS
+        );
+    }
+}
 
     // ============================================================
     // ИНИЦИАЛИЗАЦИЯ
