@@ -43,7 +43,7 @@ public class Monster {
     private float aggroRange;
 
     // ============================================================
-    // МОДЕЛЬ И АНИМАЦИЯ
+    // МОДЕЛЬ
     // ============================================================
 
     protected Node modelNode;
@@ -56,6 +56,18 @@ public class Monster {
 
     protected Vector3f spawnPosition;
     protected Vector3f currentPosition;
+
+    // ============================================================
+    // АНИМАЦИЯ
+    // ============================================================
+
+    /**
+     * Последняя установленная анимация.
+     *
+     * Нужна для того, чтобы не вызывать
+     * setCurrentAction() каждый кадр.
+     */
+    protected String currentAnimation = "";
 
     // ============================================================
     // СИСТЕМЫ
@@ -88,16 +100,12 @@ public class Monster {
 
     protected boolean increaseDifficultyOnDeath = false;
 
-    // ============================================================
-    // ПЕРЕХОД В СЛЕДУЮЩИЙ ДАНЖ
-    // ============================================================
-
     protected float nextDungeonTimer = -1f;
 
     protected static final float NEXT_DUNGEON_DELAY = 10.0f;
 
     // ============================================================
-    // ПРИЛОЖЕНИЕ
+    // APP
     // ============================================================
 
     protected static SimpleApplication app;
@@ -110,8 +118,7 @@ public class Monster {
     protected static final float HP_BAR_HEIGHT = 0.08f;
     protected static final float HP_BAR_HEIGHT_OFFSET = 3.0f;
 
-    protected float hpBarHeightOffset =
-            HP_BAR_HEIGHT_OFFSET;
+    protected float hpBarHeightOffset = HP_BAR_HEIGHT_OFFSET;
 
     protected static final float HP_BAR_LEFT_OFFSET = 0.6f;
     protected static final float HP_BAR_Z_OFFSET = 0.01f;
@@ -129,7 +136,7 @@ public class Monster {
     protected float bleedDamage = 0f;
 
     // ============================================================
-    // ЭФФЕКТ СТАНА
+    // STUN EFFECT
     // ============================================================
 
     protected Node stunEffectNode;
@@ -139,12 +146,12 @@ public class Monster {
     protected boolean stunEffectActive = false;
 
     // ============================================================
-    // КОНСТРУКТОР
+    // CONSTRUCTOR
     // ============================================================
 
     public Monster() {
 
-        this.ai = new MonsterAI(this);
+        ai = new MonsterAI(this);
 
         System.out.println(
                 "[Monster] AI created"
@@ -196,11 +203,10 @@ public class Monster {
 
     public void setHealth(float health) {
 
-        this.health =
-                Math.max(
-                        0f,
-                        health
-                );
+        this.health = Math.max(
+                0f,
+                health
+        );
 
         updateHealthBar();
     }
@@ -211,11 +217,10 @@ public class Monster {
 
     public void setMaxHealth(float maxHealth) {
 
-        this.maxHealth =
-                Math.max(
-                        0f,
-                        maxHealth
-                );
+        this.maxHealth = Math.max(
+                0f,
+                maxHealth
+        );
 
         updateHealthBar();
     }
@@ -295,15 +300,34 @@ public class Monster {
                                 0f
                         );
 
+        // ========================================================
+        // ПОИСК ANIMCOMPOSER
+        // ========================================================
+
         animComposer =
                 findAnimComposer(
                         modelNode
                 );
 
+        currentAnimation = "";
+
         if (animComposer != null) {
 
-            animComposer.setCurrentAction(
-                    "Idle"
+            System.out.println(
+                    "[Monster] AnimComposer found for "
+                    + name
+            );
+
+            /*
+             * При создании всегда Idle.
+             */
+            playAnimation("Idle");
+
+        } else {
+
+            System.err.println(
+                    "[Monster] AnimComposer NOT FOUND for "
+                    + name
             );
         }
 
@@ -327,7 +351,6 @@ public class Monster {
         if (spawnPosition == null) {
 
             this.spawnPosition = null;
-
             return;
         }
 
@@ -368,7 +391,7 @@ public class Monster {
             return;
         }
 
-        this.currentPosition =
+        currentPosition =
                 position.clone();
 
         if (modelNode != null) {
@@ -380,7 +403,7 @@ public class Monster {
     }
 
     // ============================================================
-    // СИСТЕМЫ
+    // SYSTEMS
     // ============================================================
 
     public LootTable getLootTable() {
@@ -441,7 +464,7 @@ public class Monster {
     }
 
     // ============================================================
-    // БОСС
+    // BOSS
     // ============================================================
 
     public boolean isBoss() {
@@ -484,7 +507,7 @@ public class Monster {
             boolean increase
     ) {
 
-        this.increaseDifficultyOnDeath =
+        increaseDifficultyOnDeath =
                 increase;
     }
 
@@ -510,13 +533,10 @@ public class Monster {
             return false;
         }
 
-        float distance =
-                getHorizontalDistance(
-                        monsterPos,
-                        playerPos
-                );
-
-        return distance <= attackRange;
+        return getHorizontalDistance(
+                monsterPos,
+                playerPos
+        ) <= attackRange;
     }
 
     protected float getHorizontalDistance(
@@ -537,7 +557,7 @@ public class Monster {
     }
 
     // ============================================================
-    // СТАН
+    // STUN
     // ============================================================
 
     public void applyStun(float duration) {
@@ -549,11 +569,11 @@ public class Monster {
                 );
 
         System.out.println(
-                ">>> СТАН НАЛОЖЕН НА: "
+                ">>> STUN: "
                 + name
-                + " на "
+                + " "
                 + duration
-                + " сек"
+                + " sec"
         );
 
         showStunEffect(true);
@@ -581,28 +601,129 @@ public class Monster {
 
         bleedDamage =
                 damagePerSecond;
-
-        System.out.println(
-                ">>> КРОВОТЕЧЕНИЕ НАЛОЖЕНО НА: "
-                + name
-                + " на "
-                + duration
-                + " сек"
-        );
     }
 
     // ============================================================
-    // STOP WALKING
+    // WALK / IDLE
     // ============================================================
 
     public void stopWalking() {
 
-        if (animComposer != null) {
+        playAnimation("Idle");
+    }
+
+    public void playWalk() {
+
+        playAnimation("Walk");
+    }
+
+    public void playIdle() {
+
+        playAnimation("Idle");
+    }
+
+    public void playAttack() {
+
+        playAnimation("Attack");
+    }
+
+    // ============================================================
+    // ANIMATION
+    // ============================================================
+
+    public void playAnimation(
+            String animName
+    ) {
+
+        if (animComposer == null) {
+
+            System.err.println(
+                    "[Monster] Cannot play animation "
+                    + animName
+                    + " because AnimComposer == null"
+            );
+
+            return;
+        }
+
+        if (animName == null ||
+                animName.isEmpty()) {
+
+            return;
+        }
+
+        /*
+         * НЕ ПЕРЕЗАПУСКАЕМ анимацию каждый кадр.
+         */
+        if (animName.equals(currentAnimation)) {
+            return;
+        }
+
+        try {
+
+            System.out.println(
+                    "[Monster Animation] "
+                    + name
+                    + ": "
+                    + currentAnimation
+                    + " -> "
+                    + animName
+            );
 
             animComposer.setCurrentAction(
-                    "Idle"
+                    animName
             );
+
+            currentAnimation =
+                    animName;
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "[Monster] ERROR playing animation: "
+                    + animName
+            );
+
+            e.printStackTrace();
         }
+    }
+
+    public String getCurrentAnimation() {
+        return currentAnimation;
+    }
+
+    // ============================================================
+    // FIND ANIM COMPOSER
+    // ============================================================
+
+    protected AnimComposer findAnimComposer(
+            Spatial spatial
+    ) {
+
+        AnimComposer composer =
+                spatial.getControl(
+                        AnimComposer.class
+                );
+
+        if (composer != null) {
+            return composer;
+        }
+
+        if (spatial instanceof Node) {
+
+            for (Spatial child :
+                    ((Node) spatial).getChildren()) {
+
+                AnimComposer found =
+                        findAnimComposer(child);
+
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+
+        return null;
     }
 
     // ============================================================
@@ -652,20 +773,10 @@ public class Monster {
 
     protected void createHealthBar() {
 
-        if (app == null) {
+        if (app == null ||
+                modelNode == null ||
+                healthBarNode != null) {
 
-            System.err.println(
-                    "[Monster] app is null!"
-            );
-
-            return;
-        }
-
-        if (modelNode == null) {
-            return;
-        }
-
-        if (healthBarNode != null) {
             return;
         }
 
@@ -707,25 +818,25 @@ public class Monster {
                 )
         );
 
-        Quad backgroundQuad =
-                new Quad(
-                        HP_BAR_WIDTH,
-                        HP_BAR_HEIGHT
-                );
-
-        hpBarBackground =
+        Geometry background =
                 new Geometry(
                         "HPBarBackground",
-                        backgroundQuad
+                        new Quad(
+                                HP_BAR_WIDTH,
+                                HP_BAR_HEIGHT
+                        )
                 );
 
-        hpBarBackground.setMaterial(
+        background.setMaterial(
                 backgroundMaterial
         );
 
-        hpBarBackground.setQueueBucket(
+        background.setQueueBucket(
                 RenderQueue.Bucket.Transparent
         );
+
+        hpBarBackground =
+                background;
 
         Material foregroundMaterial =
                 new Material(
@@ -738,38 +849,38 @@ public class Monster {
                 ColorRGBA.Green
         );
 
-        Quad foregroundQuad =
-                new Quad(
-                        HP_BAR_WIDTH,
-                        HP_BAR_HEIGHT
-                );
-
-        hpBarForeground =
+        Geometry foreground =
                 new Geometry(
                         "HPBarForeground",
-                        foregroundQuad
+                        new Quad(
+                                HP_BAR_WIDTH,
+                                HP_BAR_HEIGHT
+                        )
                 );
 
-        hpBarForeground.setMaterial(
+        foreground.setMaterial(
                 foregroundMaterial
         );
 
-        hpBarForeground.setQueueBucket(
+        foreground.setQueueBucket(
                 RenderQueue.Bucket.Transparent
         );
 
-        hpBarForeground.setLocalTranslation(
+        foreground.setLocalTranslation(
                 0f,
                 0f,
                 HP_BAR_Z_OFFSET
         );
 
+        hpBarForeground =
+                foreground;
+
         healthBarNode.attachChild(
-                hpBarBackground
+                background
         );
 
         healthBarNode.attachChild(
-                hpBarForeground
+                foreground
         );
 
         modelNode.attachChild(
@@ -777,20 +888,13 @@ public class Monster {
         );
 
         updateHealthBar();
-
-        System.out.println(
-                "[Monster] HP bar created for "
-                + name
-        );
     }
 
     public void updateHealthBar() {
 
-        if (hpBarForeground == null) {
-            return;
-        }
+        if (hpBarForeground == null ||
+                maxHealth <= 0f) {
 
-        if (maxHealth <= 0f) {
             return;
         }
 
@@ -837,12 +941,9 @@ public class Monster {
     protected void createStunEffect() {
 
         if (app == null ||
-                modelNode == null) {
+                modelNode == null ||
+                stunEffectNode != null) {
 
-            return;
-        }
-
-        if (stunEffectNode != null) {
             return;
         }
 
@@ -853,7 +954,7 @@ public class Monster {
 
         stunEffectNode.setLocalTranslation(
                 0f,
-                3.0f,
+                3f,
                 0f
         );
 
@@ -861,13 +962,13 @@ public class Monster {
                 Spatial.CullHint.Always
         );
 
-        Material particleMat =
+        Material material =
                 new Material(
                         app.getAssetManager(),
                         "Common/MatDefs/Misc/Unshaded.j3md"
                 );
 
-        particleMat.setColor(
+        material.setColor(
                 "Color",
                 new ColorRGBA(
                         0.5f,
@@ -895,21 +996,16 @@ public class Monster {
                     radius *
                     FastMath.sin(angle);
 
-            Quad quad =
-                    new Quad(
-                            0.2f,
-                            0.2f
-                    );
-
             Geometry particle =
                     new Geometry(
                             "StunParticle_" + i,
-                            quad
+                            new Quad(
+                                    0.2f,
+                                    0.2f
+                            )
                     );
 
-            particle.setMaterial(
-                    particleMat
-            );
+            particle.setMaterial(material);
 
             particle.setLocalTranslation(
                     x,
@@ -917,11 +1013,8 @@ public class Monster {
                     z
             );
 
-            BillboardControl billboard =
-                    new BillboardControl();
-
             particle.addControl(
-                    billboard
+                    new BillboardControl()
             );
 
             particle.setQueueBucket(
@@ -938,11 +1031,6 @@ public class Monster {
 
         modelNode.attachChild(
                 stunEffectNode
-        );
-
-        System.out.println(
-                "[Monster] Stun effect created for "
-                + name
         );
     }
 
@@ -973,49 +1061,19 @@ public class Monster {
     }
 
     // ============================================================
-    // ANIMATION
+    // AI COMBAT HOOK
     // ============================================================
 
-    protected AnimComposer findAnimComposer(
-            Spatial spatial
+    /**
+     * Вызывается MonsterAI, когда монстр находится
+     * рядом с игроком.
+     *
+     * MeleMonster переопределяет этот метод.
+     */
+    public void updateCombat(
+            float tpf
     ) {
-
-        if (spatial instanceof Node) {
-
-            for (Spatial child :
-                    ((Node) spatial).getChildren()) {
-
-                AnimComposer found =
-                        findAnimComposer(child);
-
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-
-        return spatial.getControl(
-                AnimComposer.class
-        );
-    }
-
-    public void playAnimation(
-            String animName
-    ) {
-
-        if (animComposer == null) {
-            return;
-        }
-
-        if (animName == null ||
-                animName.isEmpty()) {
-
-            return;
-        }
-
-        animComposer.setCurrentAction(
-                animName
-        );
+        // Для обычного Monster ничего.
     }
 
     // ============================================================
@@ -1039,27 +1097,39 @@ public class Monster {
 
         if (animComposer != null) {
 
-            Action dieAction =
-                    animComposer.makeAction(
-                            "Die"
-                    );
+            try {
 
-            Tween doneTween =
-                    Tweens.callMethod(
-                            this,
-                            "removeModel"
-                    );
+                Action dieAction =
+                        animComposer.makeAction(
+                                "Die"
+                        );
 
-            Action sequence =
-                    animComposer.actionSequence(
-                            "die_sequence",
-                            dieAction,
-                            doneTween
-                    );
+                Tween doneTween =
+                        Tweens.callMethod(
+                                this,
+                                "removeModel"
+                        );
 
-            animComposer.setCurrentAction(
-                    "die_sequence"
-            );
+                Action sequence =
+                        animComposer.actionSequence(
+                                "die_sequence",
+                                dieAction,
+                                doneTween
+                        );
+
+                currentAnimation =
+                        "die_sequence";
+
+                animComposer.setCurrentAction(
+                        "die_sequence"
+                );
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+                removeModel();
+            }
 
         } else {
 
@@ -1092,13 +1162,6 @@ public class Monster {
                 && nextDungeonId != null
                 && worldManager != null) {
 
-            System.out.println(
-                    "[Monster] Boss defeated! "
-                    + "Transitioning to next dungeon in "
-                    + NEXT_DUNGEON_DELAY
-                    + " seconds..."
-            );
-
             nextDungeonTimer =
                     NEXT_DUNGEON_DELAY;
         }
@@ -1117,12 +1180,11 @@ public class Monster {
                     .detachChild(
                             modelNode
                     );
-
-            modelNode = null;
         }
 
-        stunEffectNode = null;
+        modelNode = null;
 
+        stunEffectNode = null;
         stunParticles = null;
     }
 
@@ -1139,7 +1201,6 @@ public class Monster {
         if (ai != null) {
 
             ai.stop();
-
             ai = null;
         }
 
@@ -1155,14 +1216,7 @@ public class Monster {
         modelNode = null;
 
         stunEffectNode = null;
-
         stunParticles = null;
-
-        System.out.println(
-                "[Monster] "
-                + name
-                + " stopped."
-        );
     }
 
     // ============================================================
@@ -1241,7 +1295,6 @@ public class Monster {
                 deathTimer -= tpf;
 
                 if (deathTimer <= 0f) {
-
                     removeModel();
                 }
             }
@@ -1268,11 +1321,10 @@ public class Monster {
 
                         if (playerManager != null) {
 
-                            playerManager
-                                    .updateDungeonProgress(
-                                            nextDungeonId,
-                                            newDifficulty
-                                    );
+                            playerManager.updateDungeonProgress(
+                                    nextDungeonId,
+                                    newDifficulty
+                            );
                         }
 
                         if (app != null) {
@@ -1295,11 +1347,10 @@ public class Monster {
         }
 
         // ========================================================
-        // Обычный Monster обновляет AI
+        // AI
         // ========================================================
 
         if (ai != null) {
-
             ai.update(tpf);
         }
     }

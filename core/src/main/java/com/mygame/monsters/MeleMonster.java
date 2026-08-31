@@ -4,145 +4,56 @@ import com.jme3.math.FastMath;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
 
-/**
- * Монстр ближнего боя.
- *
- * Общая логика находится в Monster:
- *
- * - HP
- * - урон
- * - смерть
- * - HP bar
- * - stun
- * - bleed
- * - AI
- * - позиция
- * - модель
- * - анимации
- * - loot
- * - boss
- *
- * Здесь находится только логика ближнего боя.
- */
 public class MeleMonster extends Monster {
 
     // ============================================================
-    // СОСТОЯНИЕ АТАКИ
+    // АТАКА
     // ============================================================
 
-    private boolean meleeAttacking = false;
+    private float attackTimer = 0f;
 
-    private float meleeAttackTimer = 0f;
+    private float attackDelay = 0.35f;
 
-    /**
-     * Задержка от начала Attack до нанесения урона.
-     */
-    private float meleeAttackDelay = 0.35f;
+    private float attackCooldown = 0.8f;
 
-    /**
-     * Был ли уже нанесён урон
-     * в текущей атаке.
-     */
-    private boolean meleeDamageApplied = false;
+    private boolean attacking = false;
 
-    /**
-     * Текущая анимация.
-     */
-    private String currentAnimation = "";
+    private boolean damageApplied = false;
 
     // ============================================================
-    // КОНСТРУКТОР
+    // CONSTRUCTOR
     // ============================================================
 
     public MeleMonster() {
+
         super();
     }
 
     // ============================================================
-    // UPDATE
+    // COMBAT
     // ============================================================
 
     @Override
-    public void update(float tpf) {
-
-        if (!Monster.isGameRunning) {
-            return;
-        }
-
-        /*
-         * Monster обрабатывает:
-         *
-         * - stun
-         * - bleed
-         * - смерть
-         * - AI
-         *
-         * Поэтому сначала вызываем базовый update.
-         */
-        super.update(tpf);
+    public void updateCombat(
+            float tpf
+    ) {
 
         if (!isAlive()) {
             return;
         }
 
-        // ========================================================
-        // STUN
-        // ========================================================
+        if (getPlayerManager() == null) {
+            playIdle();
+            return;
+        }
 
         if (isStunned()) {
 
-            meleeAttacking = false;
-            meleeAttackTimer = 0f;
-            meleeDamageApplied = false;
+            attacking = false;
 
-            return;
-        }
+            attackTimer = 0f;
 
-        // ========================================================
-        // НЕТ ИГРОКА
-        // ========================================================
-
-        if (getPlayerManager() == null) {
-
-            meleeAttacking = false;
-            meleeAttackTimer = 0f;
-            meleeDamageApplied = false;
-
-            playIdle();
-
-            return;
-        }
-
-        Vector3f monsterPosition = getPosition();
-
-        Vector3f playerPosition =
-                getPlayerManager().getPosition();
-
-        if (monsterPosition == null ||
-                playerPosition == null) {
-
-            return;
-        }
-
-        // ========================================================
-        // ДИСТАНЦИЯ
-        // ========================================================
-
-        float distance =
-                getHorizontalDistance(
-                        monsterPosition,
-                        playerPosition
-                );
-
-        // ========================================================
-        // ИГРОК ВНЕ РАДИУСА АТАКИ
-        // ========================================================
-
-        if (distance > getAttackRange()) {
-
-            meleeAttacking = false;
-            meleeAttackTimer = 0f;
-            meleeDamageApplied = false;
+            damageApplied = false;
 
             playIdle();
 
@@ -150,86 +61,137 @@ public class MeleMonster extends Monster {
         }
 
         // ========================================================
-        // ИГРОК В РАДИУСЕ
+        // ТАЙМЕР
         // ========================================================
 
-        meleeAttacking = true;
+        if (attackTimer > 0f) {
 
-        /*
-         * Поворачиваем монстра к игроку.
-         *
-         * ВАЖНО:
-         *
-         * Этот метод учитывает базовую ориентацию
-         * модели из Monster.setModelNode().
-         */
-        rotateTowardsPlayer(playerPosition);
+            attackTimer -= tpf;
 
-        // ========================================================
-        // НАЧАЛО УДАРА
-        // ========================================================
-
-        if (!meleeDamageApplied &&
-                meleeAttackTimer <= 0f) {
-
-            startMeleeAttack();
+            if (attackTimer < 0f) {
+                attackTimer = 0f;
+            }
         }
 
         // ========================================================
-        // ТАЙМЕР УДАРА
+        // ИДЁМ К ИГРОКУ / ДИСТАНЦИЯ
         // ========================================================
 
-        if (meleeAttackTimer > 0f) {
+        if (!isPlayerInAttackRange()) {
 
-            meleeAttackTimer -= tpf;
+            attacking = false;
 
-            if (meleeAttackTimer <= 0f) {
+            damageApplied = false;
 
-                meleeAttackTimer = 0f;
+            playWalk();
+
+            return;
+        }
+
+        // ========================================================
+        // АТАКА В ПРОЦЕССЕ
+        // ========================================================
+
+        if (attacking) {
+
+            /*
+             * Наносим урон в середине атаки.
+             */
+            if (!damageApplied &&
+                    attackTimer <= 0f) {
 
                 applyMeleeDamage();
+
+                return;
             }
+
+            /*
+             * Урон уже был.
+             *
+             * Ждём cooldown.
+             */
+            if (damageApplied) {
+
+                if (attackTimer <= 0f) {
+
+                    attacking = false;
+
+                    damageApplied = false;
+
+                    startAttack();
+
+                }
+
+                return;
+            }
+
+            return;
+        }
+
+        // ========================================================
+        // НОВАЯ АТАКА
+        // ========================================================
+
+        if (attackTimer <= 0f) {
+
+            startAttack();
+
+        } else {
+
+            playIdle();
         }
     }
 
     // ============================================================
-    // НАЧАЛО АТАКИ
+    // START ATTACK
     // ============================================================
 
-    private void startMeleeAttack() {
+    private void startAttack() {
 
         if (!isAlive()) {
-            return;
-        }
-
-        if (getPlayerManager() == null) {
             return;
         }
 
         if (!isPlayerInAttackRange()) {
 
-            playIdle();
+            attacking = false;
+
+            damageApplied = false;
+
+            playWalk();
 
             return;
         }
 
-        meleeAttacking = true;
+        attacking = true;
 
-        meleeDamageApplied = false;
+        damageApplied = false;
 
+        /*
+         * Сначала запускаем Attack.
+         */
         playAttack();
 
-        meleeAttackTimer =
-                meleeAttackDelay;
+        /*
+         * Через attackDelay наносится урон.
+         */
+        attackTimer =
+                attackDelay;
+
+        System.out.println(
+                "[MeleMonster] "
+                + getName()
+                + " ATTACK START"
+        );
     }
 
     // ============================================================
-    // УРОН
+    // DAMAGE
     // ============================================================
 
     private void applyMeleeDamage() {
 
-        if (meleeDamageApplied) {
+        if (damageApplied) {
             return;
         }
 
@@ -242,17 +204,15 @@ public class MeleMonster extends Monster {
         }
 
         /*
-         * Повторно проверяем дистанцию.
-         *
-         * Игрок мог убежать во время
-         * подготовки удара.
+         * Проверяем дистанцию ещё раз.
          */
         if (!isPlayerInAttackRange()) {
 
-            meleeAttacking = false;
-            meleeDamageApplied = false;
+            attacking = false;
 
-            playIdle();
+            damageApplied = false;
+
+            playWalk();
 
             return;
         }
@@ -263,177 +223,87 @@ public class MeleMonster extends Monster {
                 );
 
         if (damage <= 0) {
-            return;
+
+            damageApplied = true;
+
+        } else {
+
+            getPlayerManager()
+                    .takeDamage(
+                            damage
+                    );
+
+            damageApplied = true;
+
+            System.out.println(
+                    "[MeleMonster] "
+                    + getName()
+                    + " hit player for "
+                    + damage
+            );
         }
-
-        getPlayerManager().takeDamage(damage);
-
-        meleeDamageApplied = true;
 
         /*
-         * После удара начинается
-         * cooldown следующей атаки.
+         * Теперь cooldown до следующей атаки.
          */
-        meleeAttackTimer =
-                getMeleeAttackCooldown();
+        attackTimer =
+                attackCooldown;
     }
 
     // ============================================================
-    // ATTACK
+    // ATTACK ANIMATION
     // ============================================================
 
-    private void playAttack() {
+    @Override
+    public void playAttack() {
 
-        playAnimationOnce("Attack");
+        /*
+         * Сбрасываем состояние анимации,
+         * чтобы следующая Attack снова запускалась.
+         */
+        currentAnimation = "";
+
+        playAnimation("Attack");
     }
 
     // ============================================================
-    // IDLE
-    // ============================================================
-
-    private void playIdle() {
-
-        playAnimationOnce("Idle");
-    }
-
-    // ============================================================
-    // ANIMATION ONCE
-    // ============================================================
-
-    private void playAnimationOnce(
-            String animationName
-    ) {
-
-        if (animationName == null ||
-                animationName.isEmpty()) {
-
-            return;
-        }
-
-        if (animationName.equals(currentAnimation)) {
-            return;
-        }
-
-        currentAnimation = animationName;
-
-        playAnimation(animationName);
-    }
-
-    // ============================================================
-    // ПОВОРОТ К ИГРОКУ
-    // ============================================================
-
-// ============================================================
-// ПОВОРОТ К ИГРОКУ
-// ============================================================
-
-private void rotateTowardsPlayer(
-        Vector3f playerPosition
-) {
-
-    if (modelNode == null ||
-            playerPosition == null) {
-
-        return;
-    }
-
-    Vector3f monsterPosition =
-            getPosition();
-
-    if (monsterPosition == null) {
-        return;
-    }
-
-    float dx =
-            playerPosition.x -
-            monsterPosition.x;
-
-    float dz =
-            playerPosition.z -
-            monsterPosition.z;
-
-    if (FastMath.abs(dx) < 0.000001f &&
-            FastMath.abs(dz) < 0.000001f) {
-
-        return;
-    }
-
-    /*
-     * Направление на игрока.
-     *
-     * atan2(dx, dz):
-     *
-     * Игрок спереди  (+Z) ->   0°
-     * Игрок справа    (+X) -> +90°
-     * Игрок сзади     (-Z) -> 180°
-     * Игрок слева     (-X) -> -90°
-     */
-    float angle =
-            FastMath.atan2(
-                    dx,
-                    dz
-            );
-
-    /*
-     * ВАЖНО:
-     *
-     * Monster.setModelNode() уже задаёт
-     * базовый поворот модели:
-     *
-     *     -90° по Y
-     *
-     * Поэтому здесь НЕ добавляем HALF_PI.
-     *
-     * Иначе модель будет повёрнута
-     * относительно игрока неправильно.
-     */
-    angle -= FastMath.HALF_PI;
-
-    com.jme3.math.Quaternion rotation =
-            new com.jme3.math.Quaternion();
-
-    rotation.fromAngles(
-            0f,
-            angle,
-            0f
-    );
-
-    modelNode.setLocalRotation(
-            rotation
-    );
-}
-
-    // ============================================================
-    // COOLDOWN
-    // ============================================================
-
-    protected float getMeleeAttackCooldown() {
-
-        return 0.8f;
-    }
-
-    // ============================================================
-    // GETTERS / SETTERS
+    // SETTERS
     // ============================================================
 
     public float getMeleeAttackDelay() {
 
-        return meleeAttackDelay;
+        return attackDelay;
     }
 
     public void setMeleeAttackDelay(
             float delay
     ) {
 
-        meleeAttackDelay =
+        attackDelay =
                 Math.max(
                         0f,
                         delay
                 );
     }
 
+    public float getMeleeAttackCooldown() {
+
+        return attackCooldown;
+    }
+
+    public void setMeleeAttackCooldown(
+            float cooldown
+    ) {
+
+        attackCooldown =
+                Math.max(
+                        0f,
+                        cooldown
+                );
+    }
+
     public boolean isMeleeAttacking() {
 
-        return meleeAttacking;
+        return attacking;
     }
 }

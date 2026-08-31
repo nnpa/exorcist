@@ -41,7 +41,9 @@ import java.util.logging.Level;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import com.jme3.anim.AnimComposer;
 import com.jme3.renderer.queue.RenderQueue;
+import com.mygame.monsters.Barbar;
 import com.mygame.monsters.DragonBoss;
 import com.mygame.monsters.FinalBoss;
 import com.mygame.monsters.RobotBoss;
@@ -343,22 +345,38 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             return;
         }
 
-        Monster skeleton = new SkeletMag();
+        Monster skeleton = new Barbar();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
         skeleton.setDropManager(dropManager);
         skeleton.setWorldManager(this);
         
-        Spatial model = null;
-        try {
-            System.out.println("[WorldManager] Loading model: Models/Monsters/SpirderBoss.gltf");
-            model = app.getAssetManager().loadModel("Models/Monsters/skeletmag.gltf");
-        } catch (Exception e) {
-            System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
-            e.printStackTrace();
-        }
+Spatial model = null;
+try {
+    // Убедитесь, что путь совпадает с реальным файлом, который вы видите в логе!
+    System.out.println("[WorldManager] Loading model: Models/Monsters/barbar/barbar.gltf");
+    model = app.getAssetManager().loadModel("Models/Monsters/barbar/barbar.gltf");
+} catch (Exception e) {
+    System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
+    e.printStackTrace();
+}
 
+if (model != null) {
+    // Используем рекурсивный поиск (метод, который уже есть в вашем классе Monster)
+    AnimComposer composer = findAnimComposer(model); 
+    
+    if (composer != null) {
+        System.out.println("=== Monster Animations List ===");
+        for (String name : composer.getAnimClipsNames()) {
+            System.out.println("Monster Found animation: " + name);
+        }
+    } else {
+        System.err.println("[WorldManager] AnimComposer NOT FOUND on model!");
+    }
+} else {
+    System.err.println("[WorldManager] Model is NULL! Проверьте правильность пути к файлу.");
+}
         Node targetNode = cityNode;
 
         if (model != null) {
@@ -388,7 +406,15 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
         testMonsterSpawned = true;
         System.out.println("[WorldManager] Test Skeleton spawned at " + spawnPos);
     }
-
+private AnimComposer findAnimComposer(Spatial spatial) {
+    if (spatial instanceof Node) {
+        for (Spatial child : ((Node) spatial).getChildren()) {
+            AnimComposer found = findAnimComposer(child);
+            if (found != null) return found;
+        }
+    }
+    return spatial.getControl(AnimComposer.class);
+}
 public Monster getMonsterByModel(Spatial model) {
     for (Monster m : activeMonsters) {
         // Проверяем прямую ссылку

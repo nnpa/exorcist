@@ -61,6 +61,21 @@ public class RangeMonster extends Monster {
 
     protected boolean projectileReleased = false;
 
+    /*
+     * Небольшой запас времени после выпуска снаряда.
+     *
+     * Нужен для того, чтобы Attack не обрывался
+     * сразу же после выпуска снаряда.
+     */
+    protected float attackAnimationTimer = 0f;
+
+    /*
+     * Длительность визуальной фазы атаки.
+     *
+     * Если твоя Attack длиннее, можно увеличить.
+     */
+    protected float attackAnimationDuration = 0.75f;
+
     // ============================================================
     // СНАРЯД
     // ============================================================
@@ -79,12 +94,6 @@ public class RangeMonster extends Monster {
     protected Texture2D projectileTexture;
 
     // ============================================================
-    // АНИМАЦИЯ
-    // ============================================================
-
-    private String currentAnimation = "";
-
-    // ============================================================
     // КОНСТРУКТОР
     // ============================================================
 
@@ -92,6 +101,12 @@ public class RangeMonster extends Monster {
 
         super();
 
+        /*
+         * RangeMonster сам не двигается.
+         *
+         * Сейчас его движение контролируется логикой
+         * самого RangeMonster.
+         */
         setMoveSpeed(0f);
     }
 
@@ -106,15 +121,19 @@ public class RangeMonster extends Monster {
             return;
         }
 
-        // --------------------------------------------------------
-        // Снаряд обновляется независимо от состояния монстра
-        // --------------------------------------------------------
+        // ========================================================
+        // СНАРЯД
+        // ========================================================
 
+        /*
+         * Снаряд должен продолжать лететь даже тогда,
+         * когда монстр уже начал другую фазу.
+         */
         updateProjectile(tpf);
 
-        // --------------------------------------------------------
+        // ========================================================
         // STUN
-        // --------------------------------------------------------
+        // ========================================================
 
         if (isStunned()) {
 
@@ -123,15 +142,15 @@ public class RangeMonster extends Monster {
             return;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // BLEED
-        // --------------------------------------------------------
+        // ========================================================
 
         updateBleed(tpf);
 
-        // --------------------------------------------------------
+        // ========================================================
         // DEATH
-        // --------------------------------------------------------
+        // ========================================================
 
         if (!isAlive()) {
 
@@ -140,9 +159,36 @@ public class RangeMonster extends Monster {
             return;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
+        // ТАЙМЕР АНИМАЦИИ АТАКИ
+        // ========================================================
+
+        if (attackAnimationTimer > 0f) {
+
+            attackAnimationTimer -= tpf;
+
+            if (attackAnimationTimer <= 0f) {
+
+                attackAnimationTimer = 0f;
+
+                /*
+                 * Если снаряд уже выпущен,
+                 * можно вернуться в Idle.
+                 */
+                if (projectileReleased) {
+
+                    projectileReleased = false;
+
+                    rangedAttacking = false;
+
+                    playIdle();
+                }
+            }
+        }
+
+        // ========================================================
         // COOLDOWN
-        // --------------------------------------------------------
+        // ========================================================
 
         if (rangedAttackTimer > 0f) {
 
@@ -153,9 +199,9 @@ public class RangeMonster extends Monster {
             }
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // НЕТ ИГРОКА
-        // --------------------------------------------------------
+        // ========================================================
 
         if (getPlayerManager() == null) {
 
@@ -163,14 +209,16 @@ public class RangeMonster extends Monster {
 
             projectileCastTimer = -1f;
 
+            attackAnimationTimer = 0f;
+
             playIdle();
 
             return;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // ПОЗИЦИИ
-        // --------------------------------------------------------
+        // ========================================================
 
         Vector3f monsterPosition =
                 getPosition();
@@ -190,9 +238,9 @@ public class RangeMonster extends Monster {
             return;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // ДИСТАНЦИЯ
-        // --------------------------------------------------------
+        // ========================================================
 
         float distance =
                 getHorizontalDistance(
@@ -200,41 +248,47 @@ public class RangeMonster extends Monster {
                         playerPosition
                 );
 
-        // --------------------------------------------------------
+        // ========================================================
         // ИГРОК ВНЕ РАДИУСА
-        // --------------------------------------------------------
+        // ========================================================
 
         if (distance > getAttackRange()) {
 
             rangedAttacking = false;
 
-            if (projectileCastTimer >= 0f) {
+            projectileCastTimer = -1f;
 
-                projectileCastTimer = -1f;
+            /*
+             * Если атака ещё не успела выпустить снаряд,
+             * отменяем её.
+             */
+            if (!projectileReleased) {
+
+                attackAnimationTimer = 0f;
+
+                playIdle();
             }
-
-            playIdle();
 
             return;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // ИГРОК В РАДИУСЕ
-        // --------------------------------------------------------
+        // ========================================================
 
         rangedAttacking = true;
 
-        // --------------------------------------------------------
+        // ========================================================
         // ПОВОРОТ
-        // --------------------------------------------------------
+        // ========================================================
 
         rotateTowardsPlayer(
                 playerPosition
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // ПОДГОТОВКА ВЫСТРЕЛА
-        // --------------------------------------------------------
+        // ========================================================
 
         if (projectileCastTimer >= 0f) {
 
@@ -244,6 +298,9 @@ public class RangeMonster extends Monster {
 
                 projectileCastTimer = -1f;
 
+                /*
+                 * Игрок всё ещё в радиусе.
+                 */
                 if (isPlayerInAttackRange()) {
 
                     releaseProjectile();
@@ -252,6 +309,8 @@ public class RangeMonster extends Monster {
 
                     rangedAttacking = false;
 
+                    attackAnimationTimer = 0f;
+
                     playIdle();
                 }
             }
@@ -259,14 +318,38 @@ public class RangeMonster extends Monster {
             return;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // НОВАЯ АТАКА
-        // --------------------------------------------------------
+        // ========================================================
 
         if (!projectileReleased &&
                 rangedAttackTimer <= 0f) {
 
             startRangedAttack();
+
+            return;
+        }
+
+        // ========================================================
+        // ОЖИДАНИЕ
+        // ========================================================
+
+        /*
+         * Пока Attack ещё проигрывается,
+         * не переключаемся на Idle.
+         */
+        if (attackAnimationTimer > 0f) {
+            return;
+        }
+
+        /*
+         * После завершения атаки ждём cooldown.
+         */
+        if (rangedAttackTimer > 0f) {
+
+            rangedAttacking = false;
+
+            playIdle();
         }
     }
 
@@ -308,7 +391,13 @@ public class RangeMonster extends Monster {
                 getAI().setStunned(false);
             }
 
+            /*
+             * Сбрасываем состояние анимации,
+             * чтобы следующая Attack точно запустилась.
+             */
             currentAnimation = "";
+
+            playIdle();
         }
     }
 
@@ -350,6 +439,10 @@ public class RangeMonster extends Monster {
             return;
         }
 
+        if (projectileReleased) {
+            return;
+        }
+
         if (!isPlayerInAttackRange()) {
 
             rangedAttacking = false;
@@ -369,112 +462,157 @@ public class RangeMonster extends Monster {
             );
         }
 
+        // ========================================================
+        // СОСТОЯНИЕ
+        // ========================================================
+
         rangedAttacking = true;
 
         projectileReleased = false;
 
+        /*
+         * Сбрасываем состояние базового Monster.
+         *
+         * Это ВАЖНО.
+         *
+         * Мы не создаём собственный currentAnimation,
+         * а используем protected currentAnimation
+         * из Monster.
+         */
+        currentAnimation = "";
+
+        // ========================================================
+        // ATTACK
+        // ========================================================
+
         playAttack();
+
+        // ========================================================
+        // ТАЙМЕР
+        // ========================================================
 
         projectileCastTimer =
                 projectileCastDelay;
+
+        attackAnimationTimer =
+                attackAnimationDuration;
+
+        System.out.println(
+                "[RangeMonster] "
+                + getName()
+                + " -> ATTACK"
+        );
     }
 
     // ============================================================
-    // ATTACK
+    // ATTACK ANIMATION
     // ============================================================
 
-    protected void playAttack() {
+    @Override
+    public void playAttack() {
 
         /*
-         * Сбрасываем название предыдущей анимации,
-         * чтобы AnimComposer получил новую команду Attack.
+         * Обязательно сбрасываем текущее имя.
+         *
+         * Monster.playAnimation() специально не запускает
+         * одинаковую анимацию второй раз.
+         *
+         * Поэтому:
+         *
+         * Attack -> Attack
+         *
+         * без этого сброса не сработает.
          */
-
         currentAnimation = "";
 
         playAnimation(
                 "Attack"
         );
 
-        currentAnimation = "Attack";
+        System.out.println(
+                "[RangeMonster Animation] "
+                + getName()
+                + " -> Attack"
+        );
     }
 
     // ============================================================
     // IDLE
     // ============================================================
 
-    protected void playIdle() {
+    @Override
+    public void playIdle() {
 
-        if (!"Idle".equals(currentAnimation)) {
-
-            currentAnimation = "Idle";
-
-            playAnimation(
-                    "Idle"
-            );
-        }
+        playAnimation(
+                "Idle"
+        );
     }
 
     // ============================================================
     // ПОВОРОТ К ИГРОКУ
     // ============================================================
 
-protected void rotateTowardsPlayer(
-        Vector3f playerPosition
-) {
+    protected void rotateTowardsPlayer(
+            Vector3f playerPosition
+    ) {
 
-    if (modelNode == null ||
-            playerPosition == null) {
+        if (modelNode == null ||
+                playerPosition == null) {
 
-        return;
+            return;
+        }
+
+        Vector3f monsterPosition =
+                getPosition();
+
+        if (monsterPosition == null) {
+            return;
+        }
+
+        float dx =
+                playerPosition.x -
+                monsterPosition.x;
+
+        float dz =
+                playerPosition.z -
+                monsterPosition.z;
+
+        if (FastMath.abs(dx) < 0.000001f &&
+                FastMath.abs(dz) < 0.000001f) {
+
+            return;
+        }
+
+        /*
+         * Направление на игрока.
+         */
+        float angle =
+                FastMath.atan2(
+                        dx,
+                        dz
+                );
+
+        /*
+         * Твоя рабочая поправка модели.
+         *
+         * -45 градусов.
+         */
+        angle -= FastMath.QUARTER_PI;
+
+        Quaternion rotation =
+                new Quaternion();
+
+        rotation.fromAngles(
+                0f,
+                angle,
+                0f
+        );
+
+        modelNode.setLocalRotation(
+                rotation
+        );
     }
 
-    Vector3f monsterPosition =
-            getPosition();
-
-    if (monsterPosition == null) {
-        return;
-    }
-
-    float dx =
-            playerPosition.x -
-            monsterPosition.x;
-
-    float dz =
-            playerPosition.z -
-            monsterPosition.z;
-
-    if (FastMath.abs(dx) < 0.000001f &&
-            FastMath.abs(dz) < 0.000001f) {
-
-        return;
-    }
-
-    float angle =
-            FastMath.atan2(
-                    dx,
-                    dz
-            );
-
-    /*
-     * Коррекция поворота модели:
-     * -45 градусов.
-     */
-    angle -= FastMath.QUARTER_PI;
-
-    Quaternion rotation =
-            new Quaternion();
-
-    rotation.fromAngles(
-            0f,
-            angle,
-            0f
-    );
-
-    modelNode.setLocalRotation(
-            rotation
-    );
-}
     // ============================================================
     // ВЫПУСК СНАРЯДА
     // ============================================================
@@ -497,6 +635,8 @@ protected void rotateTowardsPlayer(
 
             projectileReleased = false;
 
+            attackAnimationTimer = 0f;
+
             playIdle();
 
             return;
@@ -514,9 +654,9 @@ protected void rotateTowardsPlayer(
             return;
         }
 
-        /*
-         * Начальное направление.
-         */
+        // ========================================================
+        // НАПРАВЛЕНИЕ
+        // ========================================================
 
         Vector3f direction =
                 playerPosition.subtract(
@@ -542,9 +682,9 @@ protected void rotateTowardsPlayer(
         projectileDirection =
                 direction.clone();
 
-        /*
-         * Начальная позиция.
-         */
+        // ========================================================
+        // ПОЗИЦИЯ
+        // ========================================================
 
         projectilePosition =
                 monsterPosition.clone();
@@ -561,9 +701,9 @@ protected void rotateTowardsPlayer(
         projectileLife =
                 projectileMaxLife;
 
-        /*
-         * Теперь снаряд считается выпущенным.
-         */
+        // ========================================================
+        // СОЗДАНИЕ СНАРЯДА
+        // ========================================================
 
         projectileReleased = true;
 
@@ -571,24 +711,31 @@ protected void rotateTowardsPlayer(
                 projectilePosition
         );
 
-        /*
-         * Запускаем cooldown сразу после выпуска.
-         */
+        // ========================================================
+        // COOLDOWN
+        // ========================================================
 
         rangedAttackTimer =
                 rangedAttackCooldown;
 
-        /*
-         * Атака закончена.
-         */
-
-        rangedAttacking = false;
-
         projectileCastTimer = -1f;
 
-        currentAnimation = "";
+        /*
+         * ВАЖНО:
+         *
+         * Здесь больше НЕТ:
+         *
+         * currentAnimation = "";
+         * playIdle();
+         *
+         * Поэтому Attack не обрывается сразу после выстрела.
+         */
 
-        playIdle();
+        System.out.println(
+                "[RangeMonster] "
+                + getName()
+                + " projectile released"
+        );
     }
 
     // ============================================================
@@ -754,7 +901,7 @@ protected void rotateTowardsPlayer(
         }
 
         // ========================================================
-        // САМОНАВЕДЕНИЕ
+        // САМОHАВЕДЕНИЕ
         // ========================================================
 
         if (getPlayerManager() != null) {
@@ -765,20 +912,10 @@ protected void rotateTowardsPlayer(
 
             if (playerPosition != null) {
 
-                /*
-                 * Каждый кадр заново вычисляем направление
-                 * на текущую позицию игрока.
-                 */
-
                 Vector3f targetDirection =
                         playerPosition.subtract(
                                 projectilePosition
                         );
-
-                /*
-                 * Для наведения используем горизонтальное
-                 * направление.
-                 */
 
                 targetDirection.y = 0f;
 
@@ -825,11 +962,6 @@ protected void rotateTowardsPlayer(
         if (playerPosition == null) {
             return;
         }
-
-        /*
-         * Для попадания также проверяем горизонтальную
-         * дистанцию, чтобы высота игрока не мешала.
-         */
 
         float dx =
                 projectilePosition.x -
@@ -884,7 +1016,7 @@ protected void rotateTowardsPlayer(
     }
 
     // ============================================================
-    // УДАЛЕНИЕ ТОЛЬКО ВИЗУАЛА
+    // УДАЛЕНИЕ ВИЗУАЛА СНАРЯДА
     // ============================================================
 
     protected void removeProjectileVisualOnly() {
@@ -1040,6 +1172,8 @@ protected void rotateTowardsPlayer(
 
         rangedAttackTimer = 0f;
 
+        attackAnimationTimer = 0f;
+
         removeProjectile();
 
         super.onDeath();
@@ -1058,6 +1192,8 @@ protected void rotateTowardsPlayer(
         projectileCastTimer = -1f;
 
         rangedAttackTimer = 0f;
+
+        attackAnimationTimer = 0f;
 
         currentAnimation = "";
     }
@@ -1143,5 +1279,24 @@ protected void rotateTowardsPlayer(
 
     public boolean isRangedAttacking() {
         return rangedAttacking;
+    }
+
+    // ============================================================
+    // НАСТРОЙКА ДЛИТЕЛЬНОСТИ ATTACK
+    // ============================================================
+
+    public void setAttackAnimationDuration(
+            float duration
+    ) {
+
+        attackAnimationDuration =
+                Math.max(
+                        0.05f,
+                        duration
+                );
+    }
+
+    public float getAttackAnimationDuration() {
+        return attackAnimationDuration;
     }
 }
