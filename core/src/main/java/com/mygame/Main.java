@@ -242,6 +242,9 @@ inputManager.addListener(new ActionListener() {
             uiManager.update(tpf);
             uiManager.updateMap(tpf); // только если окно открыто
          }
+        if (dropManager != null) {
+            dropManager.update(tpf);
+        }
         // Камера обновляется автоматически через controlUpdate
     }
     private TrueTypeFont ttfFont;
