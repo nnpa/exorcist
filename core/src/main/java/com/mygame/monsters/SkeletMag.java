@@ -11,8 +11,8 @@ public class SkeletMag extends RangeMonster {
         setId("skeletmag");
         setName("skeletmag");
         setLevel(1);
-        setMaxHealth(1130);
-        setHealth(1130);
+        setMaxHealth(130);
+        setHealth(130);
         setDamage(5);
         setAttackRange(1.5f);
         setMoveSpeed(2.0f);
