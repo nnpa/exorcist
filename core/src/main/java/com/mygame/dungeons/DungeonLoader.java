@@ -269,8 +269,15 @@ public class DungeonLoader {
             enableShadows(model);
             if (model != null) {
                 // Применяем трансформации, если нужно
-                model.scale(2.5f);
-                model.move(0, 0.5f, 0);
+            float finalScale = 2.5f;
+
+            if (!SCALE_EXCLUSIONS.contains(monster.getId())) {
+                finalScale *= MONSTER_SCALE_MULTIPLIER;
+            }
+
+            model.scale(finalScale);
+
+model.move(0, 0.5f, 0);
                 return model;
             } else {
                 LOG.warning("Model not found for: " + monster.getClass().getSimpleName());
@@ -431,5 +438,31 @@ private void createDungeonScene(Node parentNode, String dungeonId) {
         boolean increaseDifficulty;
     }
     
-    
+    /**
+ * ID монстров (Monster.getId()), которые НЕ нужно
+ * увеличивать программно — уже нужного размера.
+ */
+private static final java.util.Set<String> SCALE_EXCLUSIONS = new java.util.HashSet<>(
+        java.util.Arrays.asList(
+                "finalboss",
+                "SpiderBoss",
+                "robotboss",
+                "wormboss",
+                "imp",
+                "barbaar",
+                "luk",
+                "goblin",
+                "ice",
+                "inferno",
+                "angel",
+                "skeletmag"
+                // добавляй сюда id монстров, которые не трогать
+        )
+);
+
+/**
+ * Во сколько раз увеличивать модели монстров
+ * (кроме тех, что в SCALE_EXCLUSIONS).
+ */
+private static final float MONSTER_SCALE_MULTIPLIER = 1.5f;
 }
