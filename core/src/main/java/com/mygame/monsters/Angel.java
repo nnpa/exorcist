@@ -332,7 +332,7 @@ public class Angel extends MeleMonster {
                     abilityStartPosition
             );
 
-
+            playAnimation("Idle");
             abilityDurationTimer -= tpf;
 
 

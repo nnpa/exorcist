@@ -148,7 +148,7 @@ public class Inferno extends MeleMonster {
              * Монстр должен стоять на месте всё время каста.
              */
             setPosition(abilityStartPosition);
-
+            playAnimation("Idle");
             abilityDurationTimer -= tpf;
 
             if (abilityDurationTimer <= 0.0f) {

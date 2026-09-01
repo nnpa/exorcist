@@ -332,7 +332,7 @@ public class WormBoss extends MeleMonster {
                     abilityStartPosition
             );
 
-
+            playAnimation("Idle");
             abilityDurationTimer -= tpf;
 
 

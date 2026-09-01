@@ -305,7 +305,7 @@ public class FinalBoss extends MeleMonster {
             setPosition(
                     abilityStartPosition
             );
-
+            playAnimation("Idle");
             abilityDurationTimer -= tpf;
 
             if (abilityDurationTimer <= 0.0f) {
