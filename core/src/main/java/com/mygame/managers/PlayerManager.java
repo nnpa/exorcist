@@ -2266,4 +2266,58 @@ private void updateGroundSnap(float tpf) {
     }
 }
 private Vector3f lastFramePos = null;
+
+
+    public float getBlockChance() {
+        return blockChance;
+    }
+
+    public float getHealPower() {
+        return healPower;
+    }
+
+    public float getIncomingHeal() {
+        return incomingHeal;
+    }
+
+    public float getHitChance() {
+        return hitChance;
+    }
+
+    public float getHolyDamagePercent() {
+        return holyDamagePercent;
+    }
+
+    public float getLightDamagePercent() {
+        return lightDamagePercent;
+    }
+
+    public float getShieldFromHeal() {
+        return shieldFromHeal;
+    }
+
+    public float getManaOnHealPercent() {
+        return manaOnHealPercent;
+    }
+
+    public float getDamageIgnored() {
+        return damageIgnored;
+    }
+
+    public float getCritDamageReduction() {
+        return critDamageReduction;
+    }
+
+    public float getWhirlwindRadius() {
+        return whirlwindRadius;
+    }
+
+    public float getKickStunDuration() {
+        return kickStunDuration;
+    }
+
+    public float getRageAttackSpeed() {
+        return rageAttackSpeed;
+    }
+    
 }

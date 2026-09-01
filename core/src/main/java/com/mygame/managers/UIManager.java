@@ -175,11 +175,15 @@ public class UIManager {
             settingsWindow.hide();
         }
         if (!"blacksmith".equals(keepOpen)
-        && blacksmithWindow != null
-        && blacksmithWindow.isVisible()) {
-    blacksmithWindow.hide();
-}
-        
+             && blacksmithWindow != null
+             && blacksmithWindow.isVisible()) {
+             blacksmithWindow.hide();
+        }
+        if (!"characterStats".equals(keepOpen)
+                && characterStatsWindow != null
+                && characterStatsWindow.isVisible()) {
+            characterStatsWindow.hide();
+        }
     }
 
     private SimpleApplication app;
@@ -1088,6 +1092,11 @@ private void applyStoredLanguage() {
     private void setupKeyboardShortcuts() {
         // Добавляем маппинги всегда
         app.getInputManager().addMapping(
+            KEY_CHARACTER_STATS,
+            new KeyTrigger(KeyInput.KEY_C)
+        );
+        
+        app.getInputManager().addMapping(
                 KEY_SKILL1,
                 new KeyTrigger(KeyInput.KEY_1)
         );
@@ -1153,7 +1162,9 @@ private void applyStoredLanguage() {
                         }
 
                         switch (name) {
-
+                            case KEY_CHARACTER_STATS:
+                                toggleCharacterStats();
+                                break;
                             case KEY_SKILL1:
 
                                 if (playerManager != null) {
@@ -1242,7 +1253,8 @@ private void applyStoredLanguage() {
                 KEY_HEALTH_POTION,
                 KEY_MANA_POTION,
                 KEY_INVENTORY,
-                KEY_TALENTS
+                KEY_TALENTS,
+                KEY_CHARACTER_STATS
         );
     }
 
@@ -4240,6 +4252,28 @@ public void toggleBlacksmith() {
         closeAllWindowsExcept("blacksmith");
         w.show();
         SoundManager.playSound(SoundManager.SOUND_WINDOW_TRADER);
+    }
+}
+private CharacterStatsWindow characterStatsWindow;
+private static final String KEY_CHARACTER_STATS = "characterStats";
+public void toggleCharacterStats() {
+
+    if (characterStatsWindow == null) {
+
+        if (playerManager == null) {
+            return;
+        }
+
+        characterStatsWindow = new CharacterStatsWindow(app, this, playerManager);
+    }
+
+    if (characterStatsWindow.isVisible()) {
+        characterStatsWindow.hide();
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_CLOSE);
+    } else {
+        closeAllWindowsExcept("characterStats");
+        characterStatsWindow.show();
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
     }
 }
 }
