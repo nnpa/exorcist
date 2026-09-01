@@ -1624,13 +1624,13 @@ public class PlayerManager {
         }
 
         Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Particle.j3md");
-        healParticles = new ParticleEmitter("HealParticles", ParticleMesh.Type.Triangle, 30);
-        healParticles.setMaterial(particleMat);
+healParticles = new ParticleEmitter("HealParticles", ParticleMesh.Type.Triangle, 220);
+healParticles.setMaterial(particleMat);
         healParticles.setImagesX(1);
         healParticles.setImagesY(1);
         healParticles.setShape(new EmitterSphereShape(Vector3f.ZERO, 1.2f));
-        healParticles.setStartSize(0.3f);
-        healParticles.setEndSize(0.05f);
+healParticles.setStartSize(0.05f);
+healParticles.setEndSize(0.01f);
         healParticles.setStartColor(new ColorRGBA(0.2f, 1f, 0.2f, 0.8f));
         healParticles.setEndColor(new ColorRGBA(0f, 0.5f, 0f, 0f));
 
@@ -1687,14 +1687,13 @@ public class PlayerManager {
 
         Material particleMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Particle.j3md");
 
-        whirlwindParticles = new ParticleEmitter("WhirlwindParticles", ParticleMesh.Type.Triangle, 40);
-        whirlwindParticles.setMaterial(particleMat);
+        whirlwindParticles = new ParticleEmitter("WhirlwindParticles", ParticleMesh.Type.Triangle, 220);        whirlwindParticles.setMaterial(particleMat);
         whirlwindParticles.setImagesX(1);
         whirlwindParticles.setImagesY(1);
         whirlwindParticles.setStartColor(new ColorRGBA(1f, 1f, 1f, 0.7f));
         whirlwindParticles.setEndColor(new ColorRGBA(1f, 1f, 1f, 0f));
-        whirlwindParticles.setStartSize(0.25f);
-        whirlwindParticles.setEndSize(0.05f);
+whirlwindParticles.setStartSize(0.05f);
+whirlwindParticles.setEndSize(0.01f);
         whirlwindParticles.setShape(new EmitterSphereShape(Vector3f.ZERO, 0.1f));
 
         ParticleInfluencer inf = whirlwindParticles.getParticleInfluencer();
