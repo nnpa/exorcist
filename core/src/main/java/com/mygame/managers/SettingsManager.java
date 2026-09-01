@@ -10,6 +10,7 @@ public class SettingsManager {
     private int screenHeight = 720;
     private float soundVolume = 0.5f; // 0..1
     private String language = "en";   // "en" или "ru"
+    private boolean hideControlsHelp = false;
     
     private static SettingsManager instance;
     
@@ -30,6 +31,7 @@ public void load() {
         screenHeight = Integer.parseInt(props.getProperty("screenHeight", "720"));
         soundVolume = Float.parseFloat(props.getProperty("soundVolume", "0.5"));
         language = props.getProperty("language", "en"); // по умолчанию английский
+        hideControlsHelp = Boolean.parseBoolean(props.getProperty("hideControlsHelp", "false"));
     } catch (IOException e) {
         // Файла нет – сохраняем дефолтные настройки
         save();
@@ -42,6 +44,7 @@ public void load() {
         props.setProperty("screenHeight", String.valueOf(screenHeight));
         props.setProperty("soundVolume", String.valueOf(soundVolume));
         props.setProperty("language", language);
+        props.setProperty("hideControlsHelp", String.valueOf(hideControlsHelp));
         try (OutputStream out = new FileOutputStream(SETTINGS_FILE)) {
             props.store(out, "Game Settings");
         } catch (IOException e) {
@@ -61,4 +64,7 @@ public void load() {
     }
     public String getLanguage() { return language; }
     public void setLanguage(String lang) { language = lang; save(); }
+
+    public boolean isHideControlsHelp() { return hideControlsHelp; }
+    public void setHideControlsHelp(boolean hide) { hideControlsHelp = hide; save(); }
 }

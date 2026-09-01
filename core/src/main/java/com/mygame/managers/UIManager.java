@@ -184,6 +184,11 @@ public class UIManager {
                 && characterStatsWindow.isVisible()) {
             characterStatsWindow.hide();
         }
+        if (!"controlsHelp".equals(keepOpen)
+                && controlsHelpWindow != null
+                && controlsHelpWindow.isVisible()) {
+            controlsHelpWindow.hide();
+        }
     }
 
     private SimpleApplication app;
@@ -2774,12 +2779,13 @@ private void createTeleporterDialog() {
             hideRegisterScreen();
 
             showHUD();
-
+            
             updatePlayerStats();
             updatePotionCounts();
 
             hideBackground();
-
+            showControlsHelpIfNeeded();
+            
         } else {
 
             hideHUD();
@@ -4275,5 +4281,27 @@ public void toggleCharacterStats() {
         characterStatsWindow.show();
         SoundManager.playSound(SoundManager.SOUND_WINDOW_TALENTS);
     }
+}
+
+private ControlsHelpWindow controlsHelpWindow;
+private boolean controlsHelpAttemptedThisSession = false;
+public void showControlsHelpIfNeeded() {
+
+    if (controlsHelpAttemptedThisSession) {
+        return;
+    }
+
+    controlsHelpAttemptedThisSession = true;
+
+    if (SettingsManager.getInstance().isHideControlsHelp()) {
+        return;
+    }
+
+    if (controlsHelpWindow == null) {
+        controlsHelpWindow = new ControlsHelpWindow(app, this);
+    }
+
+    closeAllWindowsExcept("controlsHelp");
+    controlsHelpWindow.show();
 }
 }
