@@ -22,14 +22,18 @@ import com.jme3.texture.Texture;
 import com.mygame.managers.DropManager;
 import com.mygame.managers.PlayerManager;
 import com.mygame.managers.WorldManager;
+import com.mygame.monsters.Angel;
 import com.mygame.monsters.Barbar;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.monsters.BossMonster;
 import com.mygame.monsters.Demon;
+import com.mygame.monsters.FinalBoss;
 import com.mygame.monsters.Goblin;
 import com.mygame.monsters.Head;
 import com.mygame.monsters.Ice;
+import com.mygame.monsters.Imp;
+import com.mygame.monsters.Inferno;
 import com.mygame.monsters.Luk;
 import com.mygame.monsters.Osa;
 import com.mygame.monsters.Raptor;
@@ -37,6 +41,7 @@ import com.mygame.monsters.RobotBoss;
 import com.mygame.monsters.Root;
 import com.mygame.monsters.Scorpion;
 import com.mygame.monsters.Sgolem;
+import com.mygame.monsters.SkeletMag;
 import com.mygame.monsters.Snake;
 import com.mygame.monsters.SpiderBoss;
 import com.mygame.monsters.WormBoss;
@@ -244,6 +249,16 @@ public class DungeonLoader {
             modelPath = "Models/Monsters/luk/luk.gltf"; // если есть такая модель
         }else if (monster instanceof Goblin) {
             modelPath = "Models/Monsters/goblin/goblin.gltf"; // если есть такая модель
+        }else if (monster instanceof Imp) {
+            modelPath = "Models/Monsters/imp/imp.gltf"; // если есть такая модель
+        }else if (monster instanceof Angel) {
+            modelPath = "Models/Monsters/angel/angel.gltf"; // если есть такая модель
+        }else if (monster instanceof Inferno) {
+            modelPath = "Models/Monsters/inferno/inferno.gltf"; // если есть такая модель
+        }else if (monster instanceof SkeletMag) {
+            modelPath = "Models/Monsters/skeletmag.gltf"; // если есть такая модель
+        }else if (monster instanceof FinalBoss) {
+            modelPath = "Models/Monsters/finalboss.gltf"; // если есть такая модель
         }else {
             // По умолчанию – скелет
             modelPath = "Models/Monsters/skeleton_warrior.gltf";
@@ -292,44 +307,118 @@ private void enableShadows(Spatial spatial) {
         }
     }
 }
-    private void createDungeonScene(Node parentNode, String dungeonId) {
-        // ... (без изменений, как было)
-        try {
-            Spatial sceneModel = app.getAssetManager().loadModel("Models/Dungeons/" + dungeonId + ".gltf");
-           sceneModel.setShadowMode(
-             RenderQueue.ShadowMode.Receive
-           );
-            if (sceneModel != null) {
-                if (bulletAppState != null) {
-                    CollisionShape shape = CollisionShapeFactory.createMeshShape(sceneModel);
-                    RigidBodyControl physics = new RigidBodyControl(shape, 0);
-                    sceneModel.addControl(physics);
-                    bulletAppState.getPhysicsSpace().add(physics);
-                }
-                parentNode.attachChild(sceneModel);
-                LOG.info("Dungeon scene model loaded for " + dungeonId);
-                return;
-            }
-        } catch (Exception e) {
-            LOG.warning("No scene model found for " + dungeonId + ", creating default floor.");
-        }
+private void createDungeonScene(Node parentNode, String dungeonId) {
 
-        Box floorBox = new Box(20f, 0.1f, 20f);
-        Geometry floor = new Geometry("DungeonFloor", floorBox);
-        Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", new ColorRGBA(0.2f, 0.15f, 0.1f, 1f));
-        floor.setMaterial(mat);
-        floor.move(0, -0.05f, 0);
+    String newStylePath =
+            "Models/Dungeons/"
+            + dungeonId
+            + "/"
+            + dungeonId
+            + ".gltf";
 
-        if (bulletAppState != null) {
-            RigidBodyControl floorPhysics = new RigidBodyControl(0f);
-            floor.addControl(floorPhysics);
-            bulletAppState.getPhysicsSpace().add(floorPhysics);
-        }
+    String oldStylePath =
+            "Models/Dungeons/"
+            + dungeonId
+            + ".gltf";
 
-        parentNode.attachChild(floor);
+    Spatial sceneModel = null;
+    String loadedPath = null;
+
+    // ================================================================
+    // СНАЧАЛА НОВАЯ СТРУКТУРА: Models/Dungeons/<id>/<id>.gltf
+    // ================================================================
+
+    try {
+
+        sceneModel = app.getAssetManager().loadModel(newStylePath);
+        loadedPath = newStylePath;
+
+    } catch (Exception e) {
+
+        LOG.info(
+                "No dungeon model at "
+                + newStylePath
+                + ", trying legacy path..."
+        );
     }
 
+    // ================================================================
+    // ЕСЛИ НЕ НАШЛИ — СТАРАЯ СТРУКТУРА: Models/Dungeons/<id>.gltf
+    // ================================================================
+
+    if (sceneModel == null) {
+
+        try {
+
+            sceneModel = app.getAssetManager().loadModel(oldStylePath);
+            loadedPath = oldStylePath;
+
+        } catch (Exception e) {
+
+            LOG.warning(
+                    "No scene model found at "
+                    + newStylePath
+                    + " or "
+                    + oldStylePath
+                    + ", creating default floor."
+            );
+        }
+    }
+
+    // ================================================================
+    // МОДЕЛЬ НАЙДЕНА
+    // ================================================================
+
+    if (sceneModel != null) {
+
+        sceneModel.setShadowMode(
+                RenderQueue.ShadowMode.Receive
+        );
+
+        if (bulletAppState != null) {
+
+            CollisionShape shape =
+                    CollisionShapeFactory.createMeshShape(sceneModel);
+
+            RigidBodyControl physics =
+                    new RigidBodyControl(shape, 0);
+
+            sceneModel.addControl(physics);
+
+            bulletAppState.getPhysicsSpace().add(physics);
+        }
+
+        parentNode.attachChild(sceneModel);
+
+        LOG.info(
+                "Dungeon scene model loaded for "
+                + dungeonId
+                + " from "
+                + loadedPath
+        );
+
+        return;
+    }
+
+    // ================================================================
+    // FALLBACK — ПРОСТОЙ ПОЛ
+    // ================================================================
+
+    Box floorBox = new Box(20f, 0.1f, 20f);
+    Geometry floor = new Geometry("DungeonFloor", floorBox);
+    Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+    mat.setColor("Color", new ColorRGBA(0.2f, 0.15f, 0.1f, 1f));
+    floor.setMaterial(mat);
+    floor.move(0, -0.05f, 0);
+
+    if (bulletAppState != null) {
+        RigidBodyControl floorPhysics = new RigidBodyControl(0f);
+        floor.addControl(floorPhysics);
+        bulletAppState.getPhysicsSpace().add(floorPhysics);
+    }
+
+    parentNode.attachChild(floor);
+}
     // Класс для десериализации JSON
     private static class MonsterSpawnData {
         String className;

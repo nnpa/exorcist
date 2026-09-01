@@ -1215,7 +1215,7 @@ private void applyStoredLanguage() {
                             case KEY_INVENTORY:
 
                                 toggleInventory();
-                                flashButton(inventoryButton);
+                                //flashButton(inventoryButton);
                                 break;
 
                             case KEY_TALENTS:
@@ -1590,24 +1590,6 @@ private void applyStoredLanguage() {
 
         hudButtons.add(skill4Btn);
 
-        inventoryButton =
-                createIconOnlyButton(
-                        "Interface/Icons/backpack.png",
-                        buttonSizeScaled
-                );
-
-        inventoryButton.addClickCommands(
-                (source) -> {
-
-                    SoundManager.playSound(
-                            SoundManager.SOUND_CLICK
-                    );
-
-                    toggleInventory();
-                }
-        );
-
-        hudButtons.add(inventoryButton);
 
         talentButton =
                 new Button("T");

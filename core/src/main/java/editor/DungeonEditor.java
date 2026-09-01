@@ -7,12 +7,16 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.mygame.Main;
 import com.mygame.dungeons.Dungeon;
+import com.mygame.monsters.Angel;
 import com.mygame.monsters.Barbar;
 import com.mygame.monsters.Demon;
 import com.mygame.monsters.DragonBoss;
+import com.mygame.monsters.FinalBoss;
 import com.mygame.monsters.Goblin;
 import com.mygame.monsters.Head;
 import com.mygame.monsters.Ice;
+import com.mygame.monsters.Imp;
+import com.mygame.monsters.Inferno;
 import com.mygame.monsters.Luk;
 import com.mygame.monsters.Monster;
 import com.mygame.monsters.Osa;
@@ -21,6 +25,7 @@ import com.mygame.monsters.RobotBoss;
 import com.mygame.monsters.Root;
 import com.mygame.monsters.Scorpion;
 import com.mygame.monsters.Sgolem;
+import com.mygame.monsters.SkeletMag;
 import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.monsters.Snake;
 import com.mygame.monsters.SpiderBoss;
@@ -225,10 +230,12 @@ private void addMonster(Class<? extends Monster> cls) {
 
     private List<Class<? extends Monster>> getMonsterClasses() {
         List<Class<? extends Monster>> classes = new ArrayList<>();
-        classes.add(Barbar.class);
-        classes.add(Luk.class);
-        classes.add(Ice.class);
-        classes.add(Goblin.class);
+        classes.add(Imp.class);
+        classes.add(Inferno.class);
+        classes.add(Angel.class);
+        classes.add(SkeletMag.class);
+
+        classes.add(FinalBoss.class);
         
         classes.add(DragonBoss.class);
         return classes;
