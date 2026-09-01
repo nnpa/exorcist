@@ -174,6 +174,12 @@ public class UIManager {
                 && settingsWindow.isVisible()) {
             settingsWindow.hide();
         }
+        if (!"blacksmith".equals(keepOpen)
+        && blacksmithWindow != null
+        && blacksmithWindow.isVisible()) {
+    blacksmithWindow.hide();
+}
+        
     }
 
     private SimpleApplication app;
@@ -2780,7 +2786,8 @@ private void createTeleporterDialog() {
                 || (traderWindow != null
                     && traderWindow.isVisible())
                 || (auctionWindow != null
-                    && auctionWindow.isVisible());
+                    && auctionWindow.isVisible()
+                || (blacksmithWindow != null && blacksmithWindow.isVisible()));
     }
 
     // ============================================================
@@ -2921,6 +2928,9 @@ private void createTeleporterDialog() {
 
             authRawInputListener = null;
         }
+        if (blacksmithWindow != null) {
+    blacksmithWindow.cleanup();
+}
     }
 
     public Node getGuiNode() {
@@ -3778,20 +3788,37 @@ private void createTeleporterDialog() {
             toggleBestiaryWindow();
         });
         bestiaryButton.setCullHint(Node.CullHint.Always);
+        //guiNode.attachChild(bestiaryButton);
+    }
+
+public void showLoginBottomButtons() {
+
+    if (creditsButton != null && !guiNode.hasChild(creditsButton)) {
+        guiNode.attachChild(creditsButton);
+    }
+
+    if (bestiaryButton != null && !guiNode.hasChild(bestiaryButton)) {
         guiNode.attachChild(bestiaryButton);
     }
 
-    public void showLoginBottomButtons() {
-        if (creditsButton != null) creditsButton.setCullHint(Node.CullHint.Never);
-        if (bestiaryButton != null) bestiaryButton.setCullHint(Node.CullHint.Never);
-        loginButtonsVisible = true;
+    if (creditsButton != null) creditsButton.setCullHint(Node.CullHint.Never);
+    if (bestiaryButton != null) bestiaryButton.setCullHint(Node.CullHint.Never);
+
+    loginButtonsVisible = true;
+}
+
+public void hideLoginBottomButtons() {
+
+    if (creditsButton != null && guiNode.hasChild(creditsButton)) {
+        guiNode.detachChild(creditsButton);
     }
 
-    public void hideLoginBottomButtons() {
-        if (creditsButton != null) creditsButton.setCullHint(Node.CullHint.Always);
-        if (bestiaryButton != null) bestiaryButton.setCullHint(Node.CullHint.Always);
-        loginButtonsVisible = false;
+    if (bestiaryButton != null && guiNode.hasChild(bestiaryButton)) {
+        guiNode.detachChild(bestiaryButton);
     }
+
+    loginButtonsVisible = false;
+}
 
     // ============================================================
     // CREDITS WINDOW
@@ -4194,4 +4221,25 @@ public void toggleBestiaryWindow() {
 private boolean bestiaryVisible = false;
 
 private int bestiaryCurrentIndex = 0;
+private BlacksmithWindow blacksmithWindow;
+
+public BlacksmithWindow getBlacksmithWindow() {
+    if (blacksmithWindow == null) {
+        blacksmithWindow = new BlacksmithWindow(app, this);
+    }
+    return blacksmithWindow;
+}
+public void toggleBlacksmith() {
+
+    BlacksmithWindow w = getBlacksmithWindow();
+
+    if (w.isVisible()) {
+        w.hide();
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_CLOSE);
+    } else {
+        closeAllWindowsExcept("blacksmith");
+        w.show();
+        SoundManager.playSound(SoundManager.SOUND_WINDOW_TRADER);
+    }
+}
 }

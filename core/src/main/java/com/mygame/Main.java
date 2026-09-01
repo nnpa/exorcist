@@ -351,7 +351,7 @@ public void stop() {
         if (worldManager.getCityNode() != null) {
             for (Spatial child : worldManager.getCityNode().getChildren()) {
                 if (child.getName() != null && child.getName().equals("Teleporter")) {
-                    if (child.getWorldTranslation().distance(groundPoint) < 1.5f) { teleporter = child; break; }
+                    if (child.getWorldTranslation().distance(groundPoint) < 2.5f) { teleporter = child; break; }
                 }
             }
         }
@@ -361,7 +361,7 @@ public void stop() {
         if (worldManager.getNpcNode() != null) {
             for (Spatial child : worldManager.getNpcNode().getChildren()) {
                 if (child.getName() != null && child.getName().equals("NPC_Trader")) {
-                    if (child.getWorldTranslation().distance(groundPoint) < 1.5f) { npc = child; break; }
+                    if (child.getWorldTranslation().distance(groundPoint) < 2.5f) { npc = child; break; }
                 }
             }
         }
@@ -371,12 +371,20 @@ public void stop() {
         if (worldManager.getNpcNode() != null) {
             for (Spatial child : worldManager.getNpcNode().getChildren()) {
                 if (child.getName() != null && child.getName().equals("NPC_Auctioneer")) {
-                    if (child.getWorldTranslation().distance(groundPoint) < 1.5f) { auctioneer = child; break; }
+                    if (child.getWorldTranslation().distance(groundPoint) < 2.5f) { auctioneer = child; break; }
                 }
             }
         }
         if (auctioneer != null) { if (uiManager != null) uiManager.openAuction(); return; }
-
+        Spatial blacksmith = null;
+if (worldManager.getNpcNode() != null) {
+    for (Spatial child : worldManager.getNpcNode().getChildren()) {
+        if (child.getName() != null && child.getName().equals("NPC_Blacksmith")) {
+            if (child.getWorldTranslation().distance(groundPoint) < 2.5f) { blacksmith = child; break; }
+        }
+    }
+}
+if (blacksmith != null) { if (uiManager != null) uiManager.toggleBlacksmith(); return; }
         Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f);
         if (clicked != null) {
             String objectName = clicked.getName();

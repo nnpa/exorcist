@@ -43,6 +43,22 @@ public class ItemGenerator {
         }
     }
 
+    // ================================================================
+    // GEMS (нельзя одеть, отдельный тип "Gem")
+    // ================================================================
+
+    public static final String GEM_TYPE = "Gem";
+
+    public static final String GEM_RUBY = "ruby";
+    public static final String GEM_DIAMOND = "diamond";
+    public static final String GEM_EMERALD = "emerald";
+
+    private static final List<String> GEM_KINDS = Arrays.asList(
+            GEM_RUBY,
+            GEM_DIAMOND,
+            GEM_EMERALD
+    );
+
     private static String getLocalizedOrFallback(String key, String fallback) {
         String value = LocalizationManager.getInstance().get(key);
         if (value == null || value.startsWith("???")) {
@@ -126,13 +142,55 @@ public class ItemGenerator {
         return item;
     }
 
+    // ================================================================
+    // ГЕНЕРАЦИЯ ГЕМА
+    // ================================================================
+
+    public static Item generateGem(String gemKind, int difficulty) {
+
+        if (!GEM_KINDS.contains(gemKind)) {
+            gemKind = GEM_KINDS.get(random.nextInt(GEM_KINDS.size()));
+        }
+
+        String name = getLocalizedOrFallback("gem." + gemKind, capitalize(gemKind));
+        String iconPath = "Icons/Items/Gem/" + gemKind + ".png";
+        String id = UUID.randomUUID().toString();
+
+        Item item = new Item(
+                id,
+                name,
+                GEM_TYPE,
+                1,
+                ItemRarity.RARE,
+                "",
+                0,
+                0,
+                iconPath
+        );
+
+        item.setDifficulty(Math.max(1, difficulty));
+
+        return item;
+    }
+
+    public static Item generateRandomGem(int difficulty) {
+        String kind = GEM_KINDS.get(random.nextInt(GEM_KINDS.size()));
+        return generateGem(kind, difficulty);
+    }
+
+    public static List<String> getGemKinds() {
+        return GEM_KINDS;
+    }
+
+    private static String capitalize(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
     private static String generateLocalizedName(String type) {
-        // Выбираем случайный префикс
         String prefixKey = PREFIX_KEYS[random.nextInt(PREFIX_KEYS.length)];
-        // Если ключ отсутствует в словаре, используем "Old" как fallback
         String prefix = getLocalizedOrFallback(prefixKey, "Old");
 
-        // Суффикс зависит от типа
         String[] suffixKeys = SUFFIX_KEYS_BY_TYPE.get(type);
         if (suffixKeys == null) {
             suffixKeys = new String[]{"item.suffix.default.0", "item.suffix.default.1", "item.suffix.default.2"};

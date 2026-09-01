@@ -2025,7 +2025,15 @@ public void onMouseMotionEvent(
         if (item == null) {
             return;
         }
+if ("Gem".equals(item.getType())) {
 
+        System.out.println(
+                "[InventoryManager] Gem cannot be equipped: "
+                + item.getName()
+        );
+
+        return;
+    }
         if (networkManager != null) {
 
             isProcessing = true;
@@ -2488,6 +2496,7 @@ public void hide() {
 
             setVisible(true);
         }
+        refreshGemOverlays();
     }
 
     // ================================================================
@@ -2695,5 +2704,189 @@ private void updateDragCursor(
             mouseY - size / 2f,
             1000f
     );
+}
+// ================================================================
+// GEM OVERLAYS (добавлено — старые методы не изменялись)
+// ================================================================
+
+private Map<String, List<Map<String, Object>>> itemSockets = new java.util.HashMap<>();
+private final List<Spatial> gemOverlayElements = new ArrayList<>();
+private static final float GEM_OVERLAY_SIZE = 16f;
+
+/**
+ * Запрашивает у сервера актуальные сокеты/камни по всем предметам
+ * персонажа и перерисовывает маленькие иконки поверх ячеек.
+ *
+ * Вызывается из updateUI() (см. добавленную строку внизу этого файла).
+ */
+public void refreshGemOverlays() {
+
+    if (networkManager == null) {
+        return;
+    }
+
+    networkManager.getAllItemSockets().thenAccept(result -> {
+
+        app.enqueue(() -> {
+
+            if (result != null) {
+                itemSockets = result;
+            }
+
+            rebuildGemOverlays();
+
+            return null;
+        });
+    });
+}
+
+private void rebuildGemOverlays() {
+
+    for (Spatial s : gemOverlayElements) {
+        if (s.getParent() != null) {
+            s.getParent().detachChild(s);
+        }
+    }
+    gemOverlayElements.clear();
+
+    if (!isVisible) {
+        return;
+    }
+
+    // ---- те же формулы позиционирования, что и в createUI() ----
+
+    float eqWidth = 250 * scale;
+    float eqHeight = 450 * scale;
+
+    float invWidth = 400 * scale;
+    float invHeight = (350 + 100) * scale;
+
+    float spacing = 30 * scale;
+
+    float totalWidth = eqWidth + spacing + invWidth;
+
+    float startX = (currentScreenWidth - totalWidth) / 2;
+
+    float startY = (currentScreenHeight - (eqHeight + invHeight) / 2) / 2 - 100 * scale;
+
+    float slotSize = 60 * scale;
+
+    float shiftDown = slotSize * 1;
+
+    float eqX = startX;
+    float eqY = startY + 100 * scale;
+
+    float invX = startX + eqWidth + spacing;
+    float invY = startY + 50 * scale;
+
+    float offsetY = 70 * scale;
+
+    // ---- слоты экипировки: helmet=0, chest=1, weapon=2, shield=3, legs=4, boots=5, gloves=6 ----
+
+    addGemOverlayForCell(equipment[0], eqX + 95 * scale, eqY + 320 * scale + offsetY - shiftDown, slotSize);
+    addGemOverlayForCell(equipment[2], eqX + 160 * scale, eqY + 250 * scale + offsetY - shiftDown, slotSize);
+    addGemOverlayForCell(equipment[3], eqX + 30 * scale, eqY + 250 * scale + offsetY - shiftDown, slotSize);
+    addGemOverlayForCell(equipment[1], eqX + 95 * scale, eqY + 180 * scale + offsetY - shiftDown, slotSize);
+    addGemOverlayForCell(equipment[4], eqX + 95 * scale, eqY + 110 * scale + offsetY - shiftDown, slotSize);
+    addGemOverlayForCell(equipment[5], eqX + 95 * scale, eqY + 40 * scale + offsetY - shiftDown, slotSize);
+    addGemOverlayForCell(equipment[6], eqX + 30 * scale, eqY + 110 * scale + offsetY - shiftDown, slotSize);
+
+    // ---- ячейки инвентаря ----
+
+    float cellSize = 55 * scale;
+    float spacingCell = 8 * scale;
+    float paddingLeft = 40 * scale;
+    float paddingTop = 40 * scale;
+
+    float startXCell = invX + paddingLeft;
+    float startYCell = invY + invHeight - paddingTop - 50 * scale;
+
+    for (int i = 0; i < inventoryItems.length; i++) {
+
+        int col = i % 4;
+        int row = i / 4;
+
+        float x = startXCell + col * (cellSize + spacingCell);
+        float y = startYCell - row * (cellSize + spacingCell);
+
+        addGemOverlayForCell(inventoryItems[i], x, y, cellSize);
+    }
+}
+
+@SuppressWarnings("unchecked")
+private void addGemOverlayForCell(Item item, float cellX, float cellY, float cellSize) {
+
+    if (item == null) {
+        return;
+    }
+
+    List<Map<String, Object>> sockets = itemSockets.get(item.getId());
+
+    if (sockets == null || sockets.isEmpty()) {
+        return;
+    }
+
+    float overlaySize = GEM_OVERLAY_SIZE * scale;
+    float gap = 2f * scale;
+
+    float gemX = cellX + cellSize - overlaySize;
+    float gemY = cellY + cellSize - overlaySize;
+
+    for (Map<String, Object> socketEntry : sockets) {
+
+        Object gemObj = socketEntry.get("gem");
+
+        if (!(gemObj instanceof Map)) {
+            continue;
+        }
+
+        Map<String, Object> gemMap = (Map<String, Object>) gemObj;
+
+        Object iconPathObj = gemMap.get("iconPath");
+        String iconPath = iconPathObj != null ? iconPathObj.toString() : null;
+
+        Geometry gemIcon = new Geometry(
+                "GemOverlay_" + item.getId() + "_" + socketEntry.get("index"),
+                new Quad(overlaySize, overlaySize)
+        );
+
+        Material mat = new Material(
+                app.getAssetManager(),
+                "Common/MatDefs/Misc/Unshaded.j3md"
+        );
+
+        Texture tex = null;
+
+        if (iconPath != null && !iconPath.isEmpty()) {
+
+            try {
+                tex = app.getAssetManager().loadTexture(iconPath);
+            } catch (Exception e) {
+                tex = null;
+            }
+        }
+
+        if (tex != null) {
+            mat.setTexture("ColorMap", tex);
+        } else {
+            mat.setColor("Color", ColorRGBA.Red);
+        }
+
+        gemIcon.setMaterial(mat);
+
+        gemIcon.setLocalTranslation(gemX, gemY, 2f);
+
+        /*
+         * Как и у eqBg/invBg — помечаем как непикабельный,
+         * чтобы иконка не перехватывала клики по ячейке под ней.
+         */
+        gemIcon.setUserData("pickable", false);
+
+        inventoryNode.attachChild(gemIcon);
+
+        gemOverlayElements.add(gemIcon);
+
+        gemX -= (overlaySize + gap);
+    }
 }
 }

@@ -23,13 +23,11 @@ public class SkeletonWarrior extends MeleMonster {
         
         // Передаём difficulty = 1 для базовых монстров (в реальности сложность будет передаваться из DungeonLoader)
         int diff = 1;
-        loot.addEntry(ItemGenerator.generateItem(1, "Weapon", diff), 0.25f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Helmet", diff), 0.2f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Chest", diff), 0.2f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Shield", diff), 0.15f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Legs", diff), 0.2f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Boots", diff), 0.15f);
-        loot.addEntry(ItemGenerator.generateItem(1, "Gloves", diff), 0.15f);
+
+loot.addEntry(ItemGenerator.generateRandomGem(diff), 1.05f);
+loot.addEntry(ItemGenerator.generateRandomGem(diff), 1.05f);
+
+loot.addEntry(ItemGenerator.generateRandomGem(diff), 1.05f);
 
         setLootTable(loot);
     }

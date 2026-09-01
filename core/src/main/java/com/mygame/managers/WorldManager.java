@@ -243,9 +243,9 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             Spatial blacksmith = app.getAssetManager().loadModel("Models/City/NPC/Black/black.gltf");
             if (blacksmith != null) {
                 System.out.println("[WorldManager] Blacksmith model loaded successfully!");
-                blacksmith.scale(0.7f);
+                blacksmith.scale(1.0f);
                 blacksmith.rotate(0, FastMath.PI, 0);
-                blacksmith.setLocalTranslation(11.341951f, -1.9861704f, -6.05198f);
+                blacksmith.setLocalTranslation(11.341951f, -1.3855801f, -6.05198f);
                 blacksmith.setName("NPC_Blacksmith");
                 npcNode.attachChild(blacksmith);
                 System.out.println("[WorldManager] Blacksmith placed at (11.342, -1.986, -6.052)");
@@ -346,7 +346,7 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
             return;
         }
 
-        Monster skeleton = new WormBoss();
+        Monster skeleton = new SkeletonWarrior();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);

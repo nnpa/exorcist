@@ -1549,7 +1549,7 @@ public class PlayerManager {
             Vector3f dir = new Vector3f(targetPosition.x - currentPos.x, 0, targetPosition.z - currentPos.z);
             if (dir.lengthSquared() > 0.0001f) {
                 dir.normalizeLocal();
-                characterControl.setWalkDirection(dir.mult(36f));
+                characterControl.setWalkDirection(dir.mult(6f));
                 setMoving(true);
                 playBaseAnimation(ANIM_WALK);
             } else {

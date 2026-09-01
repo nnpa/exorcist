@@ -611,4 +611,128 @@ public CompletableFuture<Map<String, Object>> levelUp() {
         }
     });
 }
+public CompletableFuture<List<Map<String, Object>>> getBlacksmithItems() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendGetRequest("/blacksmith/items", authToken);
+            System.out.println("[NetworkManager] getBlacksmithItems response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (!result.optBoolean("success", false)) return null;
+
+            JSONArray arr = result.optJSONArray("items");
+            List<Map<String, Object>> list = new ArrayList<>();
+            if (arr != null) {
+                for (int i = 0; i < arr.length(); i++) {
+                    list.add(arr.getJSONObject(i).toMap());
+                }
+            }
+            return list;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<List<Map<String, Object>>> getBlacksmithGems() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendGetRequest("/blacksmith/gems", authToken);
+            System.out.println("[NetworkManager] getBlacksmithGems response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (!result.optBoolean("success", false)) return null;
+
+            JSONArray arr = result.optJSONArray("gems");
+            List<Map<String, Object>> list = new ArrayList<>();
+            if (arr != null) {
+                for (int i = 0; i < arr.length(); i++) {
+                    list.add(arr.getJSONObject(i).toMap());
+                }
+            }
+            return list;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<Map<String, Object>> insertGem(String itemId, int socketIndex, String gemItemId) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            JSONObject json = new JSONObject();
+            json.put("itemId", itemId);
+            json.put("socketIndex", socketIndex);
+            json.put("gemItemId", gemItemId);
+            String response = sendPostRequest("/blacksmith/insert", json.toString(), authToken);
+            System.out.println("[NetworkManager] insertGem response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return parseCharacterResponse(result);
+            }
+            System.err.println("[NetworkManager] insertGem failed: " + result.optString("message"));
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+
+public CompletableFuture<Map<String, Object>> removeGem(String itemId, int socketIndex) {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            JSONObject json = new JSONObject();
+            json.put("itemId", itemId);
+            json.put("socketIndex", socketIndex);
+            String response = sendPostRequest("/blacksmith/remove", json.toString(), authToken);
+            System.out.println("[NetworkManager] removeGem response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (result.optBoolean("success", false)) {
+                return parseCharacterResponse(result);
+            }
+            System.err.println("[NetworkManager] removeGem failed: " + result.optString("message"));
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
+public CompletableFuture<Map<String, List<Map<String, Object>>>> getAllItemSockets() {
+    return CompletableFuture.supplyAsync(() -> {
+        try {
+            if (authToken == null) return null;
+            String response = sendGetRequest("/blacksmith/all-sockets", authToken);
+            System.out.println("[NetworkManager] getAllItemSockets response: " + response);
+            JSONObject result = new JSONObject(response);
+            if (!result.optBoolean("success", false)) return null;
+
+            JSONObject socketsObj = result.optJSONObject("sockets");
+            Map<String, List<Map<String, Object>>> map = new HashMap<>();
+
+            if (socketsObj != null) {
+                for (String itemId : socketsObj.keySet()) {
+                    JSONArray arr = socketsObj.optJSONArray(itemId);
+                    List<Map<String, Object>> list = new ArrayList<>();
+                    if (arr != null) {
+                        for (int i = 0; i < arr.length(); i++) {
+                            list.add(arr.getJSONObject(i).toMap());
+                        }
+                    }
+                    map.put(itemId, list);
+                }
+            }
+
+            return map;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    });
+}
 }
