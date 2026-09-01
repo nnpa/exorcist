@@ -1534,34 +1534,36 @@ public class PlayerManager {
         }
 
         // Движение к целевой точке
-        if (currentTarget == null && isMovingToTarget && targetPosition != null && characterControl != null) {
-            Vector3f currentPos = smoothPosition;
-            float dist = currentPos.distance(targetPosition);
-            if (dist < arrivalThreshold) {
-                characterControl.setWalkDirection(Vector3f.ZERO);
-                setMoving(false);
-                isMovingToTarget = false;
-                targetPosition = null;
-                playBaseAnimation(ANIM_IDLE);
-                return;
-            }
+// Движение к целевой точке
+if (currentTarget == null && isMovingToTarget && targetPosition != null && characterControl != null) {
+    Vector3f currentPos = smoothPosition;
+    float dist = currentPos.distance(targetPosition);
+    if (dist < arrivalThreshold) {
+        characterControl.setWalkDirection(Vector3f.ZERO);
+        characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+        setMoving(false);
+        isMovingToTarget = false;
+        targetPosition = null;
+        playBaseAnimation(ANIM_IDLE);
+        return;
+    }
 
-            Vector3f dir = new Vector3f(targetPosition.x - currentPos.x, 0, targetPosition.z - currentPos.z);
-            if (dir.lengthSquared() > 0.0001f) {
-                dir.normalizeLocal();
-                characterControl.setWalkDirection(dir.mult(6f));
-                setMoving(true);
-                playBaseAnimation(ANIM_WALK);
-            } else {
-                characterControl.setWalkDirection(Vector3f.ZERO);
-                setMoving(false);
-                isMovingToTarget = false;
-                targetPosition = null;
-                playBaseAnimation(ANIM_IDLE);
-            }
-            return;
-        }
-
+    Vector3f dir = new Vector3f(targetPosition.x - currentPos.x, 0, targetPosition.z - currentPos.z);
+    if (dir.lengthSquared() > 0.0001f) {
+        dir.normalizeLocal();
+        characterControl.setWalkDirection(dir.mult(6f));
+        setMoving(true);
+        playBaseAnimation(ANIM_WALK);
+    } else {
+        characterControl.setWalkDirection(Vector3f.ZERO);
+        characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+        setMoving(false);
+        isMovingToTarget = false;
+        targetPosition = null;
+        playBaseAnimation(ANIM_IDLE);
+    }
+    return;
+}
         // Бой
         if (currentTarget != null) {
             Vector3f targetPos = currentTarget.getWorldTranslation();
@@ -1585,7 +1587,7 @@ public class PlayerManager {
                 Vector3f dir = new Vector3f(targetPos.x - currentPos.x, 0, targetPos.z - currentPos.z);
                 if (dir.lengthSquared() > 0.0001f) {
                     dir.normalizeLocal();
-                    characterControl.setWalkDirection(dir.mult(4f));
+                    characterControl.setWalkDirection(dir.mult(14f));
                     setMoving(true);
                     playBaseAnimation(ANIM_WALK);
                 }

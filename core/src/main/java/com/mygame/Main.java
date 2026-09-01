@@ -280,8 +280,8 @@ inputManager.addListener(new ActionListener() {
         System.out.println("[Main] ===== ЗАГРУЗКА МИРА =====");
         bulletAppState.setEnabled(true);
         PhysicsSpace space = bulletAppState.getPhysicsSpace();
-        space.setAccuracy(0.001f);
-        space.setMaxSubSteps(10);
+        space.setAccuracy(1f / 60f);
+        space.setMaxSubSteps(4);
         space.setGravity(new Vector3f(0, -30f, 0));
         bulletAppState.setSpeed(0.8f);
         bulletAppState.setThreadingType(BulletAppState.ThreadingType.SEQUENTIAL);
