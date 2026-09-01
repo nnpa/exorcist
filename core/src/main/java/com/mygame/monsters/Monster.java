@@ -116,7 +116,7 @@ public class Monster {
 
     protected static final float HP_BAR_WIDTH = 1.2f;
     protected static final float HP_BAR_HEIGHT = 0.08f;
-    protected static final float HP_BAR_HEIGHT_OFFSET = 3.0f;
+    protected static final float HP_BAR_HEIGHT_OFFSET = 5.0f;
 
     protected float hpBarHeightOffset = HP_BAR_HEIGHT_OFFSET;
 
@@ -1354,4 +1354,10 @@ public class Monster {
             ai.update(tpf);
         }
     }
+    
+
+
+public WorldManager getWorldManager() {
+    return worldManager;
+}
 }

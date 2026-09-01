@@ -1,10 +1,16 @@
 package com.mygame.monsters;
 
+import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.PhysicsRayTestResult;
 import com.jme3.math.FastMath;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
 import com.mygame.managers.PlayerManager;
 import com.mygame.managers.SoundManager;
+import com.mygame.managers.WorldManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MonsterAI {
 
@@ -13,19 +19,47 @@ public class MonsterAI {
     private PlayerManager playerManager;
 
     private enum State {
-        IDLE,
+        WANDERING,
         CHASING,
         ATTACKING
     }
 
     private State currentState =
-            State.IDLE;
+            State.WANDERING;
 
     private boolean isStunned = false;
 
     private boolean bossMusicStarted = false;
 
     private boolean stopped = false;
+
+    // ============================================================
+    // WANDER (блуждание вокруг точки спавна)
+    // ============================================================
+
+    /**
+     * Радиус, на который монстр удаляется от точки спавна.
+     */
+    private static final float WANDER_RADIUS = 4f;
+
+    /**
+     * Высота, на которой пускается луч проверки стен
+     * (чтобы не задевать пол).
+     */
+    private static final float RAY_HEIGHT_OFFSET = 1f;
+
+    private static final float WANDER_PAUSE_MIN = 1.5f;
+    private static final float WANDER_PAUSE_MAX = 4.0f;
+
+    private boolean wanderInitialized = false;
+
+    private final List<Vector3f> wanderDirections =
+            new ArrayList<>();
+
+    private Vector3f wanderOrigin;
+    private Vector3f wanderTarget;
+
+    private float wanderPauseTimer = 0f;
 
     // ============================================================
     // CONSTRUCTOR
@@ -68,9 +102,6 @@ public class MonsterAI {
 
         if (stunned) {
 
-            currentState =
-                    State.IDLE;
-
             monster.stopWalking();
         }
     }
@@ -97,11 +128,163 @@ public class MonsterAI {
         playerManager = null;
 
         currentState =
-                State.IDLE;
+                State.WANDERING;
 
         isStunned = false;
+    }
 
+    // ============================================================
+    // WANDER — ИНИЦИАЛИЗАЦИЯ (рэйкаст стен вокруг спавна)
+    // ============================================================
 
+    private void initializeWanderIfNeeded() {
+
+        if (wanderInitialized) {
+            return;
+        }
+
+        wanderInitialized = true;
+
+        Vector3f pos =
+                monster.getPosition();
+
+        if (pos == null) {
+
+            /*
+             * Позиция ещё не установлена —
+             * попробуем инициализировать позже.
+             */
+            wanderInitialized = false;
+
+            return;
+        }
+
+        wanderOrigin =
+                pos.clone();
+
+        computeWanderDirections();
+
+        pickNewWanderTarget();
+
+        wanderPauseTimer = 0f;
+    }
+
+    /**
+     * Пускает 8 лучей вокруг точки спавна (N, S, E, W и диагонали)
+     * и оставляет только те направления, где на протяжении
+     * WANDER_RADIUS нет препятствий.
+     */
+    private void computeWanderDirections() {
+
+        wanderDirections.clear();
+
+        PhysicsSpace space =
+                getPhysicsSpace();
+
+        Vector3f[] dirs = new Vector3f[]{
+
+                new Vector3f(0f, 0f, 1f),                          // N  (+Z)
+                new Vector3f(0f, 0f, -1f),                         // S  (-Z)
+                new Vector3f(1f, 0f, 0f),                          // E  (+X)
+                new Vector3f(-1f, 0f, 0f),                         // W  (-X)
+                new Vector3f(1f, 0f, 1f).normalizeLocal(),         // NE
+                new Vector3f(-1f, 0f, 1f).normalizeLocal(),        // NW
+                new Vector3f(1f, 0f, -1f).normalizeLocal(),        // SE
+                new Vector3f(-1f, 0f, -1f).normalizeLocal()        // SW
+        };
+
+        Vector3f rayStart =
+                wanderOrigin.add(0f, RAY_HEIGHT_OFFSET, 0f);
+
+        for (Vector3f dir : dirs) {
+
+            boolean clear = true;
+
+            if (space != null) {
+
+                Vector3f rayEnd =
+                        rayStart.add(
+                                dir.mult(WANDER_RADIUS)
+                        );
+
+                List<PhysicsRayTestResult> results =
+                        space.rayTest(rayStart, rayEnd);
+
+                if (results != null && !results.isEmpty()) {
+
+                    clear = false;
+                }
+            }
+
+            if (clear) {
+
+                wanderDirections.add(dir);
+            }
+        }
+
+        /*
+         * Защита от ситуации, когда монстр окружён стенами
+         * со всех сторон (например, слишком маленькая комната) —
+         * иначе он вообще не сможет бродить.
+         */
+        if (wanderDirections.isEmpty()) {
+
+            for (Vector3f dir : dirs) {
+
+                wanderDirections.add(dir);
+            }
+        }
+    }
+
+    private void pickNewWanderTarget() {
+
+        if (wanderDirections.isEmpty() || wanderOrigin == null) {
+
+            wanderTarget =
+                    wanderOrigin != null
+                            ? wanderOrigin.clone()
+                            : monster.getPosition();
+
+            return;
+        }
+
+        Vector3f dir =
+                wanderDirections.get(
+                        FastMath.nextRandomInt(
+                                0,
+                                wanderDirections.size() - 1
+                        )
+                );
+
+        /*
+         * Случайная дистанция в пределах разрешённого
+         * направления, чтобы монстр не всегда ходил
+         * ровно до края радиуса.
+         */
+        float dist =
+                WANDER_RADIUS
+                * (0.4f + FastMath.nextRandomFloat() * 0.6f);
+
+        wanderTarget =
+                wanderOrigin.add(
+                        dir.mult(dist)
+                );
+    }
+
+    private PhysicsSpace getPhysicsSpace() {
+
+        if (monster == null) {
+            return null;
+        }
+
+        WorldManager wm =
+                monster.getWorldManager();
+
+        if (wm == null) {
+            return null;
+        }
+
+        return wm.getPhysicsSpace();
     }
 
     // ============================================================
@@ -131,6 +314,8 @@ public class MonsterAI {
             return;
         }
 
+        initializeWanderIfNeeded();
+
         // ========================================================
         // PLAYER
         // ========================================================
@@ -140,7 +325,14 @@ public class MonsterAI {
 
         if (playerPos == null) {
 
-            monster.playIdle();
+            if (currentState == State.WANDERING) {
+
+                updateWander(tpf);
+
+            } else {
+
+                monster.playIdle();
+            }
 
             return;
         }
@@ -159,10 +351,10 @@ public class MonsterAI {
                 );
 
         // ========================================================
-        // IDLE
+        // WANDERING (замена прежнего IDLE)
         // ========================================================
 
-        if (currentState == State.IDLE) {
+        if (currentState == State.WANDERING) {
 
             if (distance <=
                     monster.getAggroRange()) {
@@ -170,10 +362,9 @@ public class MonsterAI {
                 currentState =
                         State.CHASING;
 
-
             } else {
 
-                monster.playIdle();
+                updateWander(tpf);
 
                 return;
             }
@@ -196,8 +387,6 @@ public class MonsterAI {
                         State.ATTACKING;
 
                 monster.playIdle();
-
-
 
                 return;
             }
@@ -230,8 +419,6 @@ public class MonsterAI {
 
                 currentState =
                         State.CHASING;
-
-
 
                 monster.playWalk();
 
@@ -269,6 +456,82 @@ public class MonsterAI {
                     tpf
             );
         }
+    }
+
+    // ============================================================
+    // WANDER — ДВИЖЕНИЕ
+    // ============================================================
+
+    private void updateWander(float tpf) {
+
+        if (wanderTarget == null) {
+
+            pickNewWanderTarget();
+        }
+
+        Vector3f current =
+                monster.getPosition();
+
+        float dx =
+                wanderTarget.x - current.x;
+
+        float dz =
+                wanderTarget.z - current.z;
+
+        float distToTarget =
+                FastMath.sqrt(dx * dx + dz * dz);
+
+        /*
+         * Дошли до цели — стоим, ждём, потом выбираем новую точку.
+         */
+        if (distToTarget < 0.3f) {
+
+            monster.playIdle();
+
+            wanderPauseTimer -= tpf;
+
+            if (wanderPauseTimer <= 0f) {
+
+                pickNewWanderTarget();
+
+                wanderPauseTimer =
+                        WANDER_PAUSE_MIN
+                        + FastMath.nextRandomFloat()
+                        * (WANDER_PAUSE_MAX - WANDER_PAUSE_MIN);
+            }
+
+            return;
+        }
+
+        Vector3f direction =
+                new Vector3f(dx, 0f, dz)
+                        .normalizeLocal();
+
+        /*
+         * Бродит медленнее, чем преследует игрока.
+         */
+        float wanderSpeed =
+                monster.getMoveSpeed() * 0.5f;
+
+        float movement =
+                wanderSpeed * tpf;
+
+        movement =
+                Math.min(movement, distToTarget);
+
+        if (movement > 0f) {
+
+            Vector3f newPos =
+                    current.add(
+                            direction.mult(movement)
+                    );
+
+            monster.setPosition(newPos);
+        }
+
+        rotateTowardsDirection(direction);
+
+        monster.playWalk();
     }
 
     // ============================================================

@@ -329,23 +329,36 @@ public void stop() {
     
     super.stop(); // Останавливаем сам движок jME3
 }
-    private void handleClick(float screenX, float screenY) {
-        if (!worldLoaded || playerManager == null) return;
-        if (worldManager != null && worldManager.getTreasureManager() != null) {
-        com.mygame.managers.Treasure treasure =
-                worldManager.getTreasureManager().getTreasureAt(screenX, screenY);
+private void handleClick(float screenX, float screenY) {
+    if (!worldLoaded || playerManager == null) return;
+    if (worldManager != null && worldManager.getTreasureManager() != null) {
+    com.mygame.managers.Treasure treasure =
+            worldManager.getTreasureManager().getTreasureAt(screenX, screenY);
 
-        if (treasure != null) {
-            worldManager.getTreasureManager().openTreasure(treasure);
-            return;
-        }
+    if (treasure != null) {
+        worldManager.getTreasureManager().openTreasure(treasure);
+        return;
     }
-        
-        DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
-        if (drop != null) { dropManager.pickupDrop(drop); return; }
+}
+    
+    DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
+    if (drop != null) { dropManager.pickupDrop(drop); return; }
 
-        Vector3f groundPoint = getGroundPoint(screenX, screenY);
-        if (groundPoint == null) return;
+    Vector3f groundPoint = getGroundPoint(screenX, screenY);
+    if (groundPoint == null) return;
+
+    /*
+     * Телепортер, трейдер, аукционист и кузнец физически
+     * находятся только в cityNode/npcNode города.
+     * Проверяем их только когда игрок реально в городе,
+     * иначе клик в данже может случайно совпасть по X/Z
+     * с их позициями и ложно открыть окно.
+     */
+    boolean inCity =
+            gameManager != null
+            && gameManager.getCurrentState() == GameState.CITY;
+
+    if (inCity) {
 
         Spatial teleporter = null;
         if (worldManager.getCityNode() != null) {
@@ -376,26 +389,28 @@ public void stop() {
             }
         }
         if (auctioneer != null) { if (uiManager != null) uiManager.openAuction(); return; }
+
         Spatial blacksmith = null;
-if (worldManager.getNpcNode() != null) {
-    for (Spatial child : worldManager.getNpcNode().getChildren()) {
-        if (child.getName() != null && child.getName().equals("NPC_Blacksmith")) {
-            if (child.getWorldTranslation().distance(groundPoint) < 2.5f) { blacksmith = child; break; }
-        }
-    }
-}
-if (blacksmith != null) { if (uiManager != null) uiManager.toggleBlacksmith(); return; }
-        Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f);
-        if (clicked != null) {
-            String objectName = clicked.getName();
-            if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
-                playerManager.attackTarget(clicked);
-                return;
+        if (worldManager.getNpcNode() != null) {
+            for (Spatial child : worldManager.getNpcNode().getChildren()) {
+                if (child.getName() != null && child.getName().equals("NPC_Blacksmith")) {
+                    if (child.getWorldTranslation().distance(groundPoint) < 2.5f) { blacksmith = child; break; }
+                }
             }
         }
-        playerManager.moveTo(groundPoint);
+        if (blacksmith != null) { if (uiManager != null) uiManager.toggleBlacksmith(); return; }
     }
 
+    Spatial clicked = worldManager.getClosestInteractiveObject(groundPoint, 5.5f);
+    if (clicked != null) {
+        String objectName = clicked.getName();
+        if ("TestMonster".equals(objectName) || "Monster".equals(objectName)) {
+            playerManager.attackTarget(clicked);
+            return;
+        }
+    }
+    playerManager.moveTo(groundPoint);
+}
     private Vector3f getGroundPoint(float screenX, float screenY) {
         Vector3f origin = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 0f);
         Vector3f direction = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 1f).subtract(origin).normalizeLocal();

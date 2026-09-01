@@ -42,6 +42,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.jme3.anim.AnimComposer;
+import com.jme3.bullet.PhysicsSpace;
 import com.jme3.renderer.queue.RenderQueue;
 
 import com.mygame.monsters.*;
@@ -236,7 +237,9 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
 
         System.out.println("[WorldManager] NPCs loaded");
     }
-
+public PhysicsSpace getPhysicsSpace() {
+    return bulletAppState != null ? bulletAppState.getPhysicsSpace() : null;
+}
     private void loadBlacksmith() {
         System.out.println("[WorldManager] Loading Blacksmith from: Models/City/NPC/Black/black.gltf");
         try {
