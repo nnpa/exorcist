@@ -972,6 +972,14 @@ SoundManager.setMasterVolume(
         loadCurrentFont();
 
         refreshUI();
+        if (uiManager != null) {
+
+        uiManager.showToast(
+                getLocalized(
+                        "settings.language_restart_required"
+                )
+        );
+    }
     }
 
     // =============================================================
