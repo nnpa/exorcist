@@ -8,6 +8,7 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.audio.AudioNode;
 import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.PhysicsRayTestResult;
 import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.effect.ParticleEmitter;
 import com.jme3.effect.ParticleMesh;
@@ -141,7 +142,7 @@ public class PlayerManager {
     private final float arrivalThreshold = 0.3f;
     private boolean isMovingToTarget = false;
     private final Vector3f smoothPosition = new Vector3f();
-    private float interpolationSpeed = 0.25f;
+    private float interpolationSpeed = 0.5f;
 
     // ============================================================
     // БОЙ
@@ -281,22 +282,39 @@ public class PlayerManager {
     // ============================================================
     // ФИЗИКА
     // ============================================================
-    private void createPhysicsBody() {
-        float radius = 0.4f;
-        float height = 1.8f;
-        float mass = 150f;
+private void createPhysicsBody() {
+    float mass = 150f;
 
-        characterControl = new BetterCharacterControl(radius, height, mass);
-        characterControl.setGravity(new Vector3f(0, -9.81f * 3f, 0));
-        characterControl.warp(new Vector3f(0f, 2.5f, 0f));
-        characterControl.setWalkDirection(Vector3f.ZERO);
-        characterControl.setPhysicsDamping(0.95f);
-        characterControl.getRigidBody().setDamping(0.15f, 0.95f);
+    characterControl = new BetterCharacterControl(CHARACTER_RADIUS, CHARACTER_HEIGHT, mass);
+    characterControl.setGravity(new Vector3f(0, -9.81f * 3f, 0));
 
-        playerNode.addControl(characterControl);
+    /*
+     * Устраняет дрожь/скольжение вдоль диагональных внутренних
+     * швов треугольников mesh-коллизии (известный баг Bullet/Minie,
+     * см. Minie issue #18 и #56, а также форум jME "Inner edge
+     * collision troubles"). Обнуление maxUpwardVelocity — это
+     * рекомендованное решение именно для BetterCharacterControl.
+     */
+
+    characterControl.warp(new Vector3f(0f, 2.5f, 0f));
+    characterControl.setWalkDirection(Vector3f.ZERO);
+    characterControl.setPhysicsDamping(0.95f);
+    characterControl.getRigidBody().setDamping(0.15f, 0.95f);
+
+    playerNode.addControl(characterControl);
+}
+private void clampUpwardVelocity() {
+    if (characterControl == null) {
+        return;
     }
-
+    Vector3f vel = characterControl.getRigidBody().getLinearVelocity();
+    if (vel.y > 0f) {
+        vel.y = 0f;
+        characterControl.getRigidBody().setLinearVelocity(vel);
+    }
+}
     public void setPhysicsSpace(PhysicsSpace space) {
+        this.physicsSpace = space;
         if (characterControl != null && space != null) {
             space.add(characterControl);
         }
@@ -615,6 +633,8 @@ public class PlayerManager {
         isMovingToTarget = true;
         setMoving(true);
         lookAt(target);
+        stuckCheckTimer = 0f;
+lastStuckDist = -1f;
     }
 
     public void stopMoving() {
@@ -1470,11 +1490,12 @@ public class PlayerManager {
     private float getBonusStat(String key) {
         return statBonuses.getOrDefault(key, 0f);
     }
-
+private Vector3f lockedApproachDir = null;
     // ============================================================
     // UPDATE (вызывается каждый кадр)
     // ============================================================
     public void update(float tpf) {
+        clampUpwardVelocity();
         if (!isAlive) {
             deathTimer += tpf;
             if (deathTimer >= 0.3f && !isRespawning) {
@@ -1536,36 +1557,122 @@ public class PlayerManager {
         // Движение к целевой точке
 // Движение к целевой точке
 if (currentTarget == null && isMovingToTarget && targetPosition != null && characterControl != null) {
-    Vector3f currentPos = smoothPosition;
-    float dist = currentPos.distance(targetPosition);
-    if (dist < arrivalThreshold) {
+    Vector3f currentPos = characterControl.getRigidBody().getPhysicsLocation();
+
+    float dx = targetPosition.x - currentPos.x;
+    float dz = targetPosition.z - currentPos.z;
+    float dist = FastMath.sqrt(dx * dx + dz * dz);
+
+    float softArrivalRadius = 0.6f;
+
+    /*
+     * ОСТАНОВКА ПРИ ПРИБЫТИИ — этого блока не хватало,
+     * из-за чего персонаж никогда не завершал движение
+     * и вечно дрожал на месте на минимальной скорости.
+     */
+    if (dist < softArrivalRadius) {
+
         characterControl.setWalkDirection(Vector3f.ZERO);
         characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+
         setMoving(false);
         isMovingToTarget = false;
         targetPosition = null;
+        lockedApproachDir = null;
+        stuckCheckTimer = 0f;
+        lastStuckDist = -1f;
         playBaseAnimation(ANIM_IDLE);
         return;
     }
 
-    Vector3f dir = new Vector3f(targetPosition.x - currentPos.x, 0, targetPosition.z - currentPos.z);
-    if (dir.lengthSquared() > 0.0001f) {
-        dir.normalizeLocal();
-        characterControl.setWalkDirection(dir.mult(6f));
+    /*
+     * ДЕТЕКТОР ЗАСТРЕВАНИЯ — если прогресс к цели почти
+     * не идёт (например, упёрлись в стену), останавливаемся
+     * вместо бесконечной дрожи.
+     */
+    stuckCheckTimer += tpf;
+
+    if (stuckCheckTimer >= STUCK_CHECK_INTERVAL) {
+
+        if (lastStuckDist >= 0f) {
+
+            float progress = lastStuckDist - dist;
+
+            if (progress < STUCK_MIN_PROGRESS) {
+
+                characterControl.setWalkDirection(Vector3f.ZERO);
+                characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+
+                setMoving(false);
+                isMovingToTarget = false;
+                targetPosition = null;
+                lockedApproachDir = null;
+                stuckCheckTimer = 0f;
+                lastStuckDist = -1f;
+
+                playBaseAnimation(ANIM_IDLE);
+                return;
+            }
+        }
+
+        lastStuckDist = dist;
+        stuckCheckTimer = 0f;
+    }
+
+    float slowdownZone = 1.5f;
+    float speed = 6f;
+
+    Vector3f dir;
+
+    if (dist < slowdownZone) {
+
+        if (lockedApproachDir == null) {
+
+            Vector3f initialDir = new Vector3f(dx, 0, dz);
+
+            if (initialDir.lengthSquared() > 0.0001f) {
+                initialDir.normalizeLocal();
+            }
+
+            lockedApproachDir = initialDir;
+        }
+
+        dir = lockedApproachDir;
+
+        float t = (dist - softArrivalRadius) / (slowdownZone - softArrivalRadius);
+        t = Math.max(0.15f, Math.min(1f, t));
+        speed *= t;
+
+    } else {
+
+        dir = new Vector3f(dx, 0, dz);
+
+        if (dir.lengthSquared() > 0.0001f) {
+            dir.normalizeLocal();
+        }
+    }
+
+    if (dir != null && dir.lengthSquared() > 0.0001f) {
+
+        characterControl.setWalkDirection(dir.mult(speed));
         setMoving(true);
         playBaseAnimation(ANIM_WALK);
+
     } else {
+
         characterControl.setWalkDirection(Vector3f.ZERO);
         characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
         setMoving(false);
         isMovingToTarget = false;
         targetPosition = null;
+        lockedApproachDir = null;
+        stuckCheckTimer = 0f;
+        lastStuckDist = -1f;
         playBaseAnimation(ANIM_IDLE);
     }
     return;
 }
-        // Бой
-        if (currentTarget != null) {
+if (currentTarget != null) {
             Vector3f targetPos = currentTarget.getWorldTranslation();
             Vector3f currentPos = characterControl != null
                     ? characterControl.getRigidBody().getPhysicsLocation()
@@ -1587,7 +1694,7 @@ if (currentTarget == null && isMovingToTarget && targetPosition != null && chara
                 Vector3f dir = new Vector3f(targetPos.x - currentPos.x, 0, targetPos.z - currentPos.z);
                 if (dir.lengthSquared() > 0.0001f) {
                     dir.normalizeLocal();
-                    characterControl.setWalkDirection(dir.mult(14f));
+                    characterControl.setWalkDirection(dir.mult(6f));
                     setMoving(true);
                     playBaseAnimation(ANIM_WALK);
                 }
@@ -1602,7 +1709,11 @@ if (currentTarget == null && isMovingToTarget && targetPosition != null && chara
             playBaseAnimation(ANIM_IDLE);
         }
     }
+private float stuckCheckTimer = 0f;
+private float lastStuckDist = -1f;
 
+private static final float STUCK_CHECK_INTERVAL = 0.4f;
+private static final float STUCK_MIN_PROGRESS = 0.08f;
     // ============================================================
     // ПОЗИЦИЯ (обновление плавного перемещения)
     // ============================================================
@@ -2037,4 +2148,122 @@ whirlwindParticles.setEndSize(0.01f);
     }
     return Vector3f.UNIT_Z;
 }
+    // ============================================================
+// ПРОВЕРКА ПОЛА (обход бага BetterCharacterControl на швах mesh-коллизии)
+// ============================================================
+
+private static final float CHARACTER_RADIUS = 0.4f;
+private static final float CHARACTER_HEIGHT = 1.8f;
+
+/**
+ * Расстояние от центра капсулы персонажа до пола,
+ * когда он стоит на нём (height/2 + radius).
+ */
+private static final float CHARACTER_GROUND_OFFSET =
+        CHARACTER_HEIGHT / 2f + CHARACTER_RADIUS;
+
+/**
+ * Как часто (в секундах) проверяем пол под персонажем.
+ * Не каждый кадр — просто периодическая коррекция.
+ */
+private static final float GROUND_CHECK_INTERVAL = 0.15f;
+
+/**
+ * Максимальное расхождение, которое считаем "швом"/микро-багом
+ * и подправляем. Всё, что больше — настоящее падение/лестница,
+ * туда не лезем, пусть физика работает сама.
+ */
+private static final float GROUND_SNAP_MAX_GAP = 0.35f;
+
+private float groundCheckTimer = 0f;
+
+private PhysicsSpace physicsSpace;
+/**
+ * Периодически стреляет лучом вниз из-под персонажа,
+ * находит реальный пол физической сцены и подправляет
+ * высоту, если расхождение небольшое.
+ *
+ * Это обходит известный баг BetterCharacterControl
+ * "hops across seams" — резкий прыжок/отброс на швах
+ * между треугольниками mesh-коллизии, особенно заметный
+ * при остановке движения.
+ */
+private void updateGroundSnap(float tpf) {
+
+    if (characterControl == null || physicsSpace == null) {
+        return;
+    }
+
+    groundCheckTimer -= tpf;
+
+    if (groundCheckTimer > 0f) {
+        return;
+    }
+
+    groundCheckTimer = GROUND_CHECK_INTERVAL;
+
+    Vector3f current = characterControl.getRigidBody().getPhysicsLocation();
+
+    Vector3f from = new Vector3f(current.x, current.y + 0.5f, current.z);
+    Vector3f to = new Vector3f(current.x, current.y - 2.0f, current.z);
+
+    List<PhysicsRayTestResult> results = physicsSpace.rayTest(from, to);
+
+    float bestFraction = Float.MAX_VALUE;
+    Vector3f bestHit = null;
+
+    for (PhysicsRayTestResult result : results) {
+
+        if (result.getCollisionObject() == characterControl.getRigidBody()) {
+            continue;
+        }
+
+        float fraction = result.getHitFraction();
+
+        if (fraction < bestFraction) {
+            bestFraction = fraction;
+            bestHit = from.add(to.subtract(from).mult(fraction));
+        }
+    }
+
+    if (bestHit == null) {
+        return;
+    }
+
+    float floorY = bestHit.y;
+    float desiredCenterY = floorY + CHARACTER_GROUND_OFFSET;
+
+    float gap = current.y - desiredCenterY;
+
+    /*
+     * ДИАГНОСТИКА: печатаем КАЖДЫЙ раз, когда гэп заметный,
+     * даже если коррекция не сработает — чтобы понять,
+     * что вообще происходит с высотой пола под персонажем.
+     */
+    if (Math.abs(gap) > 0.02f) {
+        System.out.println(
+                "[GroundSnap] gap=" + gap
+                + " current.y=" + current.y
+                + " floorY=" + floorY
+                + " desiredY=" + desiredCenterY
+        );
+    }
+
+    if (Math.abs(gap) > 0.001f
+            && Math.abs(gap) <= GROUND_SNAP_MAX_GAP) {
+
+        /*
+         * ПЛАВНАЯ коррекция вместо мгновенного телепорта:
+         * подтягиваем только часть расхождения за раз.
+         * Даже если офсет посчитан неидеально, это не будет
+         * выглядеть как рывок — просто мягкая доводка.
+         */
+        float correctedY = current.y - gap * 0.3f;
+
+        Vector3f corrected = new Vector3f(current.x, correctedY, current.z);
+
+        characterControl.getRigidBody().setPhysicsLocation(corrected);
+    }
+}
+private Vector3f lastFramePos = null;
 }

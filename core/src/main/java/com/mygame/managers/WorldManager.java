@@ -43,6 +43,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.jme3.anim.AnimComposer;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.renderer.queue.RenderQueue;
 
 import com.mygame.monsters.*;
@@ -188,6 +189,10 @@ SoundManager.playMusic(SoundManager.MUSIC_CITY);
                 try {
                     System.out.println("[WorldManager] Adding physics to city...");
                     CollisionShape shape = CollisionShapeFactory.createMeshShape(cityModel);
+                    
+                    if (shape instanceof MeshCollisionShape) {
+                        ((MeshCollisionShape) shape).setContactFilterEnabled(true);
+                    }
                     RigidBodyControl physics = new RigidBodyControl(shape, 0);
                     cityModel.addControl(physics);
                     bulletAppState.getPhysicsSpace().add(physics);

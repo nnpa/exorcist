@@ -31,7 +31,7 @@ implementation 'org.jmonkeyengine:jme3-lwjgl3:3.8.1-stable'
     implementation 'com.simsilica:lemur-proto:1.13.0'
     implementation 'org.json:json:20230227'
     implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.github.stephengold:Minie:8.0.0'
+implementation 'com.github.stephengold:Minie:9.0.3'
 
     // JavaFX для иконок и окон
     implementation 'org.openjfx:javafx-controls:21'
