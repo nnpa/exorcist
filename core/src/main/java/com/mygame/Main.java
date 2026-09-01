@@ -331,6 +331,16 @@ public void stop() {
 }
     private void handleClick(float screenX, float screenY) {
         if (!worldLoaded || playerManager == null) return;
+        if (worldManager != null && worldManager.getTreasureManager() != null) {
+        com.mygame.managers.Treasure treasure =
+                worldManager.getTreasureManager().getTreasureAt(screenX, screenY);
+
+        if (treasure != null) {
+            worldManager.getTreasureManager().openTreasure(treasure);
+            return;
+        }
+    }
+        
         DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
         if (drop != null) { dropManager.pickupDrop(drop); return; }
 

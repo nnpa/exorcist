@@ -101,9 +101,7 @@ public class MonsterAI {
 
         isStunned = false;
 
-        System.out.println(
-                "[MonsterAI] stopped"
-        );
+
     }
 
     // ============================================================
@@ -172,10 +170,7 @@ public class MonsterAI {
                 currentState =
                         State.CHASING;
 
-                System.out.println(
-                        "[MonsterAI] "
-                        + "IDLE -> CHASING"
-                );
+
             } else {
 
                 monster.playIdle();
@@ -202,10 +197,7 @@ public class MonsterAI {
 
                 monster.playIdle();
 
-                System.out.println(
-                        "[MonsterAI] "
-                        + "CHASING -> ATTACKING"
-                );
+
 
                 return;
             }
@@ -239,10 +231,7 @@ public class MonsterAI {
                 currentState =
                         State.CHASING;
 
-                System.out.println(
-                        "[MonsterAI] "
-                        + "ATTACKING -> CHASING"
-                );
+
 
                 monster.playWalk();
 

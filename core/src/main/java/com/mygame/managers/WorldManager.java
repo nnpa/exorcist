@@ -103,6 +103,8 @@ public class WorldManager {
         dungeonLoader = new DungeonLoader(app);
         dungeonManager = new DungeonManager();
         dungeonLoader.setWorldManager(this);
+        treasureManager = new TreasureManager(app);
+
         initEditor();
         System.out.println("[WorldManager] Initialization complete");
     }
@@ -112,13 +114,16 @@ public class WorldManager {
         System.out.println("[WorldManager] PlayerManager set");
     }
 
-    public void setDropManager(DropManager dm) {
-        this.dropManager = dm;
-        if (dungeonLoader != null) {
-            dungeonLoader.setDropManager(dm);
-        }
-        System.out.println("[WorldManager] DropManager set");
+public void setDropManager(DropManager dm) {
+    this.dropManager = dm;
+    if (dungeonLoader != null) {
+        dungeonLoader.setDropManager(dm);
     }
+    if (treasureManager != null) {
+        treasureManager.setDropManager(dm);
+    }
+    System.out.println("[WorldManager] DropManager set");
+}
 
     public void setInteractableNode(Node node) {
         this.interactableNode = node;
@@ -625,7 +630,13 @@ public void loadDungeon(String dungeonId, int difficulty) {
             }
             dungeonManager.setCurrentDungeon(dungeon);
         }
-
+if (treasureManager != null && playerManager != null) {
+    treasureManager.loadDungeonTreasures(
+            dungeonId,
+            difficulty,
+            playerManager.getLevel()
+    );
+}
         switchToDungeon();
         if (mapRenderer != null
         && playerManager != null) {
@@ -683,7 +694,9 @@ public Node getDungeonNode() { return dungeonNode; }
         }
         dungeonManager.clearMonsters();
         activeMonsters.clear();
-
+if (treasureManager != null) {
+        treasureManager.clearTreasures();
+    }
         loadCityWithPhysics();
 
         Vector3f citySpawn = new Vector3f(0f, 0.5f, -8f);
@@ -886,6 +899,9 @@ public void update(float tpf) {
 
         mapWindow.update();
     }
+    if (treasureManager != null) {
+        treasureManager.update(tpf);
+    }
 }
 
 public void cleanup() {
@@ -894,7 +910,9 @@ public void cleanup() {
     for (int i = 2; i < Math.min(5, stack.length); i++) {
         System.out.println("  " + stack[i].getClassName() + "." + stack[i].getMethodName() + ":" + stack[i].getLineNumber());
     }
-    
+    if (treasureManager != null) {
+        treasureManager.cleanup();
+    }
     // ===== ДОБАВЛЕНО: Останавливаем всех монстров =====
     for (Monster m : activeMonsters) {
         if (m != null) m.stop();
@@ -965,5 +983,9 @@ public void setMapRenderer(MapRenderer mapRenderer) {
             "[WorldManager] MapRenderer set: "
             + (mapRenderer != null)
     );
+}
+private TreasureManager treasureManager;
+public TreasureManager getTreasureManager() {
+    return treasureManager;
 }
 }
