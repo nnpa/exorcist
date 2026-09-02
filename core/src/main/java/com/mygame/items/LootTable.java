@@ -9,47 +9,30 @@ public class LootTable {
     private List<LootEntry> entries = new ArrayList<>();
     private Random random = new Random();
 
-    public void addEntry(Item item, float chance) {
-        entries.add(new LootEntry(item, chance));
+    /**
+     * Теперь хранит ТИП предмета, а не готовый Item —
+     * сам предмет генерируется в момент выпадения,
+     * с актуальными уровнем игрока и сложностью.
+     */
+    public void addEntry(String itemType, float chance) {
+        entries.add(new LootEntry(itemType, chance));
     }
 
-    // Основной метод дропа – теперь принимает difficulty
-public List<Item> rollForLoot(int difficulty) {
-    List<Item> dropped = new ArrayList<>();
-    for (LootEntry entry : entries) {
-        if (random.nextFloat() < entry.chance) {
-            dropped.add(entry.item);
+    public List<Item> rollForLoot(int playerLevel, int difficulty) {
+        List<Item> dropped = new ArrayList<>();
+        for (LootEntry entry : entries) {
+            if (random.nextFloat() < entry.chance) {
+                dropped.add(ItemGenerator.generateItem(playerLevel, entry.itemType, difficulty));
+            }
         }
-    }
-    return dropped;
-}
-
-    // Перегрузка без параметров для обратной совместимости (использует difficulty = 1)
-    public List<Item> rollForLoot() {
-        return rollForLoot(1);
-    }
-
-    // Генерирует таблицу для уровня с учётом difficulty
-    public static LootTable generateForLevel(int level, int difficulty) {
-        LootTable table = new LootTable();
-        int count = 1 + new Random().nextInt(3);
-        for (int i = 0; i < count; i++) {
-            Item item = ItemGenerator.generateItem(level, "Weapon", difficulty);
-            table.addEntry(item, 0.3f + new Random().nextFloat() * 0.4f);
-        }
-        return table;
-    }
-
-    // Перегрузка для обратной совместимости
-    public static LootTable generateForLevel(int level) {
-        return generateForLevel(level, 1);
+        return dropped;
     }
 
     private static class LootEntry {
-        Item item;
+        String itemType;
         float chance;
-        LootEntry(Item item, float chance) {
-            this.item = item;
+        LootEntry(String itemType, float chance) {
+            this.itemType = itemType;
             this.chance = chance;
         }
     }

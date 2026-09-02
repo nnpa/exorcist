@@ -1149,17 +1149,23 @@ public class Monster {
         }
 
         if (lootTable != null &&
-                dropManager != null) {
+        dropManager != null) {
 
-            int difficulty =
-                    playerManager != null
-                            ? playerManager.getCurrentDifficulty()
-                            : 1;
+    int difficulty =
+            playerManager != null
+                    ? playerManager.getCurrentDifficulty()
+                    : 1;
 
-            List<Item> items =
-                    lootTable.rollForLoot(
-                            difficulty
-                    );
+    int playerLevel =
+            playerManager != null
+                    ? playerManager.getLevel()
+                    : 1;
+
+    List<Item> items =
+            lootTable.rollForLoot(
+                    playerLevel,
+                    difficulty
+            );
 
             if (!items.isEmpty()) {
 
@@ -1230,7 +1236,9 @@ public class Monster {
         stunEffectNode = null;
         stunParticles = null;
     }
-
+public void disableDungeonTransition() {
+    this.nextDungeonId = null;
+}
     // ============================================================
     // UPDATE
     // ============================================================
@@ -1331,22 +1339,62 @@ public class Monster {
                             newDifficulty++;
                         }
 
+                        boolean returnToCity =
+                                "city".equalsIgnoreCase(nextDungeonId);
+
                         if (playerManager != null) {
 
+                            /*
+                             * При возврате в город следующий забег начнётся
+                             * снова с dungeon_1, только с увеличенной сложностью.
+                             */
                             playerManager.updateDungeonProgress(
-                                    nextDungeonId,
+                                    returnToCity ? "dungeon_1" : nextDungeonId,
                                     newDifficulty
                             );
                         }
 
                         if (app != null) {
 
+                            final int finalNewDifficulty = newDifficulty;
+
                             app.enqueue(() -> {
 
-                                worldManager.changeDungeon(
-                                        nextDungeonId,
-                                        increaseDifficultyOnDeath
-                                );
+                                if (returnToCity) {
+
+                                    /*
+                                     * Возврат в город синхронный и надёжный
+                                     * (в отличие от changeDungeon(), которая
+                                     * откладывает постройку сцены на кадры
+                                     * вперёд и может уронить персонажа под пол).
+                                     */
+                                    worldManager.returnToCity();
+
+                                    if (playerManager != null
+                                            && playerManager.getUiManager() != null) {
+
+                                        playerManager.getUiManager().showToast(
+                                                com.mygame.managers.LocalizationManager
+                                                        .getInstance()
+                                                        .get("dungeon.difficulty_increased")
+                                                + " " + finalNewDifficulty
+                                        );
+                                    }
+
+                                } else {
+
+                                    worldManager.changeDungeon(
+                                            nextDungeonId,
+                                            false
+                                    );
+
+                                    if (playerManager != null) {
+
+                                        playerManager.requestTeleport(
+                                                new Vector3f(0f, 0f, 5f)
+                                        );
+                                    }
+                                }
 
                                 return null;
                             });

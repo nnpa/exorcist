@@ -1478,29 +1478,37 @@ public class InventoryManager {
                         }
 
                         String text = "";
+                        Item hoveredItem = null;
 
                         if (isInventory
                                 && index < inventoryItems.length
                                 && inventoryItems[index] != null) {
 
-                            text =
-                                    buildTooltip(
-                                            inventoryItems[index]
-                                    );
+                            hoveredItem = inventoryItems[index];
+                            text = buildTooltip(hoveredItem);
 
                         } else if (!isInventory
                                 && equipment[index] != null) {
 
-                            text =
-                                    buildTooltip(
-                                            equipment[index]
-                                    );
+                            hoveredItem = equipment[index];
+                            text = buildTooltip(hoveredItem);
                         }
 
                         if (!text.isEmpty()
                                 && tooltipLabel != null) {
 
                             tooltipLabel.setText(text);
+
+                            /*
+                             * Подсвечиваем текст тултипа цветом редкости —
+                             * той же логикой, что используется для подписи
+                             * предмета при выпадении (DropManager).
+                             */
+                            tooltipLabel.setColor(
+                                    hoveredItem != null
+                                            ? hoveredItem.getColor()
+                                            : ColorRGBA.White
+                            );
 
                             tooltipLabel.setCullHint(
                                     Node.CullHint.Dynamic

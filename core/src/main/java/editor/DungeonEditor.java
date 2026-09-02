@@ -29,6 +29,7 @@ import com.mygame.monsters.SkeletMag;
 import com.mygame.monsters.SkeletonWarrior;
 import com.mygame.monsters.Snake;
 import com.mygame.monsters.SpiderBoss;
+import com.mygame.monsters.Wolf;
 import com.mygame.monsters.WormBoss;
 import com.simsilica.lemur.*;
 import com.simsilica.lemur.component.SpringGridLayout;
@@ -230,14 +231,10 @@ private void addMonster(Class<? extends Monster> cls) {
 
     private List<Class<? extends Monster>> getMonsterClasses() {
         List<Class<? extends Monster>> classes = new ArrayList<>();
-        classes.add(Imp.class);
-        classes.add(Inferno.class);
-        classes.add(Angel.class);
-        classes.add(SkeletMag.class);
+        classes.add(Wolf.class);
 
-        classes.add(FinalBoss.class);
+
         
-        classes.add(DragonBoss.class);
         return classes;
     }
 }

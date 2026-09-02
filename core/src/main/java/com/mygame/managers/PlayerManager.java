@@ -18,6 +18,8 @@ import com.jme3.effect.shapes.EmitterSphereShape;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
+import com.jme3.math.Ray;
+import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.scene.Geometry;
@@ -40,7 +42,33 @@ import java.util.concurrent.CompletableFuture;
  * Управляет игроком: модель, физика, характеристики, бой, таланты, анимации.
  */
 public class PlayerManager {
+private float equipmentDamage = 0f;
+private float equipmentDefense = 0f;
+/**
+ * Пересчитывает суммарные бонусы урона/защиты от надетой
+ * экипировки. Нужно вызывать при экипировке, снятии
+ * предмета и при первоначальной загрузке персонажа —
+ * иначе damage/defense с вещей не участвуют в бою вообще.
+ *
+ * @param equippedItems список надетых предметов (7 слотов)
+ */
+public void recalculateEquipmentBonuses(List<Item> equippedItems) {
+    float dmg = 0f;
+    float def = 0f;
 
+    if (equippedItems != null) {
+        for (Item item : equippedItems) {
+            if (item == null) continue;
+            dmg += item.getDamage();
+            def += item.getDefense();
+        }
+    }
+
+    this.equipmentDamage = dmg;
+    this.equipmentDefense = def;
+
+    recalculateStats();
+}
     // ============================================================
     // КОНСТАНТЫ АНИМАЦИЙ
     // ============================================================
@@ -1082,7 +1110,7 @@ lastStuckDist = -1f;
         }
 
         // Физическая защита + бонусы
-        float totalPhysicalDefense = physicalDefense + armor;
+float totalPhysicalDefense = physicalDefense + armor + equipmentDefense;
 
         // DEF 10 — Defense Aura (постоянный бонус)
         if (hasTalent("def_10")) {
@@ -1423,7 +1451,9 @@ lastStuckDist = -1f;
         }
         recalculateStats();
     }
-
+public UIManager getUiManager() {
+    return uiManager;
+}
     // ============================================================
     // ПЕРЕСЧЁТ ИТОГОВЫХ СТАТОВ
     // ============================================================
@@ -1468,7 +1498,7 @@ lastStuckDist = -1f;
         attackSpeed = 1f + statBonuses.getOrDefault("attack_speed", 0f) / 100f;
 
         // Base damage (без учёта attack_7 – применяется в calculatePhysicalDamage)
-        baseDamage = 10f;
+baseDamage = 10f + equipmentDamage;
 
         // Heal
         healPower = statBonuses.getOrDefault("heal_power", 0f);
@@ -1490,6 +1520,26 @@ lastStuckDist = -1f;
         kickStunDuration = statBonuses.getOrDefault("kick_stun_duration", 0f);
         rageAttackSpeed = statBonuses.getOrDefault("rage_attack_speed", 0f);
     }
+/**
+ * Проверяет реальным рейкастом, есть ли уже физическая
+ * коллизия (пол) в точке будущего спавна — а не просто
+ * "появился хоть один дочерний объект в dungeonNode"
+ * (монстры/декор могут появиться раньше пола, что делает
+ * старую проверку по числу детей ненадёжной).
+ */
+private boolean isFloorReadyAt(Vector3f target) {
+
+    if (physicsSpace == null || target == null) {
+        return false;
+    }
+
+    Vector3f from = new Vector3f(target.x, target.y + 20f, target.z);
+    Vector3f to = new Vector3f(target.x, target.y - 20f, target.z);
+
+    List<PhysicsRayTestResult> results = physicsSpace.rayTest(from, to);
+
+    return results != null && !results.isEmpty();
+}
 
     private float getBonusStat(String key) {
         return statBonuses.getOrDefault(key, 0f);
@@ -1499,7 +1549,29 @@ private Vector3f lockedApproachDir = null;
     // UPDATE (вызывается каждый кадр)
     // ============================================================
     public void update(float tpf) {
+        if (characterControl != null) {
+    System.out.println("[YTrack] y=" + characterControl.getRigidBody().getPhysicsLocation().y
+            + " isAlive=" + isAlive);
+}
         clampUpwardVelocity();
+if (pendingTeleportPosition != null) {
+
+    pendingTeleportSafetyTimer -= tpf;
+
+    boolean floorReady = isFloorReadyAt(pendingTeleportPosition);
+
+    if (floorReady || pendingTeleportSafetyTimer <= 0f) {
+
+        setPosition(pendingTeleportPosition);
+
+        if (characterControl != null) {
+            characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+            characterControl.setWalkDirection(Vector3f.ZERO);
+        }
+
+        pendingTeleportPosition = null;
+    }
+}        
         if (!isAlive) {
             deathTimer += tpf;
             if (deathTimer >= 0.3f && !isRespawning) {
@@ -2066,17 +2138,29 @@ whirlwindParticles.setEndSize(0.01f);
         this.experience = exp;
     }
 
-    public void setPosition(Vector3f pos) {
-        if (pos == null) {
-            return;
-        }
-        this.position.set(pos);
-        smoothPosition.set(pos);
-        if (characterControl != null) {
-            characterControl.warp(pos);
-        }
-        playerNode.setLocalTranslation(pos);
+public void setPosition(Vector3f pos) {
+    if (pos == null) {
+        return;
     }
+
+    /*
+     * Любая прямая установка позиции отменяет ранее
+     * запрошенный отложенный телепорт (requestTeleport).
+     * Иначе "зависший" pending-запрос со старыми
+     * координатами (например, от входа в данж, который
+     * не успел завершиться до смерти игрока) может
+     * перезаписать корректную позицию после респавна
+     * и утащить персонажа в пустоту несуществующей сцены.
+     */
+    pendingTeleportPosition = null;
+
+    this.position.set(pos);
+    smoothPosition.set(pos);
+    if (characterControl != null) {
+        characterControl.warp(pos);
+    }
+    playerNode.setLocalTranslation(pos);
+}
 
     public void setWorldManager(WorldManager wm) {
         this.worldManager = wm;
@@ -2323,5 +2407,37 @@ private Vector3f lastFramePos = null;
     public float getRageAttackSpeed() {
         return rageAttackSpeed;
     }
-    
+    /**
+ * Настоящий 3D-рейкаст от камеры через курсор, проверяющий
+ * столкновение ТОЛЬКО с геометрией монстров — пол и прочая
+ * сцена в проверке не участвуют вообще.
+ *
+ * Решает случай, когда монстр стоит вплотную к полу и раньше
+ * не попадал в радиус эвристики getClosestInteractiveObject().
+ */
+    private Vector3f pendingTeleportPosition = null;
+private float pendingTeleportSafetyTimer = 0f;
+/**
+ * Запрашивает телепортацию, которая применится не сразу,
+ * а как только новый данж реально готов (проверяется каждый
+ * кадр в update()). Это решает гонку с загрузкой сцены,
+ * которая может быть отложена на несколько кадров вглубь
+ * (WorldManager -> DungeonLoader), и не зависит от точного
+ * количества app.enqueue() внутри цепочки загрузки.
+ */
+public void requestTeleport(Vector3f pos) {
+
+    if (pos == null) {
+        return;
+    }
+
+    pendingTeleportPosition = pos.clone();
+
+    /*
+     * Аварийный предохранитель — если по какой-то причине
+     * данж не станет "готов" за разумное время, всё равно
+     * применяем позицию, чтобы не зависнуть навсегда.
+     */
+    pendingTeleportSafetyTimer = 3f;
+}
 }

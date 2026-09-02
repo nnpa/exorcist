@@ -204,74 +204,16 @@ private static final ColorRGBA PARTICLE_COLOR =
         // LOOT
         // ========================================================
 
-        LootTable loot = new LootTable();
+                LootTable loot = new LootTable();
 
-        int diff = 1;
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Weapon",
-                        diff
-                ),
-                0.25f
-        );
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Helmet",
-                        diff
-                ),
-                0.20f
-        );
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Chest",
-                        diff
-                ),
-                0.20f
-        );
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Shield",
-                        diff
-                ),
-                0.15f
-        );
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Legs",
-                        diff
-                ),
-                0.20f
-        );
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Boots",
-                        diff
-                ),
-                0.15f
-        );
-
-        loot.addEntry(
-                ItemGenerator.generateItem(
-                        1,
-                        "Gloves",
-                        diff
-                ),
-                0.15f
-        );
-
-        setLootTable(loot);
+loot.addEntry("Weapon", 0.25f);
+loot.addEntry("Helmet", 0.2f);
+loot.addEntry("Chest", 0.2f);
+loot.addEntry("Shield", 0.15f);
+loot.addEntry("Legs", 0.2f);
+loot.addEntry("Boots", 0.15f);
+loot.addEntry("Gloves", 0.15f);
+setLootTable(loot);
     }
 
 

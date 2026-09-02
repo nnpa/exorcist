@@ -8,6 +8,7 @@ import com.atr.jme.font.util.Style;
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapFont;
 import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
@@ -41,7 +42,8 @@ import com.mygame.managers.*;
 import com.mygame.managers.GameManager.GameState;
 import com.mygame.monsters.Monster;
 import com.simsilica.lemur.Label;
-
+import com.jme3.collision.CollisionResults;
+import com.jme3.math.Ray;
 import java.util.Map;
 
 public class Main extends SimpleApplication {
@@ -343,7 +345,20 @@ private void handleClick(float screenX, float screenY) {
     
     DropManager.DropItem drop = dropManager.getDropAt(screenX, screenY);
     if (drop != null) { dropManager.pickupDrop(drop); return; }
+    
+    
+    Monster clickedMonster = getMonsterUnderCursor(screenX, screenY);
 
+    if (clickedMonster != null) {
+
+        Spatial monsterModel = clickedMonster.getModelNode();
+
+        if (monsterModel != null) {
+            playerManager.attackTarget(monsterModel);
+            return;
+        }
+    }
+    
     Vector3f groundPoint = getGroundPoint(screenX, screenY);
     if (groundPoint == null) return;
 
@@ -770,4 +785,59 @@ private MapWindow mapWindow;
         SoundManager.cleanup();
         super.destroy();
     }
-}
+    /**
+ * Настоящий 3D-рейкаст от камеры через курсор, проверяющий
+ * столкновение ТОЛЬКО с геометрией монстров — пол и прочая
+ * сцена в проверке не участвуют вообще.
+ *
+ * Решает случай, когда монстр стоит вплотную к полу и раньше
+ * не попадал в радиус эвристики getClosestInteractiveObject().
+ */
+/**
+ * Настоящий 3D-рейкаст от камеры через курсор, проверяющий
+ * столкновение ТОЛЬКО с геометрией монстров — пол и прочая
+ * сцена в проверке не участвуют вообще.
+ */
+private Monster getMonsterUnderCursor(float screenX, float screenY) {
+
+    if (worldManager == null) {
+        return null;
+    }
+
+    Vector3f origin = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 0f);
+    Vector3f dest = cam.getWorldCoordinates(new Vector2f(screenX, screenY), 1f);
+    Vector3f direction = dest.subtract(origin).normalizeLocal();
+
+    com.jme3.math.Ray ray = new com.jme3.math.Ray(origin, direction);
+
+    Monster closestMonster = null;
+    float closestDistance = Float.MAX_VALUE;
+
+    for (Monster monster : worldManager.getActiveMonsters()) {
+
+        if (monster == null || !monster.isAlive()) {
+            continue;
+        }
+
+        Node modelNode = monster.getModelNode();
+
+        if (modelNode == null) {
+            continue;
+        }
+
+        com.jme3.collision.CollisionResults results = new com.jme3.collision.CollisionResults();
+        modelNode.collideWith(ray, results);
+
+        if (results.size() > 0) {
+
+            float distance = results.getClosestCollision().getDistance();
+
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestMonster = monster;
+            }
+        }
+    }
+
+    return closestMonster;
+}}

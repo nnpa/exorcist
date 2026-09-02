@@ -43,20 +43,13 @@ public class ItemGenerator {
         }
     }
 
-    // ================================================================
-    // GEMS (нельзя одеть, отдельный тип "Gem")
-    // ================================================================
-
     public static final String GEM_TYPE = "Gem";
-
     public static final String GEM_RUBY = "ruby";
     public static final String GEM_DIAMOND = "diamond";
     public static final String GEM_EMERALD = "emerald";
 
     private static final List<String> GEM_KINDS = Arrays.asList(
-            GEM_RUBY,
-            GEM_DIAMOND,
-            GEM_EMERALD
+            GEM_RUBY, GEM_DIAMOND, GEM_EMERALD
     );
 
     private static String getLocalizedOrFallback(String key, String fallback) {
@@ -67,49 +60,65 @@ public class ItemGenerator {
         return value;
     }
 
+    /**
+     * ================================================================
+     * БАЗОВЫЕ ФОРМУЛЫ ПО ТИПУ ПРЕДМЕТА (до множителя сложности и ролла редкости)
+     * ================================================================
+     *
+     * Цель баланса: полный комплект брони (6 слотов, без оружия)
+     * к 50 уровню даёт суммарно ~35-45 "очков" физ. защиты
+     * (при делении на 100 в формуле снижения урона — это
+     * заметный, но не мгновенно капающий 80%-й потолок вклад,
+     * сравнимый по силе с одной прокачанной веткой талантов,
+     * а не превосходящий её).
+     *
+     * Оружие — единственный масштабируемый источник урона
+     * игрока (baseDamage сам по себе не растёт с уровнем),
+     * поэтому его база растёт быстрее остальных слотов.
+     */
     public static Item generateItem(int playerLevel, String type, int difficulty) {
         if (!VALID_TYPES.contains(type)) {
             type = VALID_TYPES.get(random.nextInt(VALID_TYPES.size()));
         }
 
-        int level = playerLevel;
+        int level = Math.max(1, playerLevel);
         int baseDamage = 0, baseDefense = 0;
         int baseHealthBonus = 0, baseManaBonus = 0;
 
         switch (type) {
             case "Weapon":
-                baseDamage = 5 + level * 2;
+                baseDamage = 6 + Math.round(level * 2.5f);
                 break;
             case "Helmet":
-                baseDefense = 3 + level;
-                baseHealthBonus = 2 + level;
+                baseDefense = 2 + Math.round(level * 0.5f);
+                baseHealthBonus = 4 + level * 2;
                 break;
             case "Chest":
-                baseDefense = 5 + level * 2;
-                baseHealthBonus = 4 + level * 2;
-                baseManaBonus = 2 + level;
+                baseDefense = 3 + Math.round(level * 0.8f);
+                baseHealthBonus = 8 + level * 3;
+                baseManaBonus = 3 + level;
                 break;
             case "Shield":
-                baseDefense = 4 + level;
-                baseHealthBonus = 3 + level;
+                baseDefense = 3 + Math.round(level * 0.7f);
+                baseHealthBonus = 4 + level * 2;
                 break;
             case "Legs":
-                baseDefense = 2 + level;
-                baseHealthBonus = 1 + level;
+                baseDefense = 2 + Math.round(level * 0.6f);
+                baseHealthBonus = 4 + Math.round(level * 1.5f);
                 break;
             case "Boots":
-                baseDefense = 1 + level;
-                baseHealthBonus = 1 + level;
+                baseDefense = 1 + Math.round(level * 0.4f);
+                baseHealthBonus = 3 + level;
                 break;
             case "Gloves":
-                baseDefense = 1 + level;
-                baseManaBonus = 1 + level;
+                baseDefense = 1 + Math.round(level * 0.4f);
+                baseManaBonus = 2 + level;
                 break;
         }
 
         float bonusPercent = -10 + random.nextFloat() * 30;
-        int finalDamage = (int)(baseDamage * (1 + bonusPercent / 100f));
-        int finalDefense = (int)(baseDefense * (1 + bonusPercent / 100f));
+        int finalDamage = (int) (baseDamage * (1 + bonusPercent / 100f));
+        int finalDefense = (int) (baseDefense * (1 + bonusPercent / 100f));
         finalDamage = Math.max(0, finalDamage);
         finalDefense = Math.max(0, finalDefense);
 
@@ -119,8 +128,8 @@ public class ItemGenerator {
         else if (bonusPercent >= -2) rarity = ItemRarity.UNCOMMON;
         else rarity = ItemRarity.COMMON;
 
-        if (playerLevel >= 50 && random.nextFloat() < 0.05f) rarity = ItemRarity.EPIC;
-        if (playerLevel >= 50 && random.nextFloat() < 0.02f) rarity = ItemRarity.LEGENDARY;
+        if (level >= 50 && random.nextFloat() < 0.05f) rarity = ItemRarity.EPIC;
+        if (level >= 50 && random.nextFloat() < 0.02f) rarity = ItemRarity.LEGENDARY;
 
         int effectiveDifficulty = Math.max(1, difficulty);
         finalDamage *= effectiveDifficulty;
@@ -142,12 +151,7 @@ public class ItemGenerator {
         return item;
     }
 
-    // ================================================================
-    // ГЕНЕРАЦИЯ ГЕМА
-    // ================================================================
-
     public static Item generateGem(String gemKind, int difficulty) {
-
         if (!GEM_KINDS.contains(gemKind)) {
             gemKind = GEM_KINDS.get(random.nextInt(GEM_KINDS.size()));
         }
@@ -156,18 +160,7 @@ public class ItemGenerator {
         String iconPath = "Icons/Items/Gem/" + gemKind + ".png";
         String id = UUID.randomUUID().toString();
 
-        Item item = new Item(
-                id,
-                name,
-                GEM_TYPE,
-                1,
-                ItemRarity.RARE,
-                "",
-                0,
-                0,
-                iconPath
-        );
-
+        Item item = new Item(id, name, GEM_TYPE, 1, ItemRarity.RARE, "", 0, 0, iconPath);
         item.setDifficulty(Math.max(1, difficulty));
 
         return item;

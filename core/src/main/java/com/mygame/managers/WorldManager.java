@@ -156,7 +156,7 @@ public void setDropManager(DropManager dm) {
         createCityScene();
         loadNPCs();
         createInteractiveObjects();
-        spawnTestMonster();
+        //spawnTestMonster();
 
         cityNode.setCullHint(Node.CullHint.Dynamic);
         npcNode.setCullHint(Node.CullHint.Dynamic);
@@ -354,7 +354,7 @@ public PhysicsSpace getPhysicsSpace() {
             return;
         }
 
-        Monster skeleton = new Inferno();
+        Monster skeleton = new WormBoss();
         Vector3f spawnPos = new Vector3f(6f, -1.65f, -6f);
         skeleton.setSpawnPosition(spawnPos);
         skeleton.setPlayerManager(playerManager);
@@ -365,7 +365,7 @@ Spatial model = null;
 try {
     // Убедитесь, что путь совпадает с реальным файлом, который вы видите в логе!
     System.out.println("[WorldManager] Loading model: Models/Monsters/imp/imp.gltf");
-    model = app.getAssetManager().loadModel("Models/Monsters/inferno/inferno.gltf");
+    model = app.getAssetManager().loadModel("Models/Monsters/wormboss/wormboss.gltf");
 } catch (Exception e) {
     System.err.println("[WorldManager] Exception loading model: " + e.getMessage());
     e.printStackTrace();
@@ -423,6 +423,9 @@ private AnimComposer findAnimComposer(Spatial spatial) {
         }
     }
     return spatial.getControl(AnimComposer.class);
+}
+public List<Monster> getActiveMonsters() {
+    return activeMonsters;
 }
 public Monster getMonsterByModel(Spatial model) {
     for (Monster m : activeMonsters) {
@@ -818,29 +821,34 @@ public void setUIManager(UIManager ui) {
     // ============================================================
     //   ТЕЛЕПОРТ В ТЕКУЩИЙ ДАНЖ
     // ============================================================
-    public void teleportToDungeon() {
-        if (playerManager == null) return;
-        String dungeonId = playerManager.getCurrentDungeon();
-        int difficulty = playerManager.getCurrentDifficulty();
-        if (dungeonId == null || dungeonId.isEmpty()) {
-            dungeonId = "dungeon_1";
-            playerManager.setCurrentDungeon(dungeonId);
-        }
-
-        loadDungeon(dungeonId, difficulty);
-
-        Vector3f spawnPos = playerManager.getLastDungeonPosition();
-        if (spawnPos == null || spawnPos.length() < 0.01f) {
-            spawnPos = new Vector3f(0f, 2.5f, 0f);
-        }
-        playerManager.setPosition(spawnPos);
-        if (playerManager.getCharacterControl() != null) {
-            playerManager.getCharacterControl().warp(spawnPos);
-        }
-        switchToDungeon();
+public void teleportToDungeon() {
+    if (playerManager == null) return;
+    String dungeonId = playerManager.getCurrentDungeon();
+    int difficulty = playerManager.getCurrentDifficulty();
+    if (dungeonId == null || dungeonId.isEmpty()) {
+        dungeonId = "dungeon_1";
+        playerManager.setCurrentDungeon(dungeonId);
     }
 
-    // ============================================================
+    loadDungeon(dungeonId, difficulty);
+
+    /*
+     * lastDungeonPosition хранит позицию игрока ГДЕ БЫ ОН
+     * НИ БЫЛ (город или любой другой данж) — это координаты
+     * из совершенно другой сцены и не имеют отношения
+     * к геометрии данжа, в который мы сейчас входим.
+     * Использовать их напрямую как точку спавна опасно —
+     * можно оказаться за пределами пола нового данжа
+     * и упасть в бесконечность (что и происходило).
+     * Поэтому всегда используем фиксированную безопасную
+     * точку спавна у начала координат данжа.
+     */
+    Vector3f spawnPos = new Vector3f(0f, 2.5f, 0f);
+
+    playerManager.requestTeleport(spawnPos);
+
+    switchToDungeon();
+}    // ============================================================
     //   ОСТАЛЬНЫЕ МЕТОДЫ
     // ============================================================
     public void onStateChanged(GameState newState) {
@@ -940,7 +948,6 @@ public void cleanup() {
     public Node getCityNode() { return cityNode; }
     public Node getInteractableNode() { return interactableNode; }
     public Node getNpcNode() { return npcNode; }
-    public List<Monster> getActiveMonsters() { return activeMonsters; }
     public DungeonManager getDungeonManager() { return dungeonManager; }
 
     public static class MonsterData {

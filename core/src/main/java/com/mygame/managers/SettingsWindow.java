@@ -18,6 +18,7 @@ import com.jme3.scene.shape.Quad;
 
 import com.simsilica.lemur.Button;
 import com.simsilica.lemur.Label;
+import com.simsilica.lemur.TextField;
 
 public class SettingsWindow implements RawInputListener {
 
@@ -78,6 +79,14 @@ public class SettingsWindow implements RawInputListener {
      * Зарегистрирован ли listener.
      */
     private boolean inputRegistered = false;
+
+    // =============================================================
+    // ТЕЛЕПОРТ (X / Y / Z)
+    // =============================================================
+
+    private TextField xField;
+    private TextField yField;
+    private TextField zField;
 
     // =============================================================
     // КОНСТРУКТОР
@@ -236,7 +245,7 @@ public class SettingsWindow implements RawInputListener {
                 420f * scale;
 
         winH =
-                360f * scale;
+                540f * scale;
 
         // =========================================================
         // ФОН
@@ -452,6 +461,59 @@ public class SettingsWindow implements RawInputListener {
         );
 
         // =========================================================
+        // ТЕЛЕПОРТ (X / Y / Z)
+        // =========================================================
+        /**
+        yPos -= stepY;
+
+        Label teleportTitle =
+                createLabel(
+                        getLocalized("settings.teleport_title"),
+                        16f
+                );
+
+        teleportTitle.setLocalTranslation(
+                20f * scale,
+                yPos,
+                0.1f
+        );
+
+        windowNode.attachChild(teleportTitle);
+
+        yPos -= 32f * scale;
+        xField = createCoordField("X:", yPos, "0");
+
+        yPos -= 32f * scale;
+        yField = createCoordField("Y:", yPos, "0");
+
+        yPos -= 32f * scale;
+        zField = createCoordField("Z:", yPos, "2");
+
+        yPos -= 40f * scale;
+
+        Button teleportButton =
+                createButton(
+                        getLocalized("settings.teleport_button"),
+                        16f
+                );
+
+        teleportButton.setPreferredSize(
+                new Vector3f(150f * scale, 30f * scale, 0f)
+        );
+
+        teleportButton.setLocalTranslation(
+                20f * scale,
+                yPos,
+                0.1f
+        );
+
+        teleportButton.addClickCommands(
+                source -> teleportPlayer()
+        );
+
+        windowNode.attachChild(teleportButton);
+        **/
+        // =========================================================
         // ПОЗИЦИЯ ОКНА
         // =========================================================
 
@@ -587,6 +649,51 @@ public class SettingsWindow implements RawInputListener {
         );
 
         return geometry;
+    }
+
+    // =============================================================
+    // ПОЛЕ ВВОДА КООРДИНАТЫ
+    // =============================================================
+
+    private TextField createCoordField(
+            String labelText,
+            float y,
+            String defaultValue
+    ) {
+
+        Label label =
+                createLabel(labelText, 14f);
+
+        label.setLocalTranslation(
+                20f * scale,
+                y,
+                0.1f
+        );
+
+        windowNode.attachChild(label);
+
+        TextField field =
+                new TextField(defaultValue);
+
+        if (currentFont != null) {
+            field.setFont(currentFont);
+        }
+
+        field.setFontSize(14f * scale);
+
+        field.setPreferredSize(
+                new Vector3f(100f * scale, 22f * scale, 0f)
+        );
+
+        field.setLocalTranslation(
+                60f * scale,
+                y,
+                0.1f
+        );
+
+        windowNode.attachChild(field);
+
+        return field;
     }
 
     // =============================================================
@@ -1016,6 +1123,48 @@ SoundManager.setMasterVolume(
                 "[Settings] Reset complete: "
                         + "volume=50%, language=en"
         );
+    }
+
+    // =============================================================
+    // ТЕЛЕПОРТ
+    // =============================================================
+
+    private void teleportPlayer() {
+
+        if (uiManager == null) {
+            return;
+        }
+
+        PlayerManager pm =
+                uiManager.getPlayerManager();
+
+        if (pm == null) {
+
+            uiManager.showToast(
+                    getLocalized("settings.teleport_no_player")
+            );
+
+            return;
+        }
+
+        try {
+
+            float x = Float.parseFloat(xField.getText().trim());
+            float y = Float.parseFloat(yField.getText().trim());
+            float z = Float.parseFloat(zField.getText().trim());
+
+            pm.setPosition(new Vector3f(x, y, z));
+
+            uiManager.showToast(
+                    getLocalized("settings.teleport_success")
+            );
+
+        } catch (NumberFormatException e) {
+
+            uiManager.showToast(
+                    getLocalized("settings.teleport_invalid")
+            );
+        }
     }
 
     // =============================================================

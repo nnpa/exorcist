@@ -2791,7 +2791,9 @@ private void createTeleporterDialog() {
             hideHUD();
         }
     }
-
+public PlayerManager getPlayerManager() {
+    return playerManager;
+}
     public boolean isAnyWindowOpen() {
 
         return loginVisible
