@@ -1112,6 +1112,7 @@ lastStuckDist = -1f;
         finalHealth -= actualDamage;
         System.out.println("[Player] Damage: " + actualDamage + ", HP: " + finalHealth + "/" + finalMaxHealth);
 
+        DamageNumberManager.spawnDamage(app, playerNode, playerNode.getWorldTranslation(), actualDamage);
         // Undying (def_9)
         if (finalHealth <= 0 && hasTalent("def_9")) {
             finalHealth = Math.max(1, (int) (finalMaxHealth * 0.30f));
@@ -1154,6 +1155,9 @@ lastStuckDist = -1f;
         int healAmount = Math.max(0, (int) (amount * multiplier));
         finalHealth = Math.min(finalHealth + healAmount, finalMaxHealth);
         System.out.println("[Player] Healed: " + healAmount + ", HP: " + finalHealth + "/" + finalMaxHealth);
+
+        DamageNumberManager.spawnHeal(app, playerNode, playerNode.getWorldTranslation(), healAmount);
+
         updateUI();
     }
 

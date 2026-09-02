@@ -746,6 +746,18 @@ public class Monster {
             health = 0f;
         }
 
+        
+        Vector3f dmgPos = modelNode != null
+                ? modelNode.getWorldTranslation()
+                : getPosition();
+
+        com.mygame.managers.DamageNumberManager.spawnDamage(
+                app,
+                modelNode,
+                dmgPos,
+                (int) amount
+        );
+        
         System.out.println(
                 "[Monster] "
                 + name
