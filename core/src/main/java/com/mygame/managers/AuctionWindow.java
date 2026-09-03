@@ -23,7 +23,32 @@ import java.util.List;
 import java.util.Map;
 
 public class AuctionWindow {
+private void openBuyGoldPage() {
 
+    Main main = (Main) app;
+
+    if (main == null || main.getNetworkManager() == null) {
+        return;
+    }
+
+    String serverUrl = main.getNetworkManager().getServerUrl();
+    String token = main.getNetworkManager().getAuthToken();
+
+    if (serverUrl == null || serverUrl.isEmpty() || token == null) {
+        return;
+    }
+
+    String url = serverUrl + "payment/shop?token=" + token;
+
+    try {
+        if (java.awt.Desktop.isDesktopSupported()
+                && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.BROWSE)) {
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+        }
+    } catch (Exception e) {
+        System.err.println("[AuctionWindow] Failed to open shop: " + e.getMessage());
+    }
+}
     private SimpleApplication app;
     private UIManager uiManager;
     private NetworkManager networkManager;
@@ -163,11 +188,20 @@ private void showBrowseTab() {
 
     float y = winH - 110 * scale;
 
-    goldLabel.setText(getLocalized("gold.label") + playerManager.getGold());
-    goldLabel.setPreferredSize(new Vector3f(winW - 30 * scale, 30 * scale, 0));
+ goldLabel.setText(getLocalized("gold.label") + playerManager.getGold());
+    goldLabel.setPreferredSize(new Vector3f(120 * scale, 30 * scale, 0));
     goldLabel.setLocalTranslation(15 * scale + leftShift, y, 0.1f);
     windowNode.attachChild(goldLabel);
     dynamicParts.add(goldLabel);
+
+    Button buyGoldButton = new Button(getLocalized("auction.buy_gold"));
+    buyGoldButton.setPreferredSize(new Vector3f(80 * scale, 24 * scale, 0));
+    buyGoldButton.setFontSize(12 * scale);
+    buyGoldButton.setLocalTranslation(140 * scale + leftShift, y, 0.1f);
+    buyGoldButton.addClickCommands(s -> openBuyGoldPage());
+   // windowNode.attachChild(buyGoldButton);
+    //dynamicParts.add(buyGoldButton);
+
     y -= 35 * scale;
 
     Label typeLabel = new Label(getLocalized("auction.filter.type"));

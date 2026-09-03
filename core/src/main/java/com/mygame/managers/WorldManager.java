@@ -694,9 +694,22 @@ public Node getDungeonNode() { return dungeonNode; }
 
     public void returnToCity() {
         if (playerManager == null) return;
-        
-        Vector3f currentPos = playerManager.getPosition();
-        playerManager.setLastDungeonPosition(currentPos);
+
+        /*
+         * Сохраняем позицию, только если СЕЙЧАС реально
+         * в состоянии "данж" — currentState синхронно
+         * обновляется в switchToDungeon()/switchToCity(),
+         * поэтому это надёжнее, чем проверять dungeonNode
+         * (он присваивается асинхронно). Смерть в городе
+         * не должна трогать сохранённую позицию данжа.
+         */
+        if (currentState == GameState.DUNGEON) {
+
+            Vector3f currentPos = playerManager.getPosition();
+            String leavingDungeonId = playerManager.getCurrentDungeon();
+
+            playerManager.setLastDungeonPosition(leavingDungeonId, currentPos);
+        }
 
         if (dungeonNode != null) {
             removePhysicsFromNode(dungeonNode);
@@ -710,7 +723,7 @@ if (treasureManager != null) {
     }
         loadCityWithPhysics();
 
-        Vector3f citySpawn = new Vector3f(0f, 0.5f, -8f);
+        Vector3f citySpawn = new Vector3f(0f, -1.9f, -8f);
         playerManager.setPosition(citySpawn);
         if (playerManager.getCharacterControl() != null) {
             playerManager.getCharacterControl().warp(citySpawn);
@@ -833,17 +846,18 @@ public void teleportToDungeon() {
     loadDungeon(dungeonId, difficulty);
 
     /*
-     * lastDungeonPosition хранит позицию игрока ГДЕ БЫ ОН
-     * НИ БЫЛ (город или любой другой данж) — это координаты
-     * из совершенно другой сцены и не имеют отношения
-     * к геометрии данжа, в который мы сейчас входим.
-     * Использовать их напрямую как точку спавна опасно —
-     * можно оказаться за пределами пола нового данжа
-     * и упасть в бесконечность (что и происходило).
-     * Поэтому всегда используем фиксированную безопасную
-     * точку спавна у начала координат данжа.
+     * Используем сохранённую позицию, только если она
+     * привязана именно к этому dungeonId (то есть игрок
+     * реально покидал ИМЕННО этот данж через N, а не город
+     * или другой данж) — так безопасная защита от падения
+     * в пустоту сохраняется, а "вернуться туда, откуда вышел" —
+     * работает.
      */
-    Vector3f spawnPos = new Vector3f(0f, 2.5f, 0f);
+    Vector3f savedPos = playerManager.getLastDungeonPositionFor(dungeonId);
+
+    Vector3f spawnPos = savedPos != null
+            ? savedPos
+            : new Vector3f(0f, 2.5f, 0f);
 
     playerManager.requestTeleport(spawnPos);
 

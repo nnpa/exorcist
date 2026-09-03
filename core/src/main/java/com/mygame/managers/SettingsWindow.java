@@ -513,6 +513,29 @@ public class SettingsWindow implements RawInputListener {
 
         windowNode.attachChild(teleportButton);
         **/
+        yPos -= stepY;
+
+        Button emergencyTeleportButton =
+                createButton(
+                        getLocalized("settings.emergency_teleport"),
+                        16f
+                );
+
+        emergencyTeleportButton.setPreferredSize(
+                new Vector3f(220f * scale, 30f * scale, 0f)
+        );
+
+        emergencyTeleportButton.setLocalTranslation(
+                20f * scale,
+                yPos,
+                0.1f
+        );
+
+        emergencyTeleportButton.addClickCommands(
+                source -> emergencyTeleport()
+        );
+
+        windowNode.attachChild(emergencyTeleportButton);
         // =========================================================
         // ПОЗИЦИЯ ОКНА
         // =========================================================
@@ -1330,5 +1353,32 @@ SoundManager.setMasterVolume(
 
     @Override
     public void onTouchEvent(TouchEvent te) {
+    }
+    
+     // =============================================================
+    // АВАРИЙНЫЙ ТЕЛЕПОРТ (фиксированная точка, на случай провала под пол)
+    // =============================================================
+
+    private void emergencyTeleport() {
+
+        if (uiManager == null) {
+            return;
+        }
+
+        PlayerManager pm =
+                uiManager.getPlayerManager();
+
+        if (pm == null) {
+
+            uiManager.showToast(
+                    getLocalized("settings.teleport_no_player")
+            );
+
+            return;
+        }
+
+        pm.setPosition(new Vector3f(0f, 0f, 5f));
+
+
     }
 }

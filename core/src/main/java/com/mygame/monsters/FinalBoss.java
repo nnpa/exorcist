@@ -192,6 +192,9 @@ loot.addEntry("Shield", 0.15f);
 loot.addEntry("Legs", 0.2f);
 loot.addEntry("Boots", 0.15f);
 loot.addEntry("Gloves", 0.15f);
+loot.addEntry("Gem", 1.0f);
+loot.addEntry("Gem", 1.0f);
+loot.addEntry("Gem", 1.0f);
 setLootTable(loot);
     }
 

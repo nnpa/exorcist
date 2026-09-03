@@ -18,9 +18,11 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class NetworkManager {
-    
+    public String getServerUrl() {
+    return serverUrl;
+}
     private SimpleApplication app;
-    private String serverUrl = "http://eczo/";
+    private String serverUrl = "https://rpgexorcist.site/";
     private String authToken = null;
     private boolean isConnected = false;
     private static final String TOKEN_FILE_NAME = ".exorcist_token.txt";

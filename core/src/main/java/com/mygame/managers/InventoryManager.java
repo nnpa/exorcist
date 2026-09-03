@@ -2489,24 +2489,52 @@ public void hide() {
     // UPDATE UI
     // ================================================================
 
-    public void updateUI() {
+public void updateUI() {
 
-        clearUI();
+    clearUI();
 
-        updateScreenSize();
+    updateScreenSize();
 
-        createUI(
-                currentScreenWidth,
-                currentScreenHeight
-        );
+    createUI(
+            currentScreenWidth,
+            currentScreenHeight
+    );
 
-        if (isVisible) {
+    if (isVisible) {
 
-            setVisible(true);
-        }
-        refreshGemOverlays();
+        setVisible(true);
     }
+    refreshGemOverlays();
 
+    /*
+     * Пересчитываем бонусы урона/защиты от надетой экипировки
+     * в PlayerManager — без этого damage/defense с вещей
+     * никогда не участвуют в бою (только health/mana, которые
+     * уже приходят готовыми с сервера).
+     */
+    if (uiManager != null && uiManager.getPlayerManager() != null) {
+
+        List<Item> equippedList = new ArrayList<>();
+
+        for (Item item : equipment) {
+            if (item != null) {
+                equippedList.add(item);
+            }
+        }
+
+        uiManager.getPlayerManager().recalculateEquipmentBonuses(equippedList);
+
+        /*
+         * Если окно характеристик открыто — обновляем цифры
+         * сразу, а не только при следующем открытии окна.
+         */
+        if (uiManager.getCharacterStatsWindow() != null
+                && uiManager.getCharacterStatsWindow().isVisible()) {
+
+            uiManager.getCharacterStatsWindow().refreshValues();
+        }
+    }
+}
     // ================================================================
     // CLEANUP
     // ================================================================

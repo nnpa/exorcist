@@ -1383,17 +1383,8 @@ public void disableDungeonTransition() {
 
                                 } else {
 
-                                    worldManager.changeDungeon(
-                                            nextDungeonId,
-                                            false
-                                    );
+                                       worldManager.teleportToDungeon();
 
-                                    if (playerManager != null) {
-
-                                        playerManager.requestTeleport(
-                                                new Vector3f(0f, 0f, 5f)
-                                        );
-                                    }
                                 }
 
                                 return null;

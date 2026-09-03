@@ -18,15 +18,20 @@ public class LootTable {
         entries.add(new LootEntry(itemType, chance));
     }
 
-    public List<Item> rollForLoot(int playerLevel, int difficulty) {
-        List<Item> dropped = new ArrayList<>();
-        for (LootEntry entry : entries) {
-            if (random.nextFloat() < entry.chance) {
+public List<Item> rollForLoot(int playerLevel, int difficulty) {
+    List<Item> dropped = new ArrayList<>();
+    for (LootEntry entry : entries) {
+        if (random.nextFloat() < entry.chance) {
+
+            if ("Gem".equalsIgnoreCase(entry.itemType)) {
+                dropped.add(ItemGenerator.generateRandomGem(difficulty));
+            } else {
                 dropped.add(ItemGenerator.generateItem(playerLevel, entry.itemType, difficulty));
             }
         }
-        return dropped;
     }
+    return dropped;
+}
 
     private static class LootEntry {
         String itemType;

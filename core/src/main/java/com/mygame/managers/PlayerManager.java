@@ -18,7 +18,6 @@ import com.jme3.effect.shapes.EmitterSphereShape;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
-import com.jme3.math.Ray;
 import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.renderer.queue.RenderQueue;
@@ -341,12 +340,7 @@ private void clampUpwardVelocity() {
         characterControl.getRigidBody().setLinearVelocity(vel);
     }
 }
-    public void setPhysicsSpace(PhysicsSpace space) {
-        this.physicsSpace = space;
-        if (characterControl != null && space != null) {
-            space.add(characterControl);
-        }
-    }
+
 
     // ============================================================
     // МОДЕЛЬ
@@ -1549,35 +1543,34 @@ private Vector3f lockedApproachDir = null;
     // UPDATE (вызывается каждый кадр)
     // ============================================================
     public void update(float tpf) {
-        if (characterControl != null) {
-    System.out.println("[YTrack] y=" + characterControl.getRigidBody().getPhysicsLocation().y
-            + " isAlive=" + isAlive);
-}
+
         clampUpwardVelocity();
-if (pendingTeleportPosition != null) {
 
-    pendingTeleportSafetyTimer -= tpf;
-
-    boolean floorReady = isFloorReadyAt(pendingTeleportPosition);
-
-    if (floorReady || pendingTeleportSafetyTimer <= 0f) {
-
-        setPosition(pendingTeleportPosition);
-
-        if (characterControl != null) {
-            characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
-            characterControl.setWalkDirection(Vector3f.ZERO);
-        }
-
-        pendingTeleportPosition = null;
-    }
-}        
         if (!isAlive) {
             deathTimer += tpf;
             if (deathTimer >= 0.3f && !isRespawning) {
                 respawnPlayer();
             }
             return;
+        }
+
+        if (pendingTeleportPosition != null) {
+
+            pendingTeleportSafetyTimer -= tpf;
+
+            boolean floorReady = isFloorReadyAt(pendingTeleportPosition);
+
+            if (floorReady || pendingTeleportSafetyTimer <= 0f) {
+
+                setPosition(pendingTeleportPosition);
+
+                if (characterControl != null) {
+                    characterControl.getRigidBody().setLinearVelocity(Vector3f.ZERO);
+                    characterControl.setWalkDirection(Vector3f.ZERO);
+                }
+
+                pendingTeleportPosition = null;
+            }
         }
 
         // Временные эффекты талантов
@@ -2194,16 +2187,6 @@ public void setPosition(Vector3f pos) {
         this.currentDifficulty = difficulty;
     }
 
-    public Vector3f getLastDungeonPosition() {
-        return lastDungeonPosition;
-    }
-
-    public void setLastDungeonPosition(Vector3f pos) {
-        if (pos != null) {
-            lastDungeonPosition.set(pos);
-        }
-    }
-
     // ============================================================
     // DUNGEON PROGRESS
     // ============================================================
@@ -2237,124 +2220,11 @@ public void setPosition(Vector3f pos) {
     return Vector3f.UNIT_Z;
 }
     // ============================================================
-// ПРОВЕРКА ПОЛА (обход бага BetterCharacterControl на швах mesh-коллизии)
-// ============================================================
+    // КОНСТАНТЫ РАЗМЕРА ПЕРСОНАЖА (используются в createPhysicsBody)
+    // ============================================================
 
-private static final float CHARACTER_RADIUS = 0.4f;
-private static final float CHARACTER_HEIGHT = 1.8f;
-
-/**
- * Расстояние от центра капсулы персонажа до пола,
- * когда он стоит на нём (height/2 + radius).
- */
-private static final float CHARACTER_GROUND_OFFSET =
-        CHARACTER_HEIGHT / 2f + CHARACTER_RADIUS;
-
-/**
- * Как часто (в секундах) проверяем пол под персонажем.
- * Не каждый кадр — просто периодическая коррекция.
- */
-private static final float GROUND_CHECK_INTERVAL = 0.15f;
-
-/**
- * Максимальное расхождение, которое считаем "швом"/микро-багом
- * и подправляем. Всё, что больше — настоящее падение/лестница,
- * туда не лезем, пусть физика работает сама.
- */
-private static final float GROUND_SNAP_MAX_GAP = 0.35f;
-
-private float groundCheckTimer = 0f;
-
-private PhysicsSpace physicsSpace;
-/**
- * Периодически стреляет лучом вниз из-под персонажа,
- * находит реальный пол физической сцены и подправляет
- * высоту, если расхождение небольшое.
- *
- * Это обходит известный баг BetterCharacterControl
- * "hops across seams" — резкий прыжок/отброс на швах
- * между треугольниками mesh-коллизии, особенно заметный
- * при остановке движения.
- */
-private void updateGroundSnap(float tpf) {
-
-    if (characterControl == null || physicsSpace == null) {
-        return;
-    }
-
-    groundCheckTimer -= tpf;
-
-    if (groundCheckTimer > 0f) {
-        return;
-    }
-
-    groundCheckTimer = GROUND_CHECK_INTERVAL;
-
-    Vector3f current = characterControl.getRigidBody().getPhysicsLocation();
-
-    Vector3f from = new Vector3f(current.x, current.y + 0.5f, current.z);
-    Vector3f to = new Vector3f(current.x, current.y - 2.0f, current.z);
-
-    List<PhysicsRayTestResult> results = physicsSpace.rayTest(from, to);
-
-    float bestFraction = Float.MAX_VALUE;
-    Vector3f bestHit = null;
-
-    for (PhysicsRayTestResult result : results) {
-
-        if (result.getCollisionObject() == characterControl.getRigidBody()) {
-            continue;
-        }
-
-        float fraction = result.getHitFraction();
-
-        if (fraction < bestFraction) {
-            bestFraction = fraction;
-            bestHit = from.add(to.subtract(from).mult(fraction));
-        }
-    }
-
-    if (bestHit == null) {
-        return;
-    }
-
-    float floorY = bestHit.y;
-    float desiredCenterY = floorY + CHARACTER_GROUND_OFFSET;
-
-    float gap = current.y - desiredCenterY;
-
-    /*
-     * ДИАГНОСТИКА: печатаем КАЖДЫЙ раз, когда гэп заметный,
-     * даже если коррекция не сработает — чтобы понять,
-     * что вообще происходит с высотой пола под персонажем.
-     */
-    if (Math.abs(gap) > 0.02f) {
-        System.out.println(
-                "[GroundSnap] gap=" + gap
-                + " current.y=" + current.y
-                + " floorY=" + floorY
-                + " desiredY=" + desiredCenterY
-        );
-    }
-
-    if (Math.abs(gap) > 0.001f
-            && Math.abs(gap) <= GROUND_SNAP_MAX_GAP) {
-
-        /*
-         * ПЛАВНАЯ коррекция вместо мгновенного телепорта:
-         * подтягиваем только часть расхождения за раз.
-         * Даже если офсет посчитан неидеально, это не будет
-         * выглядеть как рывок — просто мягкая доводка.
-         */
-        float correctedY = current.y - gap * 0.3f;
-
-        Vector3f corrected = new Vector3f(current.x, correctedY, current.z);
-
-        characterControl.getRigidBody().setPhysicsLocation(corrected);
-    }
-}
-private Vector3f lastFramePos = null;
-
+    private static final float CHARACTER_RADIUS = 0.4f;
+    private static final float CHARACTER_HEIGHT = 1.8f;
 
     public float getBlockChance() {
         return blockChance;
@@ -2407,37 +2277,55 @@ private Vector3f lastFramePos = null;
     public float getRageAttackSpeed() {
         return rageAttackSpeed;
     }
-    /**
- * Настоящий 3D-рейкаст от камеры через курсор, проверяющий
- * столкновение ТОЛЬКО с геометрией монстров — пол и прочая
- * сцена в проверке не участвуют вообще.
- *
- * Решает случай, когда монстр стоит вплотную к полу и раньше
- * не попадал в радиус эвристики getClosestInteractiveObject().
- */
-    private Vector3f pendingTeleportPosition = null;
-private float pendingTeleportSafetyTimer = 0f;
-/**
- * Запрашивает телепортацию, которая применится не сразу,
- * а как только новый данж реально готов (проверяется каждый
- * кадр в update()). Это решает гонку с загрузкой сцены,
- * которая может быть отложена на несколько кадров вглубь
- * (WorldManager -> DungeonLoader), и не зависит от точного
- * количества app.enqueue() внутри цепочки загрузки.
- */
-public void requestTeleport(Vector3f pos) {
+    // ============================================================
+    // ТЕЛЕПОРТАЦИЯ (ожидание готовности пола перед применением)
+    // ============================================================
 
-    if (pos == null) {
-        return;
+    private PhysicsSpace physicsSpace;
+    private Vector3f pendingTeleportPosition = null;
+    private float pendingTeleportSafetyTimer = 0f;
+    private String lastDungeonPositionId = null;
+
+    public void setPhysicsSpace(PhysicsSpace space) {
+        this.physicsSpace = space;
+        if (characterControl != null && space != null) {
+            space.add(characterControl);
+        }
     }
 
-    pendingTeleportPosition = pos.clone();
-
-    /*
-     * Аварийный предохранитель — если по какой-то причине
-     * данж не станет "готов" за разумное время, всё равно
-     * применяем позицию, чтобы не зависнуть навсегда.
+    /**
+     * Запрашивает телепортацию, которая применится не сразу,
+     * а как только физика пола в целевой точке реально появится
+     * в сцене (проверяется рейкастом каждый кадр в update()).
+     * Решает гонку с асинхронной загрузкой данжа.
      */
-    pendingTeleportSafetyTimer = 3f;
-}
+    public void requestTeleport(Vector3f pos) {
+        if (pos == null) return;
+        pendingTeleportPosition = pos.clone();
+        pendingTeleportSafetyTimer = 3f;
+    }
+
+    /**
+     * Сохраняет позицию ТОЛЬКО вместе с ID данжа, к которому
+     * она относится — координаты из одной сцены никогда
+     * не используются как точка спавна в другой.
+     */
+    public void setLastDungeonPosition(String dungeonId, Vector3f pos) {
+        if (pos != null && dungeonId != null) {
+            lastDungeonPosition.set(pos);
+            lastDungeonPositionId = dungeonId;
+        }
+    }
+
+    /**
+     * Возвращает сохранённую позицию, только если она относится
+     * именно к запрошенному данжу — иначе null (нужно использовать
+     * безопасную точку спавна по умолчанию).
+     */
+    public Vector3f getLastDungeonPositionFor(String dungeonId) {
+        if (dungeonId != null && dungeonId.equals(lastDungeonPositionId)) {
+            return lastDungeonPosition;
+        }
+        return null;
+    }
 }

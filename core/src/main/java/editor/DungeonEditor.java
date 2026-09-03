@@ -231,8 +231,10 @@ private void addMonster(Class<? extends Monster> cls) {
 
     private List<Class<? extends Monster>> getMonsterClasses() {
         List<Class<? extends Monster>> classes = new ArrayList<>();
-        classes.add(Wolf.class);
+        classes.add(Head.class);
+        classes.add(Demon.class);
 
+        classes.add(SkeletonWarrior.class);
 
         
         return classes;

@@ -2348,6 +2348,18 @@ private void createRegisterScreen() {
     backButton.addClickCommands((source) -> showLoginScreen());
     registerWindow.attachChild(backButton);
 
+    
+    Button forgotPasswordButton = new Button(getLocalized("register.button.forgot_password"));
+    forgotPasswordButton.setPreferredSize(new Vector3f(220 * scale, 30 * scale, 0));
+    forgotPasswordButton.setColor(ColorRGBA.White);
+    forgotPasswordButton.setFontSize(16 * scale);
+    forgotPasswordButton.setLocalTranslation(130 * scale, 25 * scale, 0.1f);
+    forgotPasswordButton.addClickCommands((source) -> {
+        SoundManager.playSound(SoundManager.SOUND_CLICK);
+        handleForgotPassword();
+    });
+    registerWindow.attachChild(forgotPasswordButton);
+    
     registerFields = new TextField[]{emailField, regLoginField, regPasswordField};
 
     // ENTER EMAIL
@@ -2404,7 +2416,41 @@ private void createRegisterScreen() {
     guiNode.attachChild(registerWindow);
     registerWindow.setCullHint(Node.CullHint.Always);
 }
-    // ============================================================
+
+private void handleForgotPassword() {
+
+    Main main = (Main) app;
+
+    if (main == null || main.getNetworkManager() == null) {
+        return;
+    }
+
+    String serverUrl = main.getNetworkManager().getServerUrl();
+
+    if (serverUrl == null || serverUrl.isEmpty()) {
+        return;
+    }
+
+    // serverUrl уже оканчивается на "/" (например "http://eczo/")
+    String url = serverUrl + "site/request-password-reset";
+
+    try {
+
+        if (java.awt.Desktop.isDesktopSupported()
+                && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.BROWSE)) {
+
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+
+        } else {
+
+            System.err.println("[UIManager] Desktop browsing not supported on this platform");
+        }
+
+    } catch (Exception e) {
+
+        System.err.println("[UIManager] Failed to open browser: " + e.getMessage());
+    }
+}    // ============================================================
     // SHOW / HIDE LOGIN
     // ============================================================
 
@@ -4305,5 +4351,8 @@ public void showControlsHelpIfNeeded() {
 
     closeAllWindowsExcept("controlsHelp");
     controlsHelpWindow.show();
+}
+public CharacterStatsWindow getCharacterStatsWindow() {
+    return characterStatsWindow;
 }
 }
